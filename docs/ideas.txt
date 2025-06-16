@@ -1,0 +1,161 @@
+Features:
+
+    Core Mechanics
+
+        Wild Battle:
+            encounter a pokemon, starting a timer
+            time of battle is influenced by pokemon type
+            once timer expires, catch a pokemon (auto)
+            add the pokemon to the inventory
+            receive battle rewards
+            (optional) perfect catch mechanic, affecting outcome. 
+            (optional) run from battle
+            (optional) other users can join a battle and catch the same pokemon
+            
+            Properties:
+                id (uuid): unique battle id
+                user_ids (list[bigint]): users in the battle
+                start_time (bigint): now() timestamp 
+                duration (int): duration of battle in seconds
+                end_time (bigint): calculated end time
+                rewards (jsonb): a dict like {money: 123, item: item_name} to be given upon completion of the battle
+                status (text): status like active, inactive, ran
+                battle_pokemon_id (uuid): the id of the pokemon in the battle_pokemon table (essentially another reward)
+
+
+        Shiny Hunting:
+            users have predetermined rng using frames
+            users can spend money to look ahead and see where their next shiny is
+            users can spend money to reset their seed 
+        
+        Trainer Battle:
+            users can battle trainers 
+            come up with an interesting way to battle trainers that matches the core game loop but adds a twist
+        
+        Location:
+            users can choose a region, else random
+            users can travel to specific routes? restri
+    Inventory Management:
+        Filter list of pokemon
+        Release pokemon
+
+    Economy:
+        Market:
+        Lottery:
+        Trade:
+            user1 is who initiates trade using (.trade user_id) command
+            a local_id is generated (1-999) for both users to confirm with, easily typable vs a uuid
+            pokemon, money and items can be traded, all optionally but at least 1 must be sent from each user
+            both users must use the confirm command (.confirm local_id)
+            Commands:
+                .trade user_id: initiates a trade
+                .trade add pokemon|item|money pokemon_local_id|item_local_id|amount
+                .trade remove pokemon|item|money pokemon_local_id|item_local_id|amount
+                .confrim local_id
+
+            users can only be in one trade at a time, application should query for any active trades
+
+
+            Properties:
+                id (uuid): unique id for the trade
+                local_id (int): id used to confirm trade, 1-999
+                user1 (bigint): id of user 1
+                user2 (bigint): id of user 2
+                user1_pokemon_id (uuid): optional id of user1 pokemon being traded
+                user2_pokemon_id (uuid): optional id of user2 pokemon being traded
+                user1_money (int) - optional money sent in trade from user 1
+                user2_money (int) - optional money sent in trade from user 2
+                user1_item (jsonb) - optional item sent in trade from user 1, uuid and quantity
+                user2_item (jsonb) - optional item sent in trade from user 2, uuid and quantity
+                active (boolean): is the trade active (not confirmed by users)
+                
+
+        Items:
+            Properties:
+                id (uuid): unique id of the user item
+                user_id (bigint): unique user id
+                name (text): item name
+                quantity (int): quantity of item
+
+        Money:
+
+    Register:
+        ask for name
+        starter selection
+        create pokemon (with user id)
+        create user (set pokemon uuid)
+
+    User:
+        Commands:
+            .buddy (pokemon_local_id): sets current_pokemon to selected
+            .list (pokemon|items): lists pokemon or items in previously sorted order
+            .filter (pokemon|items) (shiny|name|tier|type|region|level|perfect_id|page) (value): reorders local_ids of selected items by values 
+        Properties:
+            id (bigint): discord user id unique identifier
+            discord_username (text): name of discord user, default used if name is not set 
+            name (text): user selected name 
+            current_pokemon (uuid? jsonb?): selected pokemon, might just be the uuid in the table, but when loaded should be the actual pokemon class
+            region (text): region where the user is, determines pokemon
+            frame (bigint): current frame the user is on for rng
+            wallet (bigint): tracks users balance
+            level (int): pokemon level
+            exp (bigint): pokemon experience
+            next_exp (bigint): next exp to level up (so we don't have to calculate it every battle, just on level up)
+            tier seed (float): determines tier of pokemon on frame
+            type seed (float): determines type of pokemon
+            pokemon seed (float): determines pokemon on frame
+            shiny seed (float): determines shinyness
+            item seed (float): determines item drop on frame
+            active_trade (uuid): uuid for any active trade the user is in
+
+        Relational Data:
+            Pokemon
+            Items
+            Acheivements?
+
+
+    Pokemon:
+        Properties:
+            id (uuid): unique identifier
+            local_id: id to be displayed in (.list) for easy management, this is constantly changing as .list does
+            user_id (uuid): id of user who owns this pokemon
+            original_user_id (uuid): id of user who originally caught, for trading purposes 
+            name (text): pokemons name
+            nickname (text): pokemons nickname
+            is_shiny (boolean): if the pokemon is shiny or not
+            tier (int): 1-4 indicating the tier
+            types (text[]): array of pokemon type 
+            ability (text): pokemon ability
+            level (int): pokemon level
+            exp (bigint): pokemon experience
+            next_exp (bigint): next exp to level up (so we don't have to calculate it every battle, just on level up)
+            region (text): poekmons region
+            nature (text): pokemons nature (find cool way to incorporate this, bonuses?)
+            gender (text): pokemons gender
+            ev (jsonb): dict for ev values
+            iv (jsonb): dict for iv values
+            held_item (uuid? jsonb?): selected item, might just be the uuid in the table, but when loaded should be the actual item class  
+
+    Item:
+        Properties:
+            id (uuid): unique identifier
+            local_id (int): to be displayed in (.list) for easy management, this is constantly changing as .list does
+            user_id (uuid): id of user who owns this item
+            name (text): item name
+            item_type (text): category of item
+            bonus (text?): what bonus the item provides, not really sure if this should be used or if there should be a dict of functions to apply
+
+            this.nature = nature;
+            this.stats = stats;
+            this.ev = ev;
+            this.iv = iv;
+            this.moves = moves;
+            this.gender = gender;
+            this.statusCondition = statusCondition;
+            this.tier = tier;
+            this.region = region;
+            this.heldItem = heldItem;
+            this.isShiny = isShiny;
+            this.sprite = sprite;
+            this.originalTrainerId = originalTrainerId;
+            this.safe = isShiny

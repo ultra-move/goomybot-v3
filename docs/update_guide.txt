@@ -1,0 +1,10 @@
+New Field:
+    Update __init__ with new field
+    Update from_dict with new field
+    Update to_dict with new field
+    Update test db with new field
+    On deployment:
+        update prod db with new field
+        flush cache
+
+
