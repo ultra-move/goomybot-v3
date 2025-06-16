@@ -55,27 +55,6 @@ embed_generator = EmbedGenerator()
 intents = discord.Intents.default()
 intents.message_content = True
 
-async def main():
-    start_time = time.time()
-    test_user_id = '123456789012345678'
-    test_user_id2 = '62447423586864863'
-    test_user_2 = await storage_manager.get_user(62447423586864863)
-    
-    test_user = await storage_manager.get_user(test_user_id)
-    logger.debug(test_user)
-    for i in range(1): 
-        local_id = await start_battle(test_user)
-        if local_id != 0:
-            await join_battle(test_user_2, local_id, 0)
-        # Simulate your main bot loop running for a while
-    logger.info("Main bot loop running (simulated)...")
-    await asyncio.sleep(60) # Keep the bot running for 60 seconds to see the task execute
-
-
-    end_time = time.time()
-    elapsed_time = end_time - start_time
-    logger.info(f"Elapsed Time: {elapsed_time} seconds")
-
 #######################General methods##########################
 def get_help():
     help = """
@@ -85,6 +64,7 @@ def get_help():
 * `.register`: Registers you for the game. You'll need to do this before using most other commands!
 * `.odds`: Displays the current odds
 * `.bug <bug report>`: Submits a bug to the bug channel
+* `.git`: provides a link to the git repository
 
 **__User Commands__**
 * `.profile`: Shows your user profile.
@@ -675,6 +655,9 @@ async def on_message(message):
         bug_embed = embed_generator.create_bug_log_embed(user, message.content.replace(".bug", ""))
         await channel.send(embed=bug_embed)
 
+    if message.content.startswith('.git'):
+        embed = embed_generator.create_git_embed()
+        await message.channel.send('https://github.com/ultra-move/goomybot-v3')
 #######################Admin commands########################
     if message.content.startswith('.addframe') and user.id == 701062435678846998:
         frames = message.content.split()[1]
@@ -803,8 +786,4 @@ async def on_message(message):
     logger.info(f"Message Response Time: {elapsed_time} seconds")
 
 client.run(os.getenv('DISCORD_BOT_TOKEN'))
-
-if __name__ == "__main__":
-    #asyncio.run(main())
-    True
 
