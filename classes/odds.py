@@ -9,9 +9,9 @@ class Odds:
         self.tier4_rate = 1/100
         
         self.tier1_pool_size = 336
-        self.tier2_pool_size = 442
-        self.tier3_pool_size = 153
-        self.tier4_pool_size = 94
+        self.tier2_pool_size = 399
+        self.tier3_pool_size = 185
+        self.tier4_pool_size = 105
 
     def __str__(self):
         return (
