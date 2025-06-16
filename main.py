@@ -400,6 +400,8 @@ async def skip_frames(user):
         return embed_generator.create_item_failure_embed(user, 'skipframe')    
 
 async def reroll_iv(user, iv):
+    if iv not in ['hp', 'attack', 'defense', 'special_attack', 'special_defense', 'speed']:
+        return embed_generator.create_item_failure_embed(user, 'rerolliv') 
     item = await storage_manager.get_user_item_by_name(user, 'rerolliv')
     if item.quantity >= 1:
         buddy = await storage_manager.get_user_pokemon_by_id(str(user.current_pokemon))
@@ -407,12 +409,12 @@ async def reroll_iv(user, iv):
             buddy.iv[iv] = random.randrange(0,32)
             item.quantity = item.quantity - 1
             await storage_manager.save_object(obj=item, cache_key=f"{REDIS_PREFIX}item_id:{item.id}", table_name='user_items', unique_columns=['id'])
-            await storage_manager.save_object(obj=buddy, cache_key=f"{REDIS_PREFIX}pokemon_id:{user.id}", table_name="user_pokemon", unique_columns=["id"])
+            await storage_manager.save_object(obj=buddy, cache_key=f"{REDIS_PREFIX}pokemon_data:{user.id}", table_name="user_pokemon", unique_columns=["id"])
         except:
             return embed_generator.create_item_failure_embed(user, 'rerolliv')  
         return embed_generator.create_rerolliv_view(user, buddy)
     else:
-        return embed_generator.create_item_failure_embed(user, 'skipframe')  
+        return embed_generator.create_item_failure_embed(user, 'rerolliv')  
 
 async def get_items(user):
     user_items = await storage_manager.get_user_items(user)
@@ -566,7 +568,7 @@ async def process_expired_battle(battle: List[Battle]):
             user.wallet = int(user.wallet) + int(battle.rewards['money'])
             asyncio.create_task(storage_manager.save_object(obj=user, cache_key=f"{REDIS_PREFIX}user_id:{user.id}", table_name="users", unique_columns=["id"]))
 
-            await storage_manager.save_object(obj=pokemon, cache_key=f"{REDIS_PREFIX}pokemon_id:{pokemon.id}", table_name='user_pokemon', unique_columns=['id'])
+            await storage_manager.save_object(obj=pokemon, cache_key=f"{REDIS_PREFIX}pokemon_data:{pokemon.id}", table_name='user_pokemon', unique_columns=['id'])
         
 
         # Update the battle status in the database or just delete the record
