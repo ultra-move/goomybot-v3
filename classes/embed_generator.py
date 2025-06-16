@@ -45,12 +45,17 @@ class EmbedGenerator():
         embed.set_author(name=user_name)
         return embed
     
+    def create_run_from_battle_fail_embed(self, user_name):
+        embed=discord.Embed(title=f"Cannot run from a battle with other users!", color=default_color)
+        embed.set_author(name=user_name)
+        return embed   
+    
     def create_join_battle_embed(self, user_name, new_duration):
         embed=discord.Embed(title=f"Joined battle!", color=default_color)
         embed.add_field(name="duration", value=new_duration)
         embed.set_author(name=user_name)
         return embed
-    
+
     def create_user_view_table(self, user, page, total_pages):
         embed=discord.Embed(color=default_color)
         embed.set_author(name=user.name)
