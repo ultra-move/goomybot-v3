@@ -723,7 +723,7 @@ async def start_raid(user, channel_id):
         #save user
         asyncio.create_task(storage_manager.save_object(obj=user, cache_key=f"{REDIS_PREFIX}user_id:{user.id}", table_name="users", unique_columns=["id"]))
         #calculate duration
-        duration = 1 * int(new_pokemon.tier) + random.randrange(0,16) 
+        duration = 100 * int(new_pokemon.tier) + random.randrange(0,16) 
         start_time = datetime.now(timezone.utc)
         delta = timedelta(seconds=duration)
         end_time = start_time + delta
