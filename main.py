@@ -82,8 +82,8 @@ def get_help():
 * `.join <local_id>`: Joins an existing battle with the specified local ID.
 
 **__Raid Commands__**
-* `.spawn`: Initiates a new raid (requires a raidpass).
-* `.join <local_id>`: Joins an existing raid with the specified local ID.
+* `.raid`: Initiates a new raid (requires a raidpass).
+* `.joinraid <local_id>`: Joins an existing raid with the specified local ID.
 
 **__Item Commands__**
 * `.shop`: Displays available items in the shop
@@ -378,6 +378,7 @@ async def reset_seeds(user):
     if item.quantity >= 1:
         user.reset_seeds()
         user.frame = 1
+        user.raid_frame = 1
         item.quantity = item.quantity - 1
         await storage_manager.save_object(obj=item, cache_key=f"{REDIS_PREFIX}item_id:{item.id}", table_name='user_items', unique_columns=['id'])
         await storage_manager.save_object(obj=user, cache_key=f"{REDIS_PREFIX}user_id:{user.id}", table_name="users", unique_columns=["id"])
