@@ -131,7 +131,7 @@ async def list_pokemon(user, page, page_size):
       user.view_table[i+1] = {'id': str(p.id), 'name': p.name}
    logger.debug(user.view_table)
    await storage_manager.save_object(obj=user, cache_key=f"{REDIS_PREFIX}user_id:{user.id}", table_name="users", unique_columns=["id"])
-   return embed_generator.create_user_view_table(user, page+1, total_pages+1) 
+   return embed_generator.create_user_view_table(user, page+1, total_pages) 
 
 async def view_pokemon(user, local_id):
     pokemon = await storage_manager.get_user_pokemon_by_id(user.view_table[str(local_id)]['id'])
