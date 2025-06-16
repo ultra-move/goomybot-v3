@@ -331,20 +331,20 @@ class StorageManager:
         return total_pages, result
     
     async def get_expired_battles(self):
-        battles = await self.db.fetch_all("SELECT * FROM battles where status = 'active' and end_time <= NOW()")
+        battles = await self.db.fetch_all("SELECT * FROM battles where status in ('active', 'joined') and end_time <= NOW()")
         result = []
         for battle in battles:
             result.append(Battle.from_dict(battle))
         return result
     
     async def get_battle_by_local_channel(self, local_id, channel_id):
-        battle = self.db.fetch_one(f"SELECT * FROM battles where status = 'active' and local_id = '{local_id}' and channel_id = '{channel_id}'")
+        battle = self.db.fetch_one(f"SELECT * FROM battles where status in ('active', 'joined') and local_id = '{local_id}' and channel_id = '{channel_id}'")
         if battle:
             return Battle.from_dict(battle)
         return None
     
     async def get_battle_by_user(self, user_id):
-        battle = self.db.fetch_one(f"SELECT * FROM battles where status = 'active' and {user_id} = ANY(user_ids)")
+        battle = self.db.fetch_one(f"SELECT * FROM battles where status in ('active', 'joined') and {user_id} = ANY(user_ids)")
         if battle:
             return Battle.from_dict(battle)
         return None
