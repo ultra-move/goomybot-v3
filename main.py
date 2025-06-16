@@ -419,6 +419,63 @@ async def get_items(user):
     return embed_generator.create_items_view_table(user, user_items)
 
 #######################Battle methods#######################
+async def admin_start_battle(pokedex_id, is_shiny, user, channel_id):
+    print(is_shiny)
+    active_battle = await storage_manager.get_battle_by_user(user.id)
+    if active_battle:
+        logger.info('User in battle already')
+        return None, embed_generator.create_already_in_battle_embed(user_name=user.name)
+    
+    logger.info(f"Battle Started for: {user.id}")
+    user.frame = user.frame + 1 
+    #logger.info(outcome)
+    if user.current_pokemon:
+        buddy = await storage_manager.get_user_pokemon_by_id(str(user.current_pokemon))
+        if buddy:
+            level = buddy.level
+    else:
+        level = 1
+    pokemon_data = await storage_manager.get_pokemon_master_by_id(pokedex_id)
+    if is_shiny:
+        front_sprite = pokemon_data.front_shiny_sprite
+    else:
+        front_sprite = pokemon_data.front_default_sprite
+    iv = {
+        'hp': random.randrange(0,32),
+        'attack': random.randrange(0,32),
+        'defense': random.randrange(0,32),
+        'special_attack': random.randrange(0,32),
+        'special_defense': random.randrange(0,32),
+        'speed': random.randrange(0,32)
+    }
+    ev = {
+        'hp': 0,
+        'attack': 0,
+        'defense': 0,
+        'special_attack': 0,
+        'special_defense': 0,
+        'speed': 0
+    }
+    new_pokemon = Pokemon(id=uuid.uuid4(), user_id=user.id, original_user_id=user.id, pokedex_id=pokemon_data.id, name=pokemon_data.name, is_shiny=is_shiny, tier = pokemon_data.tier, types=pokemon_data.types_names, ability=random.choice(pokemon_data.abilities_names), level = level, growth_rate = pokemon_data.growth_rate_name, exp=0, next_exp=0, sprite_front=front_sprite, sprite_back=pokemon_data.back_default_sprite, region=pokemon_data.region, iv=iv, ev=ev, base_stats=pokemon_data.base_stats_json)
+    #set embed_color
+    color = embed_generator.get_color(new_pokemon)
+    
+    #save user
+    asyncio.create_task(storage_manager.save_object(obj=user, cache_key=f"{REDIS_PREFIX}user_id:{user.id}", table_name="users", unique_columns=["id"]))
+    #calculate duration
+    duration = 10 * int(new_pokemon.tier) + random.randrange(0,16) 
+    start_time = datetime.now(timezone.utc)
+    delta = timedelta(seconds=duration)
+    end_time = start_time + delta
+    logger.debug(f"battle end_time: {end_time}")
+    #calculate rewards, for now just money
+    rewards = {'money': 200*new_pokemon.tier, 'exp': int((int(pokemon_data.base_experience) * level+new_pokemon.tier)/4)}
+    battle = Battle(id=uuid.uuid4(), user_ids=[user.id], local_id=random.randrange(100,1000), channel_id=channel_id, start_time=start_time, duration=duration, end_time=end_time, rewards=rewards, status='active', battle_pokemon_id=new_pokemon.id)
+    #write new pokemon to battle_pokemon table
+    asyncio.create_task(storage_manager.save_object(obj=new_pokemon, cache_key=f"{REDIS_PREFIX}battle_pokemon_id:{new_pokemon.id}", table_name="battle_pokemon", unique_columns=["id"]))
+    #write battle to table
+    await storage_manager.save_object(obj=battle, cache_key=f"{REDIS_PREFIX}battle_id:{battle.id}", table_name="battles", unique_columns=["id"])
+    return new_pokemon, embed_generator.create_battle_embed(user_name=user.name, pokemon_name=new_pokemon.name, join_code=battle.local_id,duration=battle.duration, color=color, url=front_sprite)
 
 async def start_battle(user, channel_id):
     active_battle = await storage_manager.get_battle_by_user(user.id)
@@ -624,6 +681,7 @@ async def on_message(message):
         return
     message.content = message.content.lower()
     user = await storage_manager.get_user(message.author.id)
+
 #######################General commands#######################
     if message.content.startswith('.help filter'):
         embed = get_help_filter()
@@ -670,6 +728,12 @@ async def on_message(message):
 
     if message.content.startswith('.flush') and user.id == 701062435678846998:
         embed = await flush_all()
+        await message.channel.send(embed=embed)
+
+    if message.content.startswith('.adminspawn') and user.id == 701062435678846998:
+        pokedex_id = int(message.content.split()[1])
+        is_shiny = {"true": True, "false": False}.get(message.content.split()[2].lower(), False)
+        pookemon, embed = await admin_start_battle(pokedex_id=pokedex_id, is_shiny=is_shiny, user=user, channel_id=channel_id)
         await message.channel.send(embed=embed)
 
 #######################Battle commands#######################
