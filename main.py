@@ -13,6 +13,7 @@ from redis.exceptions import RedisError # Import RedisError from the correct pac
 import discord
 
 from classes.battle import Battle
+from classes.data_loader import DataLoader
 from classes.database_manager import DatabaseManager
 from classes.embed_generator import EmbedGenerator
 from classes.item import Item
@@ -79,6 +80,10 @@ def get_help():
 * `.spawn`: Initiates a new battle.
 * `.run <local_id>`: Runs from a battle with the specified local ID.
 * `.join <local_id>`: Joins an existing battle with the specified local ID.
+
+**__Raid Commands__**
+* `.spawn`: Initiates a new raid (requires a raidpass).
+* `.join <local_id>`: Joins an existing raid with the specified local ID.
 
 **__Item Commands__**
 * `.shop`: Displays available items in the shop
@@ -313,8 +318,9 @@ async def get_shop(user):
     items = {
         'shinyframe': 1000,
         'resetseed': 5000,
-        'skipframe': 10000,
-        'rerolliv': 5000
+        'rerolliv': 5000,
+        'raidpass': 5000,
+        'skipframe': 10000
     }
     return embed_generator.create_shop_view_table(user, items)
 
@@ -322,8 +328,9 @@ async def buy_item(user, item_name, quantity):
     items = {
         'shinyframe': 1000,
         'resetseed': 5000,
-        'skipframe': 10000,
-        'rerolliv': 5000
+        'rerolliv': 5000,
+        'raidpass': 5000,
+        'skipframe': 10000
     }
     user_items = await storage_manager.get_user_items(user)
     final_item = {}
@@ -663,14 +670,190 @@ async def run_battle(user, local_id, channel_id):
         return embed_generator.create_run_from_battle_embed(user_name=user.name)
 ############################################################
 
-      
+
+#######################Raid methods#######################
+async def start_raid(user, channel_id):
+    item = await storage_manager.get_user_item_by_name(user, 'raidpass')
+    if item and item.quantity >= 1:
+        item.quantity = item.quantity - 1 
+        await storage_manager.save_object(obj=item, cache_key=f"{REDIS_PREFIX}item_id:{item.id}", table_name='user_items', unique_columns=['id'])
+        active_raid = await storage_manager.get_raid_by_user(user.id)
+        if active_raid:
+            logger.info('User in raid already')
+            return None, embed_generator.create_already_in_raid_embed(user_name=user.name)
+        
+        logger.info(f"active_raid Started for: {user.id}")
+        gen = Generator(tier_seed=user.tier_seed, type_seed=user.type_seed, pokemon_seed=user.pokemon_seed, shiny_seed=user.shiny_seed, item_seed=user.item_seed) 
+        outcome = gen.get_outcome_for_raid_frame(user.raid_frame)
+        user.raid_frame = user.raid_frame + 1 
+        #logger.info(outcome)
+        if user.current_pokemon:
+            buddy = await storage_manager.get_user_pokemon_by_id(str(user.current_pokemon))
+            if buddy:
+                level = buddy.level
+        else:
+            level = 1
+        pokemon_data = await storage_manager.get_raid_pokemon_master_by_id(outcome['pokemon_id'])
+        if outcome['is_shiny']:
+            user.shiny_frame = -1
+            front_sprite = pokemon_data.front_shiny_sprite
+        else:
+            front_sprite = pokemon_data.front_default_sprite
+        iv = {
+            'hp': random.randrange(0,32),
+            'attack': random.randrange(0,32),
+            'defense': random.randrange(0,32),
+            'special_attack': random.randrange(0,32),
+            'special_defense': random.randrange(0,32),
+            'speed': random.randrange(0,32)
+        }
+        ev = {
+            'hp': 0,
+            'attack': 0,
+            'defense': 0,
+            'special_attack': 0,
+            'special_defense': 0,
+            'speed': 0
+        }
+        new_pokemon = Pokemon(id=uuid.uuid4(), user_id=user.id, original_user_id=user.id, pokedex_id=pokemon_data.id, name=pokemon_data.name, is_shiny=outcome['is_shiny'], tier = pokemon_data.tier, types=pokemon_data.types_names, ability=random.choice(pokemon_data.abilities_names), level = level, growth_rate = pokemon_data.growth_rate_name, exp=0, next_exp=0, sprite_front=front_sprite, sprite_back=pokemon_data.back_default_sprite, region=pokemon_data.region, iv=iv, ev=ev, base_stats=pokemon_data.base_stats_json)
+        #set embed_color
+        color = embed_generator.get_color(new_pokemon)
+        
+        #save user
+        asyncio.create_task(storage_manager.save_object(obj=user, cache_key=f"{REDIS_PREFIX}user_id:{user.id}", table_name="users", unique_columns=["id"]))
+        #calculate duration
+        duration = 1 * int(new_pokemon.tier) + random.randrange(0,16) 
+        start_time = datetime.now(timezone.utc)
+        delta = timedelta(seconds=duration)
+        end_time = start_time + delta
+        logger.debug(f"battle end_time: {end_time}")
+        #calculate rewards, for now just money
+        rewards = {'money': 2000*new_pokemon.tier, 'exp': int((int(pokemon_data.base_experience) * level+new_pokemon.tier)/4)*10}
+        raid = Battle(id=uuid.uuid4(), user_ids=[user.id], local_id=random.randrange(100,1000), channel_id=channel_id, start_time=start_time, duration=duration, end_time=end_time, rewards=rewards, status='active', battle_pokemon_id=new_pokemon.id)
+        #write new pokemon to raid_pokemon table
+        asyncio.create_task(storage_manager.save_object(obj=new_pokemon, cache_key=f"{REDIS_PREFIX}raid_pokemon_id:{new_pokemon.id}", table_name="raid_pokemon", unique_columns=["id"]))
+        #write battle to table
+        await storage_manager.save_object(obj=raid, cache_key=f"{REDIS_PREFIX}raid_id:{raid.id}", table_name="raids", unique_columns=["id"])
+        return new_pokemon, embed_generator.create_raid_embed(user_name=user.name, pokemon_name=new_pokemon.name, join_code=raid.local_id,duration=raid.duration, color=color, url=front_sprite)
+    else:
+        return embed_generator.create_item_failure_embed(user, 'raidpass')
+     
+async def process_expired_raid(battle: List[Battle]):
+    """
+    Asynchronously processes a single expired battle.
+    This is where your 'catch pokemon', 'add to inventory', 'give rewards' logic goes.
+    """
+    logger.info(f"Processing expired raid: {battle.id} for user(s) {battle.user_ids}")
+
+    try:
+        # --- Your battle completion logic here ---
+        # 1. Add pokemon to user_pokemon table (using battle.battle_pokemon_id and battle.wild_pokemon_details)
+        # 2. Grant rewards to user (using battle.rewards)
+        # 3. Notify user on Discord
+
+        logger.debug(battle)
+        pokemon = await storage_manager.get_raid_pokemon_by_id(str(battle.battle_pokemon_id))
+        logger.debug(pokemon)
+        for user_id in battle.user_ids:
+            pokemon.id = str(uuid.uuid4())
+            pokemon.user_id = user_id
+            user = await storage_manager.get_user(user_id=user_id)
+            if user.current_pokemon:
+                buddy = await storage_manager.get_user_pokemon_by_id(str(user.current_pokemon))
+                if buddy:
+                    buddy.exp = int(int(buddy.exp) + int(battle.rewards['exp']))
+                    buddy.level_up()
+                    asyncio.create_task(storage_manager.save_object(obj=buddy, cache_key=f"{REDIS_PREFIX}pokemon_data:{buddy.id}", table_name="user_pokemon", unique_columns=["id"]))
+            user.wallet = int(user.wallet) + int(battle.rewards['money'])
+            asyncio.create_task(storage_manager.save_object(obj=user, cache_key=f"{REDIS_PREFIX}user_id:{user.id}", table_name="users", unique_columns=["id"]))
+
+            await storage_manager.save_object(obj=pokemon, cache_key=f"{REDIS_PREFIX}pokemon_data:{pokemon.id}", table_name='user_pokemon', unique_columns=['id'])
+        
+
+        # Update the battle status in the database or just delete the record
+        battle.status = 'inactive'
+        await storage_manager.delete_raid_by_id(battle.id)
+        await storage_manager.delete_raid_pokemon_by_id(str(battle.battle_pokemon_id))
+        embed = embed_generator.create_raid_finish_embed(pokemon_name=pokemon.name, url=pokemon.sprite_front, color=embed_generator.get_color(pokemon), rewards=battle.rewards)
+        return battle.channel_id, embed
+        #asyncio.create_task(storage_manager.save_object(obj = battle, cache_key=f"{REDIS_PREFIX}battle_id:{battle.id}", table_name='battles', unique_columns=['id']))
+
+    except Exception as e:
+        logger.error(f"Error processing battle {battle.id}: {e}")
+        # Log the error, perhaps update battle status to 'error' or retry later
+
+async def raid_monitor_task(interval_seconds: int):
+    """
+    Background task to periodically check for and process expired raids.
+
+    Args:
+        interval_seconds (int): How often to poll the database in seconds.
+    """
+    logger.info(f"Raid monitor task started. Polling every {interval_seconds} seconds.")
+    while True:
+        try:
+            # 1. Fetch expired battles from the database
+            expired_raids_data = await storage_manager.get_expired_raids()
+            if expired_raids_data:
+                logger.debug(f"Found {len(expired_raids_data)} expired battles to process.")
+                
+                # 2. Process each expired battle concurrently
+                # Corrected: asyncio.gather returns a list of results (tuples in this case)
+                processed_results: List[Tuple[int, Any]] = await asyncio.gather(
+                    *[process_expired_raid(battle_data) for battle_data in expired_raids_data]
+                )
+                
+                # 3. Iterate through the list of (channel_id, embed) tuples and send messages
+                for channel_id, embed in processed_results:
+                    if channel_id and embed: # Ensure valid channel_id and embed
+                        try:
+                            # client.get_channel() might return None if the channel isn't cached
+                            channel = client.get_channel(channel_id)
+                            if channel:
+                                await channel.send(embed=embed)
+                            else:
+                                logger.warning(f"Could not find channel {channel_id} to send battle completion message.")
+                        except Exception as send_e:
+                            logger.error(f"Error sending Discord message to channel {channel_id}: {send_e}")
+            else:
+                logger.debug("No expired battles found.")
+
+        except asyncio.CancelledError:
+            logger.info("Raid monitor task cancelled. Shutting down.")
+            break # Exit the loop cleanly on cancellation
+        except Exception as e:
+            logger.error(f"Unhandled error in Raid_monitor_task: {e}")
+            # Implement more robust error handling, perhaps back-off and retry
+
+        # 4. Wait for the next interval
+        await asyncio.sleep(interval_seconds)
+
+async def join_raid(user, local_id, channel_id):
+    #get battle
+    battle = await storage_manager.get_raid_by_local_channel(local_id=local_id, channel_id=channel_id)
+    #add user to user_ids
+    if battle and user.id in battle.user_ids:
+        return embed_generator.create_already_in_raid_embed(user_name=user.name)
+    battle.user_ids.append(user.id)
+    #reset duration
+    duration = battle.duration
+    start_time = datetime.now(timezone.utc)
+    delta = timedelta(seconds=duration)
+    end_time = start_time + delta
+    battle.start_time = start_time
+    battle.end_time = end_time
+    battle.status = 'joined'
+    #save battle
+    await storage_manager.save_object(obj=battle, cache_key=f"{REDIS_PREFIX}raid_id:{battle.id}", table_name="raids", unique_columns=["id"])
+    return embed_generator.create_join_battle_embed(user_name=user.name, new_duration=duration)
+    
 client = discord.Client(intents=intents)
 
 @client.event
 async def on_ready():
     print(f'We have logged in as {client.user}')
-    monitor_task = asyncio.create_task(battle_monitor_task(interval_seconds=10)) # Poll every 10 seconds
-
+    battle_monitor = asyncio.create_task(battle_monitor_task(interval_seconds=10)) # Poll every 10 seconds
+    raid_monitor = asyncio.create_task(raid_monitor_task(interval_seconds=60)) # Poll every 10 seconds
 @client.event
 async def on_message(message):
     start_time = time.time()
@@ -749,11 +932,23 @@ async def on_message(message):
         embed = await run_battle(user=user, local_id=local_id, channel_id=channel_id)
         await message.channel.send(embed=embed)
 
-    if message.content.startswith('.join'):
+    if message.content.startswith('.join') and not message.content.startswith('.joinraid'):
         local_id = message.content[-3:]
         embed = await join_battle(user=user, local_id=local_id, channel_id=channel_id)
         await message.channel.send(embed=embed)
+#######################Raid commands#######################
+    if message.content.startswith('.raid'):
+        pokemon, embed = await start_raid(user=user, channel_id=channel_id)
+        await message.channel.send(embed=embed)
+        if pokemon and pokemon.is_shiny:
+            channel = await client.fetch_channel(FLEX_ID)
+            embed = embed_generator.create_flex_embed(user, pokemon)
+            await channel.send(embed=embed)
 
+    if message.content.startswith('.joinraid'):
+        local_id = message.content[-3:]
+        embed = await join_raid(user=user, local_id=local_id, channel_id=channel_id)
+        await message.channel.send(embed=embed)
 #######################User commands#######################
     if message.content.startswith('.profileimage'):
         url = message.content.split()
@@ -822,6 +1017,8 @@ async def on_message(message):
                     embed = await buy_item(user, 'skipframe', int(name_quantity[2]))
                 if name_quantity[1] == 'rerolliv':
                     embed = await buy_item(user, 'rerolliv', int(name_quantity[2]))
+                if name_quantity[1] == 'raidpass':
+                    embed = await buy_item(user, 'raidpass', int(name_quantity[2]))
             else:
                 embed = embed_generator.create_invalid_syntax_embed(user)
         except:

@@ -1,4 +1,5 @@
 import json
+import math
 import discord
 
 from classes.odds import Odds
@@ -19,6 +20,47 @@ class EmbedGenerator():
         elif pokemon.tier == 4:
             return 0xff0000
 
+    def create_raid_finish_embed(self, pokemon_name, url, color, rewards):
+        embed=discord.Embed(title=f"Caught {pokemon_name.capitalize()}!", color=color)
+        embed.set_author(name="goomybot")
+        for key, value in rewards.items():
+            embed.add_field(name=key, value=value)
+        embed.set_image(url=url)
+        return embed
+
+    def create_already_in_raid_embed(self,user_name):
+        embed=discord.Embed(title=f"Already in raid!", color=default_color)
+        embed.set_author(name=user_name)
+        return embed
+
+    def create_raid_embed(self, user_name, pokemon_name, join_code, duration, url, color):
+        embed=discord.Embed(title=f"Raid!\n{pokemon_name.capitalize()}", color=color)
+        embed.set_author(name=user_name)
+        embed.set_image(url=url)
+        embed.add_field(name="local code:", value=f"{join_code}")
+        if duration > 60:
+            minutes = math.floor(duration / 60)
+            seconds = duration % 60
+            # Use f-string for formatting, adding a leading zero to seconds if less than 10
+            formatted_duration = f"duration: ~ {minutes}m {seconds:02d}s"
+        else:
+            formatted_duration = f"duration: ~ {duration} seconds"
+        embed.set_footer(text=formatted_duration)
+        return embed
+    
+    def create_join_raid_embed(self, user_name, new_duration):
+        embed=discord.Embed(title=f"Joined raid!", color=default_color)
+        if new_duration > 60:
+            minutes = math.floor(new_duration / 60)
+            seconds = new_duration % 60
+            # Use f-string for formatting, adding a leading zero to seconds if less than 10
+            formatted_duration = f"{minutes}m {seconds:02d}s"
+        else:
+            formatted_duration = f"{new_duration} seconds"
+        embed.add_field(name="duration", value=formatted_duration)
+        embed.set_author(name=user_name)
+        return embed
+    
     def create_battle_embed(self, user_name, pokemon_name, join_code, duration, url, color):
         embed=discord.Embed(title=f"{pokemon_name.capitalize()} Spawned!", color=color)
         embed.set_author(name=user_name)
@@ -26,7 +68,7 @@ class EmbedGenerator():
         embed.add_field(name="local code:", value=f"{join_code}")
         embed.set_footer(text=f"duration: ~ {duration} seconds")
         return embed
-
+    
     def create_battle_finish_embed(self, pokemon_name, url, color, rewards):
         embed=discord.Embed(title=f"Caught {pokemon_name.capitalize()}!", color=color)
         embed.set_author(name="goomybot")
@@ -80,7 +122,7 @@ class EmbedGenerator():
         return embed
     
     def create_frame_embed(self, user):
-        embed=discord.Embed(description=f"Current Frame: {user.frame}", color=default_color)
+        embed=discord.Embed(description=f"Current Frame: {user.frame}\nRaid Frame: {user.raid_frame}", color=default_color)
         embed.set_author(name=user.name)
         if user.profile_image and user.profile_image != 'None':
             embed.set_thumbnail(url=user.profile_image)
