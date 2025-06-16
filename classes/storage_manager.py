@@ -1,5 +1,6 @@
 import logging
 import json
+import math
 import os
 from typing import Optional, Dict, Any, List, Union, Tuple
 from classes.battle import Battle
@@ -201,7 +202,7 @@ class StorageManager:
             logger.error(f"StorageManager: DB error getting Pokemon Data for {user_id}: {e}")
             return None # Return None or re-raise based on desired error handling
     
-    async def list_pokemon(self, user: User, page=0, page_size=10):
+    async def list_pokemon(self, user, page=0, page_size=10):
         # Default filter and order, potentially overridden by user.filter and user.order_by
         default_filter = {
             'shiny': False,
@@ -250,13 +251,11 @@ class StorageManager:
             
             # Create a list of conditions for each type
             type_sub_conditions = []
-            type_param_names = [] # To store unique parameter names
             
             for idx, type_str in enumerate(type_values_list):
                 param_name = f"type_{idx}" # Create unique parameter name for each type
                 type_sub_conditions.append(f"%({param_name})s = ANY(types)")
                 params[param_name] = type_str.lower() # Store the lowercase type value
-                type_param_names.append(param_name) # Keep track of the param names
 
             if type_sub_conditions:
                 # Join individual type conditions with OR
@@ -280,7 +279,23 @@ class StorageManager:
         if current_filter.get('held_item') is True:
             filter_conditions.append("held_item_id IS NOT NULL") # Use held_item_id column
 
-        filter_string = " AND " + " AND ".join(filter_conditions) if filter_conditions else ""
+        # Construct the WHERE clause (used for both count and data fetch)
+        where_clause = " WHERE user_id = %(user_id)s"
+        if filter_conditions:
+            where_clause += " AND " + " AND ".join(filter_conditions)
+
+        # --- Calculate Total Records and Page Numbers ---
+        count_sql_query = f"SELECT COUNT(*) as total_records FROM user_pokemon{where_clause}"
+        total_records = int(self.db.fetch_one(count_sql_query, params)['total_records'])
+        
+        total_pages = math.ceil(total_records / page_size) if page_size > 0 else 0
+        
+        # Adjust page if out of bounds
+        if page < 0:
+            page = 0
+        elif page >= total_pages and total_pages > 0:
+            page = total_pages - 1
+
 
         # Build order_string
         order_clauses = []
@@ -304,22 +319,16 @@ class StorageManager:
         offset_string = f" OFFSET {page * page_size}"
         limit_string = f" LIMIT {page_size}"
 
-        # Construct the final SQL query
-        sql_query = "SELECT * FROM user_pokemon WHERE user_id = %(user_id)s"
-        sql_query += filter_string
-        sql_query += order_string
-        sql_query += offset_string
-        sql_query += limit_string
+        # Construct the final SQL query for fetching data
+        sql_query = f"SELECT * FROM user_pokemon{where_clause}{order_string}{offset_string}{limit_string}"
 
-        print(f"Generated SQL Query: {sql_query}")
-        print(f"SQL Parameters: {params}")
-
-        # Assuming self.db is your database connection object (e.g., asyncpg connection)
         pokemon_data = await self.db.fetch_all(sql_query, params)
+        
         result = []
         for pokemon in pokemon_data:
             result.append(Pokemon.from_dict(pokemon))
-        return result
+        
+        return total_pages, result
     
     async def get_expired_battles(self):
         battles = await self.db.fetch_all("SELECT * FROM battles where status = 'active' and end_time <= NOW()")

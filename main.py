@@ -124,14 +124,14 @@ async def get_odds(user):
     return embed_generator.create_odds_table(user)
 #######################User methods##########################
 async def list_pokemon(user, page, page_size):
-   pokemon: list [Pokemon] = await storage_manager.list_pokemon(user=user, page=page)
+   total_pages, pokemon = await storage_manager.list_pokemon(user=user, page=page)
    #build the users view table for easy access later
    user.view_table = {}
    for p,i in zip(pokemon, range(page_size)):
       user.view_table[i+1] = {'id': str(p.id), 'name': p.name}
    logger.debug(user.view_table)
    await storage_manager.save_object(obj=user, cache_key=f"{REDIS_PREFIX}user_id:{user.id}", table_name="users", unique_columns=["id"])
-   return embed_generator.create_user_view_table(user) 
+   return embed_generator.create_user_view_table(user, page+1, total_pages+1) 
 
 async def view_pokemon(user, local_id):
     pokemon = await storage_manager.get_user_pokemon_by_id(user.view_table[str(local_id)]['id'])
@@ -658,6 +658,7 @@ async def on_message(message):
     if message.content.startswith('.git'):
         embed = embed_generator.create_git_embed()
         await message.channel.send('https://github.com/ultra-move/goomybot-v3')
+
 #######################Admin commands########################
     if message.content.startswith('.addframe') and user.id == 701062435678846998:
         frames = message.content.split()[1]
@@ -672,6 +673,7 @@ async def on_message(message):
     if message.content.startswith('.flush') and user.id == 701062435678846998:
         embed = await flush_all()
         await message.channel.send(embed=embed)
+
 #######################Battle commands#######################
     if message.content.startswith('.spawn'):
         pokemon, embed = await start_battle(user=user, channel_id=channel_id)
@@ -705,10 +707,18 @@ async def on_message(message):
 
     if message.content.startswith('.list'):
         page = message.content.split()
-        if len(page) > 1:
-            embed = await list_pokemon(user=user, page=int(page[1]), page_size=10)
-        else:
+        try:
+            if len(page) > 1:
+                if int(page[1]) > 0: # Ensure user doesn't ask for page 0 or negative
+                    requested_page = int(page[1]) - 1
+                    embed: discord.Embed = await list_pokemon(user=user, page=requested_page, page_size=10)
+                else:
+                    embed = await list_pokemon(user=user, page=0, page_size=10)
+            else:
+                embed = await list_pokemon(user=user, page=0, page_size=10)
+        except:
             embed = await list_pokemon(user=user, page=0, page_size=10)
+
         await message.channel.send(embed=embed)
     if message.content.startswith('.view'):
         local_id = message.content.split()
