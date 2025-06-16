@@ -400,6 +400,8 @@ async def skip_frames(user):
         return embed_generator.create_item_failure_embed(user, 'skipframe')    
 
 async def reroll_iv(user, iv):
+    if iv not in ['hp', 'attack', 'defense', 'special_attack', 'special_defense', 'speed']:
+        return embed_generator.create_item_failure_embed(user, 'rerolliv') 
     item = await storage_manager.get_user_item_by_name(user, 'rerolliv')
     if item.quantity >= 1:
         buddy = await storage_manager.get_user_pokemon_by_id(str(user.current_pokemon))
