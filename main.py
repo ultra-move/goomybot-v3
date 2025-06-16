@@ -55,27 +55,6 @@ embed_generator = EmbedGenerator()
 intents = discord.Intents.default()
 intents.message_content = True
 
-async def main():
-    start_time = time.time()
-    test_user_id = '123456789012345678'
-    test_user_id2 = '62447423586864863'
-    test_user_2 = await storage_manager.get_user(62447423586864863)
-    
-    test_user = await storage_manager.get_user(test_user_id)
-    logger.debug(test_user)
-    for i in range(1): 
-        local_id = await start_battle(test_user)
-        if local_id != 0:
-            await join_battle(test_user_2, local_id, 0)
-        # Simulate your main bot loop running for a while
-    logger.info("Main bot loop running (simulated)...")
-    await asyncio.sleep(60) # Keep the bot running for 60 seconds to see the task execute
-
-
-    end_time = time.time()
-    elapsed_time = end_time - start_time
-    logger.info(f"Elapsed Time: {elapsed_time} seconds")
-
 #######################General methods##########################
 def get_help():
     help = """
@@ -85,6 +64,7 @@ def get_help():
 * `.register`: Registers you for the game. You'll need to do this before using most other commands!
 * `.odds`: Displays the current odds
 * `.bug <bug report>`: Submits a bug to the bug channel
+* `.git`: provides a link to the git repository
 
 **__User Commands__**
 * `.profile`: Shows your user profile.
@@ -144,14 +124,14 @@ async def get_odds(user):
     return embed_generator.create_odds_table(user)
 #######################User methods##########################
 async def list_pokemon(user, page, page_size):
-   pokemon: list [Pokemon] = await storage_manager.list_pokemon(user=user, page=page)
+   total_pages, pokemon = await storage_manager.list_pokemon(user=user, page=page)
    #build the users view table for easy access later
    user.view_table = {}
    for p,i in zip(pokemon, range(page_size)):
       user.view_table[i+1] = {'id': str(p.id), 'name': p.name}
    logger.debug(user.view_table)
    await storage_manager.save_object(obj=user, cache_key=f"{REDIS_PREFIX}user_id:{user.id}", table_name="users", unique_columns=["id"])
-   return embed_generator.create_user_view_table(user) 
+   return embed_generator.create_user_view_table(user, page+1, total_pages+1) 
 
 async def view_pokemon(user, local_id):
     pokemon = await storage_manager.get_user_pokemon_by_id(user.view_table[str(local_id)]['id'])
@@ -675,6 +655,10 @@ async def on_message(message):
         bug_embed = embed_generator.create_bug_log_embed(user, message.content.replace(".bug", ""))
         await channel.send(embed=bug_embed)
 
+    if message.content.startswith('.git'):
+        embed = embed_generator.create_git_embed()
+        await message.channel.send('https://github.com/ultra-move/goomybot-v3')
+
 #######################Admin commands########################
     if message.content.startswith('.addframe') and user.id == 701062435678846998:
         frames = message.content.split()[1]
@@ -689,6 +673,7 @@ async def on_message(message):
     if message.content.startswith('.flush') and user.id == 701062435678846998:
         embed = await flush_all()
         await message.channel.send(embed=embed)
+
 #######################Battle commands#######################
     if message.content.startswith('.spawn'):
         pokemon, embed = await start_battle(user=user, channel_id=channel_id)
@@ -722,10 +707,18 @@ async def on_message(message):
 
     if message.content.startswith('.list'):
         page = message.content.split()
-        if len(page) > 1:
-            embed = await list_pokemon(user=user, page=int(page[1]), page_size=10)
-        else:
+        try:
+            if len(page) > 1:
+                if int(page[1]) > 0: # Ensure user doesn't ask for page 0 or negative
+                    requested_page = int(page[1]) - 1
+                    embed: discord.Embed = await list_pokemon(user=user, page=requested_page, page_size=10)
+                else:
+                    embed = await list_pokemon(user=user, page=0, page_size=10)
+            else:
+                embed = await list_pokemon(user=user, page=0, page_size=10)
+        except:
             embed = await list_pokemon(user=user, page=0, page_size=10)
+
         await message.channel.send(embed=embed)
     if message.content.startswith('.view'):
         local_id = message.content.split()
@@ -803,8 +796,4 @@ async def on_message(message):
     logger.info(f"Message Response Time: {elapsed_time} seconds")
 
 client.run(os.getenv('DISCORD_BOT_TOKEN'))
-
-if __name__ == "__main__":
-    #asyncio.run(main())
-    True
 
