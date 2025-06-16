@@ -620,10 +620,9 @@ async def on_message(message):
     start_time = time.time()
 
     channel_id = message.channel.id
-
     if message.author == client.user:
         return
-    
+    message.content = message.content.lower()
     user = await storage_manager.get_user(message.author.id)
 #######################General commands#######################
     if message.content.startswith('.help filter'):
@@ -656,7 +655,6 @@ async def on_message(message):
         await channel.send(embed=bug_embed)
 
     if message.content.startswith('.git'):
-        embed = embed_generator.create_git_embed()
         await message.channel.send('https://github.com/ultra-move/goomybot-v3')
 
 #######################Admin commands########################
