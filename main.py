@@ -642,6 +642,7 @@ async def join_battle(user, local_id, channel_id):
     end_time = start_time + delta
     battle.start_time = start_time
     battle.end_time = end_time
+    battle.status = 'joined'
     #save battle
     await storage_manager.save_object(obj=battle, cache_key=f"{REDIS_PREFIX}battle_id:{battle.id}", table_name="battles", unique_columns=["id"])
     return embed_generator.create_join_battle_embed(user_name=user.name, new_duration=duration)
@@ -649,15 +650,11 @@ async def join_battle(user, local_id, channel_id):
 async def run_battle(user, local_id, channel_id):
     #get battle that user is in
     battle = await storage_manager.get_battle_by_local_channel(local_id=local_id, channel_id=channel_id)
+    if battle.status == 'joined':
+        return embed_generator.create_run_from_battle_fail_embed(user.name)
     #remove user_id from user_ids
     if user.id in battle.user_ids:
-        battle.user_ids.remove(user.id)
-        #delete battle if no users left
-        if battle.user_ids == []:
-            asyncio.create_task(storage_manager.delete_battle_by_id(battle.id))
-        else:
-            #save battle to table
-            await storage_manager.save_object(obj=battle, cache_key=f"{REDIS_PREFIX}battle_id:{battle.id}", table_name="battles", unique_columns=["id"])
+        asyncio.create_task(storage_manager.delete_battle_by_id(battle.id))
         #reset user frame
         user.frame -= 1
         asyncio.create_task(storage_manager.save_object(obj=user, cache_key=f"{REDIS_PREFIX}user_id:{user.id}", table_name="users", unique_columns=["id"])) 
