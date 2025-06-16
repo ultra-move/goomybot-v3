@@ -30,7 +30,8 @@ class User:
                  view_table: dict ={}, 
                  filter: dict={},
                  order_by: dict={},
-                 shiny_frame = -1
+                 shiny_frame = -1,
+                 raid_frame = 0
                  ):
         
         self.id: int = id
@@ -39,6 +40,7 @@ class User:
         self.current_pokemon: Optional[uuid.UUID] = current_pokemon
         self.region: str = region
         self.frame: int = frame
+        self.raid_frame = raid_frame
         self.wallet: int = wallet
         self.level: int = level
         self.exp: int = exp
@@ -76,6 +78,9 @@ class User:
                 pass 
         if 'frame' in processed_data and isinstance(processed_data['frame'], str):
             processed_data['frame'] = int(processed_data['frame'])
+
+        if 'raid_frame' in processed_data and isinstance(processed_data['raid_frame'], str):
+            processed_data['raid_frame'] = int(processed_data['raid_frame'])
         # UUID Handling (as previously defined, it's robust)
         if 'current_pokemon' in processed_data and processed_data['current_pokemon']:
             if isinstance(processed_data['current_pokemon'], str):
@@ -203,6 +208,7 @@ class User:
             f"ID: {self.id}\n"
             f"Display Name: {display_name}\n"
             f"Frame: {self.frame}\n"
+            f"Raid Frame: {self.raid_frame}\n"
             f"Wallet: ${self.wallet:,.0f}\n"
         )
     

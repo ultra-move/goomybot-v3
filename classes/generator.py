@@ -28,6 +28,10 @@ class Generator:
         self.tier_3_ids = [6, 3, 9, 26, 31, 40, 59, 68, 76, 94, 103, 113, 130, 136, 149, 157, 181, 186, 196, 230, 242, 248, 257, 275, 282, 295, 306, 330, 350, 365, 373, 389, 392, 407, 445, 462, 470, 497, 500, 666, 521, 908, 526, 537, 545, 553, 576, 584, 601, 609, 700, 635, 652, 658, 671, 673, 681, 697, 706, 713, 724, 733, 763, 781, 815, 826, 839, 851, 861, 884, 887, 899, 914, 930, 937, 949, 962, 975, 990, 1005, 1018, 992, 34, 36, 45, 62, 73, 131, 134, 142, 143, 154, 160, 182, 901, 189, 197, 233, 260, 289, 376, 395, 398, 448, 463, 464, 465, 466, 467, 468, 471, 473, 474, 475, 476, 477, 503, 531, 542, 986, 987, 579, 604, 612, 615, 655, 988, 715, 727, 730, 738, 784, 812, 818, 858, 862, 866, 902, 934, 968, 970, 977, 979, 981, 982, 983, 984, 985, 991, 993, 994, 995, 998, 1000, 1006, 1010, 1019, 1020, 1021, 1022, 1023, 18, 65, 71, 91, 121, 135, 169, 184, 254, 272, 923, 405, 450, 936, 469, 508, 534, 637, 768, 823, 911, 959, 989, 1009]
         self.tier_4_ids = [794, 798, 799, 803, 806, 796, 804, 905, 144, 146, 150, 151, 243, 245, 249, 250, 251, 377, 378, 379, 381, 382, 383, 385, 386, 480, 481, 482, 483, 484, 485, 486, 487, 489, 490, 491, 492, 493, 494, 638, 639, 640, 641, 642, 643, 644, 645, 646, 648, 649, 716, 717, 718, 719, 720, 721, 772, 773, 785, 793, 787, 788, 789, 791, 792, 797, 800, 801, 802, 805, 807, 808, 809, 888, 889, 890, 891, 892, 893, 894, 896, 897, 898, 1002, 1003, 1004, 1007, 1008, 1015, 1016, 1017, 1024, 1025, 145, 244, 380, 384, 488, 647, 786, 790, 895, 1001, 1014, 795]
 
+        self.raid_tier_1_ids = [10029, 10027, 10028, 10091, 10101, 10103, 10105, 10107, 10109, 10112, 10231, 10151, 10161, 10162, 10164, 10174, 10176, 10179, 10200, 10205, 10229, 10234, 10235, 10238, 10253, 10263]
+        self.raid_tier_2_ids = [10004, 10005, 10013, 10014, 10015, 10016, 10030, 10025, 10031, 10032, 10052, 10054, 10066, 10080, 10081, 10082, 10083, 10084, 10085, 10092, 10093, 10094, 10095, 10096, 10097, 10098, 10099, 10102, 10104, 10106, 10108, 10110, 10113, 10115, 10121, 10123, 10124, 10125, 10126, 10130, 10131, 10132, 10133, 10134, 10135, 10136, 10137, 10138, 10139, 10140, 10141, 10142, 10143, 10144, 10145, 10148, 10149, 10150, 10152, 10160, 10163, 10165, 10166, 10167, 10168, 10232, 10172, 10173, 10175, 10177, 10180, 10184, 10185, 10186, 10187, 10198, 10199, 10203, 10207, 10214, 10216, 10217, 10218, 10219, 10223, 10224, 10228, 10237, 10239, 10240, 10241, 10247, 10250, 10251, 10252, 10254, 10256, 10257, 10258, 10259, 10260, 10261, 10262]
+        self.raid_tier_3_ids = [10008, 10009, 10010, 10011, 10012, 10017, 10026, 10033, 10034, 10035, 10036, 10037, 10038, 10039, 10040, 10041, 10042, 10045, 10046, 10047, 10048, 10049, 10050, 10051, 10053, 10055, 10056, 10057, 10058, 10059, 10060, 10061, 10064, 10065, 10067, 10068, 10069, 10070, 10071, 10072, 10073, 10074, 10076, 10087, 10088, 10089, 10090, 10100, 10111, 10114, 10116, 10117, 10122, 10127, 10178, 10195, 10196, 10197, 10201, 10202, 10204, 10206, 10209, 10210, 10211, 10212, 10213, 10215, 10220, 10221, 10222, 10225, 10230, 10233, 10236, 10242, 10243, 10244, 10248, 10255, 10272]
+        self.raid_tier_4_ids = [10001, 10002, 10003, 10006, 10007, 10018, 10019, 10020, 10021, 10022, 10023, 10024, 10043, 10044, 10075, 10062, 10063, 10077, 10078, 10079, 10086, 10118, 10119, 10120, 10147, 10155, 10156, 10157, 10169, 10170, 10171, 10188, 10189, 10190, 10191, 10192, 10193, 10194, 10276, 10208, 10226, 10227, 10277, 10245, 10246, 10249, 10273, 10274, 10275]
 
 
     def get_outcome_for_frame(self, frame: int):
@@ -133,6 +137,113 @@ class Generator:
             shiny_roll = self.shiny_rng.random()
             if shiny_roll < self.odds.shiny_rate:
                 print(f"Found shiny frame: {frame} (Shiny roll: {shiny_roll:.4f} < Shiny rate: {self.odds.shiny_rate})")
+                return frame
+        print(f"No shiny frame found within {max_frames_to_check} frames starting from {start_frame}.")
+        return None
+    
+    def get_outcome_for_raid_frame(self, frame: int):
+        # The key to determinism per frame:
+        # Re-seed each RNG for *every frame* using a combination of its original, immutable seed
+        # and the current frame number. This ensures that the sequence of "random"
+        # numbers generated for a specific type of roll (e.g., tier) at a specific frame
+        # is always the same, regardless of previous calls to this method or different Python runs.
+
+        # We combine the original integer seed with the frame number using a simple sum.
+        # This is deterministic across all Python runs and for all frame numbers.
+        tier_frame_seed = self.original_tier_int_seed + int(frame)
+        self.tier_rng.seed(tier_frame_seed)
+
+        shiny_frame_seed = self.original_shiny_int_seed + int(frame)
+        self.shiny_rng.seed(shiny_frame_seed)
+
+        pokemon_frame_seed = self.original_pokemon_int_seed + int(frame)
+        self.pokemon_rng.seed(pokemon_frame_seed)
+        
+        # Also re-seed type_rng and item_rng, even if not used in this specific outcome calculation
+        type_frame_seed = self.original_type_int_seed + int(frame)
+        self.type_rng.seed(type_frame_seed)
+
+        item_frame_seed = self.original_item_int_seed + int(frame)
+        self.item_rng.seed(item_frame_seed)
+
+
+        # 1. Determine Tier
+        tier_roll = self.tier_rng.random() # Uses the re-seeded RNG
+        tier_sum_of_rates = self.odds.raid_tier1_rate + self.odds.raid_tier2_rate + self.odds.raid_tier3_rate + self.odds.raid_tier4_rate
+        
+        normalized_tier1_cutoff = self.odds.raid_tier1_rate / tier_sum_of_rates
+        normalized_tier2_cutoff = (self.odds.raid_tier1_rate + self.odds.raid_tier2_rate) / tier_sum_of_rates
+        normalized_tier3_cutoff = (self.odds.raid_tier1_rate + self.odds.raid_tier2_rate + self.odds.raid_tier3_rate) / tier_sum_of_rates
+        
+        chosen_tier = None
+        tier_pool_size = 0
+        chosen_pokemon_index = 0 # Initialize to avoid UnboundLocalError
+        pokemon_id = None # Initialize to avoid UnboundLocalError
+
+        if tier_roll < normalized_tier1_cutoff:
+            chosen_tier = 1
+            tier_pool_size = self.odds.raid_tier1_pool_size
+            pokemon_index_roll = self.pokemon_rng.random() # Roll AFTER tier_pool_size is set
+            chosen_pokemon_index = math.floor(pokemon_index_roll * tier_pool_size)
+            chosen_pokemon_index = max(0, min(chosen_pokemon_index, tier_pool_size - 1))
+            pokemon_id = self.raid_tier_1_ids[chosen_pokemon_index]
+        elif tier_roll < normalized_tier2_cutoff:
+            chosen_tier = 2
+            tier_pool_size = self.odds.raid_tier2_pool_size
+            pokemon_index_roll = self.pokemon_rng.random() # Roll AFTER tier_pool_size is set
+            chosen_pokemon_index = math.floor(pokemon_index_roll * tier_pool_size)
+            chosen_pokemon_index = max(0, min(chosen_pokemon_index, tier_pool_size - 1))
+            pokemon_id = self.raid_tier_2_ids[chosen_pokemon_index]
+        elif tier_roll < normalized_tier3_cutoff:
+            chosen_tier = 3
+            tier_pool_size = self.odds.raid_tier3_pool_size
+            pokemon_index_roll = self.pokemon_rng.random() # Roll AFTER tier_pool_size is set
+            chosen_pokemon_index = math.floor(pokemon_index_roll * tier_pool_size)
+            chosen_pokemon_index = max(0, min(chosen_pokemon_index, tier_pool_size - 1))
+            pokemon_id = self.raid_tier_3_ids[chosen_pokemon_index]
+        else:
+            chosen_tier = 4
+            tier_pool_size = self.odds.raid_tier4_pool_size
+            pokemon_index_roll = self.pokemon_rng.random() # Roll AFTER tier_pool_size is set
+            chosen_pokemon_index = math.floor(pokemon_index_roll * tier_pool_size)
+            chosen_pokemon_index = max(0, min(chosen_pokemon_index, tier_pool_size - 1))
+            pokemon_id = self.raid_tier_4_ids[chosen_pokemon_index]
+
+        # 2. Determine Shininess
+        shiny_roll = self.shiny_rng.random() # Uses the re-seeded RNG
+        is_shiny = shiny_roll < self.odds.shiny_rate
+        
+        return {
+            "frame": frame,
+            "tier": chosen_tier,
+            "is_shiny": is_shiny,
+            "pokemon_index_in_tier": chosen_pokemon_index,
+            "tier_pool_size": tier_pool_size,
+            "pokemon_id": pokemon_id
+        }
+    
+    def find_shiny_raid_frame(self, start_frame: int = 0, max_frames_to_check: int = 100000):
+        """
+        Searches for a frame number that would result in a shiny Pokémon.
+        This iterates through frames and checks the shiny outcome for each.
+
+        Args:
+            start_frame (int): The frame number to start searching from.
+            max_frames_to_check (int): The maximum number of frames to check.
+
+        Returns:
+            int or None: The first frame number found that yields a shiny Pokémon,
+                         or None if no such frame is found within the specified range.
+        """
+        print(f"Searching for a shiny frame between {start_frame} and {start_frame + max_frames_to_check - 1}...")
+        for frame in range(start_frame, start_frame + max_frames_to_check):
+            # Re-seed the shiny RNG specifically for this frame check
+            shiny_frame_seed = self.original_shiny_int_seed + int(frame)
+            self.shiny_rng.seed(shiny_frame_seed)
+            
+            shiny_roll = self.shiny_rng.random()
+            if shiny_roll < self.odds.raid_shiny_rate:
+                print(f"Found shiny frame: {frame} (Shiny roll: {shiny_roll:.4f} < Shiny rate: {self.odds.raid_shiny_rate})")
                 return frame
         print(f"No shiny frame found within {max_frames_to_check} frames starting from {start_frame}.")
         return None

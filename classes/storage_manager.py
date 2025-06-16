@@ -402,4 +402,77 @@ class StorageManager:
         except psycopg2.Error as e:
             logger.error(f"StorageManager: DB error getting Master Pokemon Data {pokemon_id}: {e}")
             return None # Return None or re-raise based on desired error handling
+
+    async def get_expired_raids(self):
+        battles = await self.db.fetch_all("SELECT * FROM raids where status in ('active', 'joined') and end_time <= NOW()")
+        result = []
+        for battle in battles:
+            result.append(Battle.from_dict(battle))
+        return result
+    
+    async def get_raid_by_local_channel(self, local_id, channel_id):
+        battle = self.db.fetch_one(f"SELECT * FROM raids where status in ('active', 'joined') and local_id = '{local_id}' and channel_id = '{channel_id}'")
+        if battle:
+            return Battle.from_dict(battle)
+        return None
+    
+    async def get_raid_by_user(self, user_id):
+        battle = self.db.fetch_one(f"SELECT * FROM raids where status in ('active', 'joined') and {user_id} = ANY(user_ids)")
+        if battle:
+            return Battle.from_dict(battle)
+        return None
+    
+    async def delete_raid_by_id(self, battle_id):
+        self.db.delete('raids', {'id': str(battle_id)})
+        await self.redis.delete(f"{REDIS_PREFIX}battle_id:{battle_id}")
+    
+    async def delete_raid_pokemon_by_id(self, pokemon_id):
+        self.db.delete('raid_pokemon', {'id': str(pokemon_id)})
+        await self.redis.delete(f"{REDIS_PREFIX}raid_pokemon_id:{pokemon_id}")
+    
+    async def get_raid_pokemon_by_id(self, pokemon_id):
+        cache_key = f"{REDIS_PREFIX}raid_pokemon_data:{pokemon_id}"
+        # 1. Try cache
+        pokemon_data = await self._get_from_cache(cache_key)
+        if pokemon_data:
+            logger.debug(f"StorageManager: Retrieved Raid Pokemon Data for {pokemon_id} from cache.")
+            return Pokemon.from_dict(pokemon_data)
+        # 2. Cache miss, try database
+        logger.debug(f"StorageManager: Cache miss for Raid Pokemon Data {pokemon_id}. Fetching from DB.")
+        try:
+            sql_query = "SELECT * from raid_pokemon WHERE id = %(pokemon_id)s"
+            pokemon_data = self.db.fetch_one(sql_query, {"pokemon_id": pokemon_id})
+            if pokemon_data:
+                logger.debug(f"StorageManager: Retrieved Raid Pokemon Data for {pokemon_id} from DB.")
+                # 3. Cache the result for next time (e.g., cache for 5 minutes)
+                await self._set_to_cache(cache_key, pokemon_data, ttl=self.cache_ttl)
+                return Pokemon.from_dict(pokemon_data)
+            logger.debug(f"StorageManager: Raid Pokemon Data for {pokemon_id} not found in DB.")
+            return None
+        except psycopg2.Error as e:
+            logger.error(f"StorageManager: DB error getting Raid Pokemon Data {pokemon_id}: {e}")
+            return None # Return None or re-raise based on desired error handling
         
+    async def get_raid_pokemon_master_by_id(self, pokemon_id):
+        cache_key = f"{REDIS_PREFIX}raid_pokemon_master_data:{pokemon_id}"
+        # 1. Try cache
+        pokemon_data = await self._get_from_cache(cache_key)
+        if pokemon_data:
+            logger.debug(f"StorageManager: Retrieved Master Raid Pokemon Data for {pokemon_id} from cache.")
+            return PokemonMaster.from_dict(pokemon_data)
+        # 2. Cache miss, try database
+        logger.debug(f"StorageManager: Cache miss for Master Raid Pokemon Data {pokemon_id}. Fetching from DB.")
+        try:
+            sql_query = "SELECT * from raid_pokemon_master WHERE id = %(pokemon_id)s"
+            pokemon_data = self.db.fetch_one(sql_query, {"pokemon_id": pokemon_id})
+            if pokemon_data:
+                logger.debug(f"StorageManager: Retrieved Master Raid Pokemon Data for {pokemon_id} from DB.")
+                # 3. Cache the result for next time (e.g., cache for 5 minutes)
+                await self._set_to_cache(cache_key, pokemon_data, ttl=self.cache_ttl)
+                return PokemonMaster.from_dict(pokemon_data)
+            logger.debug(f"StorageManager: Master RaidPokemon Data for {pokemon_id} not found in DB.")
+            return None
+        except psycopg2.Error as e:
+            logger.error(f"StorageManager: DB error getting Master Raid Pokemon Data {pokemon_id}: {e}")
+            return None # Return None or re-raise based on desired error handling
+
