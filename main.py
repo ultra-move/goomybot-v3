@@ -846,7 +846,6 @@ async def join_raid(user, local_id, channel_id):
     battle.status = 'joined'
     #save battle
     await storage_manager.save_object(obj=battle, cache_key=f"{REDIS_PREFIX}raid_id:{battle.id}", table_name="raids", unique_columns=["id"])
-    return embed_generator.create_join_battle_embed(user_name=user.name, new_duration=duration)
     return embed_generator.create_join_raid_embed(user_name=user.name, new_duration=duration)
     
 client = discord.Client(intents=intents)
