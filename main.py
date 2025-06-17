@@ -377,6 +377,7 @@ async def reset_seeds(user):
     item = await storage_manager.get_user_item_by_name(user, 'resetseed')
     if item.quantity >= 1:
         user.reset_seeds()
+        user.shiny_frame = -1
         user.frame = 1
         user.raid_frame = 1
         item.quantity = item.quantity - 1
