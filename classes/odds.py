@@ -1,8 +1,9 @@
 class Odds:
 
     def __init__(self):
-        self.shiny_rate = 1/4096
-        
+        self.shiny_rate = 1/2048
+        self.random_shiny_rate = 1/8192
+
         self.tier1_rate = 1
         self.tier2_rate = 1/2
         self.tier3_rate = 1/4
@@ -14,7 +15,7 @@ class Odds:
         self.tier4_pool_size = 105
 
         #RAID ODDS#
-        self.raid_shiny_rate = 1/1000 
+        self.raid_shiny_rate = 1/100 
         self.raid_tier1_rate = 1
         self.raid_tier2_rate = 1/2
         self.raid_tier3_rate = 1/3

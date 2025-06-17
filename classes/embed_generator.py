@@ -60,7 +60,12 @@ class EmbedGenerator():
         embed.add_field(name="duration", value=formatted_duration)
         embed.set_author(name=user_name)
         return embed
-    
+
+    def create_raid_failure_embed(self, user_name):
+        embed=discord.Embed(title=f"Could not start raid, please check that you have a raidpass!", color=default_color)
+        embed.set_author(name=user_name)
+        return embed
+
     def create_battle_embed(self, user_name, pokemon_name, join_code, duration, url, color):
         embed=discord.Embed(title=f"{pokemon_name.capitalize()} Spawned!", color=color)
         embed.set_author(name=user_name)

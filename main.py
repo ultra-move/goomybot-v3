@@ -313,6 +313,16 @@ async def remove_frame(user, frames):
 async def flush_all():
     await redis_manager.flush_all()
     return embed_generator.create_admin_embed("flushed cache")
+
+async def odds_reset():
+    users = await storage_manager.get_all_users()
+    for user in users:
+        gen = Generator(tier_seed=user.tier_seed, type_seed=user.type_seed, pokemon_seed=user.pokemon_seed, shiny_seed=user.shiny_seed, item_seed=user.item_seed)
+        shiny_frame = gen.find_shiny_frame(start_frame=user.frame+1, max_frames_to_check=10000)
+        user.shiny_frame = shiny_frame
+        await storage_manager.save_object(obj=user, cache_key=f"{REDIS_PREFIX}user_id:{user.id}", table_name="users", unique_columns=["id"])
+    return embed_generator.create_admin_embed("resetodds")
+
 #######################Item methods#######################
 async def get_shop(user):
     items = {
@@ -424,6 +434,16 @@ async def reroll_iv(user, iv):
         return embed_generator.create_rerolliv_view(user, buddy)
     else:
         return embed_generator.create_item_failure_embed(user, 'rerolliv')  
+
+async def raid_shiny_frame(user):
+        gen = Generator(tier_seed=user.tier_seed, type_seed=user.type_seed, pokemon_seed=user.pokemon_seed, shiny_seed=user.shiny_seed, item_seed=user.item_seed)
+        shiny_raid_frame = gen.find_shiny_raid_frame(start_frame=user.raid_frame+1, max_frames_to_check=10000)
+        if shiny_raid_frame:
+            outcome = gen.get_outcome_for_raid_frame(shiny_raid_frame)
+            print(outcome)        
+            return embed_generator.create_shiny_frame(user=user, shiny_frame=shiny_raid_frame)
+        else:
+            return embed_generator.create_shiny_frame(user=user, shiny_frame="No shiny found")  
 
 async def get_items(user):
     user_items = await storage_manager.get_user_items(user)
@@ -914,6 +934,14 @@ async def on_message(message):
         embed = await flush_all()
         await message.channel.send(embed=embed)
 
+    if message.content.startswith('.raidframe') and user.id == 701062435678846998:
+        embed = await raid_shiny_frame(user)
+        await message.channel.send(embed=embed)
+
+    if message.content.startswith('.resetodds') and user.id == 701062435678846998:
+        embed = await odds_reset()
+        await message.channel.send(embed=embed)
+
     if message.content.startswith('.adminspawn') and user.id == 701062435678846998:
         pokedex_id = int(message.content.split()[1])
         is_shiny = {"true": True, "false": False}.get(message.content.split()[2].lower(), False)
@@ -938,14 +966,20 @@ async def on_message(message):
         local_id = message.content[-3:]
         embed = await join_battle(user=user, local_id=local_id, channel_id=channel_id)
         await message.channel.send(embed=embed)
+
 #######################Raid commands#######################
-    if message.content.startswith('.raid'):
-        pokemon, embed = await start_raid(user=user, channel_id=channel_id)
-        await message.channel.send(embed=embed)
-        if pokemon and pokemon.is_shiny:
-            channel = await client.fetch_channel(FLEX_ID)
-            embed = embed_generator.create_flex_embed(user, pokemon)
-            await channel.send(embed=embed)
+    if message.content.startswith('.raid') and not message.content.startswith('.raidframe'):
+        try:
+            pokemon, embed = await start_raid(user=user, channel_id=channel_id)
+            await message.channel.send(embed=embed)
+            if pokemon and pokemon.is_shiny:
+                channel = await client.fetch_channel(FLEX_ID)
+                embed = embed_generator.create_flex_embed(user, pokemon)
+                await channel.send(embed=embed)
+        except:
+            embed = embed_generator.create_raid_failure_embed(user)
+            await message.channel.send(embed=embed)
+            return
 
     if message.content.startswith('.joinraid'):
         local_id = message.content[-3:]
