@@ -99,7 +99,16 @@ class StorageManager:
         except RedisError as e:
             logger.warning(f"StorageManager: Error invalidating Redis cache for key '{key}': {e}")
             return False
-        
+
+    async def get_all_users(self):
+        sql_query = "SELECT * from users"
+        user_data = await self.db.fetch_all(sql_query)
+        result = []
+        for user in user_data:
+            result.append(User.from_dict(user))
+        return result
+            
+
     async def get_user(self, user_id):
         cache_key = f"{REDIS_PREFIX}user_id:{user_id}"
         # 1. Try cache

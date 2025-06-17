@@ -104,7 +104,8 @@ class Generator:
 
         # 2. Determine Shininess
         shiny_roll = self.shiny_rng.random() # Uses the re-seeded RNG
-        is_shiny = shiny_roll < self.odds.shiny_rate
+        #apply random shiny here
+        is_shiny = (shiny_roll < self.odds.shiny_rate) or (random.random() < self.odds.random_shiny_rate)
         
         return {
             "frame": frame,
