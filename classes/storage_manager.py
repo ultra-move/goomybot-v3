@@ -115,7 +115,14 @@ class StorageManager:
             logger.error(f"StorageManager: DB error getting user profile {user_id}: {e}")
             return None # Return None or re-raise based on desired error handling
 
-
+    async def get_evolutions(self, pokemon_id):
+        sql_query = f'SELECT pm.* FROM public.pokemon_master AS pm WHERE pm.evolves_from_species_name = (SELECT name FROM public.pokemon_master WHERE id = {pokemon_id})'
+        evolution_data = await self.db.fetch_all(sql_query)
+        result = []
+        for evolution in evolution_data:
+            result.append(PokemonMaster.from_dict(evolution))
+        return result
+    
     async def get_all_users(self):
         sql_query = "SELECT * from users"
         user_data = await self.db.fetch_all(sql_query)

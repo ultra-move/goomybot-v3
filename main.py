@@ -5,7 +5,7 @@ import logging # Correct import for logging
 # from asyncio.log import logger # This is generally not how you get a logger. Use logging.getLogger()
 import random
 import time
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 # Correct imports for redis-py
 # from aioredis import RedisError # This is deprecated
@@ -75,6 +75,7 @@ def get_help():
 * `.view [local_id]`: If a `local_id` is provided, views details of that specific Pokémon. If no `local_id` is given, it shows details of your current buddy Pokémon.
 * `.filter <filter_message>`: Filters your Pokémon list based on your criteria.
 * `.buddy [local_id]`: If a `local_id` is provided, sets that Pokémon as your buddy. If no `local_id` is given, it shows your current buddy Pokémon.
+* `.evolve [name]`: Evolves buddy pokemon to name, buddy will evolve to a random choice if multiple are available
 * `.frame`: Views current frame
 
 **__Battle Commands__**
@@ -155,7 +156,82 @@ async def set_buddy(user, local_id):
         user.current_pokemon = pokemon.id
         await storage_manager.save_object(obj=user, cache_key=f"{REDIS_PREFIX}user_id:{user.id}", table_name="users", unique_columns=["id"])
         return embed_generator.create_pokemon_view(user, pokemon)
-    
+
+def set_buddy_from_evolution(buddy, evolution):
+    buddy.name = evolution.name
+    buddy.ability = random.choice(evolution.abilities_names)
+    buddy.base_stats = evolution.base_stats_json
+    buddy.growth_rate = evolution.growth_rate_name
+    buddy.pokedex_id = evolution.id
+    if buddy.is_shiny:
+        buddy.sprite_front = evolution.front_shiny_sprite
+        buddy.sprite_back = evolution.back_shiny_sprite
+    else:
+        buddy.sprite_front = evolution.front_default_sprite
+        buddy.sprite_back = evolution.back_default_sprite
+    buddy.region = evolution.region
+    buddy.calculate_exp(buddy.level)
+    buddy.stats = buddy.calculate_stats()
+    buddy.tier = evolution.tier
+    return buddy                
+
+async def evolve_buddy(user, name: Optional[str] = None):
+    """
+    Evolves the user's current buddy Pokémon.
+    If a 'name' is provided, attempts to evolve to that specific Pokémon.
+    If no 'name' is provided, picks a random evolution.
+    """
+    buddy = await storage_manager.get_user_pokemon_by_id(str(user.current_pokemon))
+
+    if not buddy:
+        return embed_generator.create_evolved_fail_embed(user.name, "Your buddy Pokémon could not be found.")
+
+    # Assuming get_evolutions returns a list of PokemonMaster objects that buddy can evolve into
+    evolutions: list[PokemonMaster] = await storage_manager.get_evolutions(buddy.pokedex_id)
+
+    if not evolutions:
+        return embed_generator.create_evolved_fail_embed(
+                user.name,
+                f"No evolutions for selected buddy"
+            )
+
+    chosen_evolution: Optional[PokemonMaster] = None
+
+    if name:
+        # User specified a desired evolution
+        for evolution in evolutions:
+            if evolution.name.lower() == name.lower(): # Case-insensitive match
+                chosen_evolution = evolution
+                break
+        if not chosen_evolution:
+            # Desired evolution not found in the list of possible evolutions
+            return embed_generator.create_evolved_fail_embed(
+                user.name,
+                f"'{name}' is not a valid evolution for {buddy.name} or it's not available."
+            )
+    else:
+        # No name specified, pick a random evolution
+        chosen_evolution = random.choice(evolutions)
+
+    # Proceed with evolution using the chosen_evolution
+    if chosen_evolution:
+        updated_buddy = set_buddy_from_evolution(buddy, chosen_evolution)
+        if updated_buddy:
+            await storage_manager.save_object(
+                obj=updated_buddy,
+                cache_key=f"{REDIS_PREFIX}pokemon_data:{updated_buddy.id}",
+                table_name="user_pokemon",
+                unique_columns=["id"]
+            )
+            return embed_generator.create_pokemon_view(user, updated_buddy)
+        else:
+            return embed_generator.create_evolved_fail_embed(user.name, "Failed to update buddy Pokémon details.")
+    else:
+        # This case should ideally not be reached if evolutions list is not empty
+        # and chosen_evolution is guaranteed to be set either by name or randomly.
+        return embed_generator.create_evolved_fail_embed(user.name, "An unexpected error occurred during evolution selection.")
+
+
 async def filter_pokemon(user, filter_message):
    default_filter = {
             'shiny': False,
@@ -373,7 +449,6 @@ async def shiny_frame(user):
         shiny_frame = gen.find_shiny_frame(start_frame=user.frame+1, max_frames_to_check=10000)
         if shiny_frame:
             outcome = gen.get_outcome_for_frame(shiny_frame)
-            print(outcome)
             user.shiny_frame = shiny_frame
             item.quantity = item.quantity - 1
             await storage_manager.save_object(obj=user, cache_key=f"{REDIS_PREFIX}user_id:{user.id}", table_name="users", unique_columns=["id"])
@@ -1035,6 +1110,14 @@ async def on_message(message):
             embed = await set_buddy(user=user, local_id=str(local_id[1]))
         else:
             embed = await view_buddy(user=user)
+        await message.channel.send(embed=embed)
+
+    if message.content.startswith('.evolve'):
+        name = message.content.split()
+        if len(name) > 1 and name[1]:
+            embed = await evolve_buddy(user=user, name=name[1])
+        else:
+            embed = await evolve_buddy(user=user, name=None)
         await message.channel.send(embed=embed)
 
     if message.content.startswith('.frame'):

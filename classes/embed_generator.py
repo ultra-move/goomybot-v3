@@ -102,7 +102,13 @@ class EmbedGenerator():
         embed.add_field(name="duration", value=new_duration)
         embed.set_author(name=user_name)
         return embed
-
+    
+    def create_evolved_fail_embed(self, user_name, message):
+        embed=discord.Embed(description=message, color=default_color)
+        embed.set_author(name=user_name)
+        return embed
+    
+        
     def create_user_view_table(self, user, page, total_pages):
         embed=discord.Embed(color=default_color)
         embed.set_author(name=user.name)
