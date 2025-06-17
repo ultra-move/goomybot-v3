@@ -723,13 +723,13 @@ async def start_raid(user, channel_id):
         #save user
         asyncio.create_task(storage_manager.save_object(obj=user, cache_key=f"{REDIS_PREFIX}user_id:{user.id}", table_name="users", unique_columns=["id"]))
         #calculate duration
-        duration = 100 * int(new_pokemon.tier) + random.randrange(0,16) 
+        duration = 100 * int(new_pokemon.tier) + random.randrange(0,61) 
         start_time = datetime.now(timezone.utc)
         delta = timedelta(seconds=duration)
         end_time = start_time + delta
         logger.debug(f"battle end_time: {end_time}")
         #calculate rewards, for now just money
-        rewards = {'money': 2000*new_pokemon.tier, 'exp': int((int(pokemon_data.base_experience) * level+new_pokemon.tier)/4)*10}
+        rewards = {'money': 1000*new_pokemon.tier, 'exp': int((int(pokemon_data.base_experience) * level+new_pokemon.tier)/4)*5}
         raid = Battle(id=uuid.uuid4(), user_ids=[user.id], local_id=random.randrange(100,1000), channel_id=channel_id, start_time=start_time, duration=duration, end_time=end_time, rewards=rewards, status='active', battle_pokemon_id=new_pokemon.id)
         #write new pokemon to raid_pokemon table
         asyncio.create_task(storage_manager.save_object(obj=new_pokemon, cache_key=f"{REDIS_PREFIX}raid_pokemon_id:{new_pokemon.id}", table_name="raid_pokemon", unique_columns=["id"]))
@@ -846,7 +846,7 @@ async def join_raid(user, local_id, channel_id):
     battle.status = 'joined'
     #save battle
     await storage_manager.save_object(obj=battle, cache_key=f"{REDIS_PREFIX}raid_id:{battle.id}", table_name="raids", unique_columns=["id"])
-    return embed_generator.create_join_battle_embed(user_name=user.name, new_duration=duration)
+    return embed_generator.create_join_raid_embed(user_name=user.name, new_duration=duration)
     
 client = discord.Client(intents=intents)
 
