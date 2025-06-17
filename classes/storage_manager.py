@@ -4,6 +4,7 @@ import math
 import os
 from typing import Optional, Dict, Any, List, Union, Tuple
 from classes.battle import Battle
+from classes.flex_log import FlexLog
 from classes.item import Item
 from classes.pokemon import Pokemon
 from classes.pokemon_master import PokemonMaster
@@ -99,6 +100,21 @@ class StorageManager:
         except RedisError as e:
             logger.warning(f"StorageManager: Error invalidating Redis cache for key '{key}': {e}")
             return False
+
+    async def get_flex_log(self, user_id, channel, name):
+        try:
+            sql_query = "SELECT * from flex_log WHERE user_id = %(user_id)s and channel_id = %(channel)s and name = %(name)s and expiration_date >= now()"
+            flex_entry = self.db.fetch_one(sql_query, {"user_id": user_id, 'channel': channel, 'name': name})
+            if flex_entry:
+                logger.info(f"StorageManager: Retrieved flex data for {user_id} from DB.")
+                # 3. Cache the result for next time (e.g., cache for 5 minutes)
+                return FlexLog.from_dict(flex_entry)
+            logger.info(f"StorageManager: Flex data for {user_id} not found in DB.")
+            return None
+        except psycopg2.Error as e:
+            logger.error(f"StorageManager: DB error getting user profile {user_id}: {e}")
+            return None # Return None or re-raise based on desired error handling
+
 
     async def get_all_users(self):
         sql_query = "SELECT * from users"
