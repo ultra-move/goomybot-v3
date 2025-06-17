@@ -106,8 +106,7 @@ class Generator:
         shiny_roll = self.shiny_rng.random() # Uses the re-seeded RNG
         #apply random shiny here
         is_shiny = (shiny_roll < self.odds.shiny_rate) or (random.random() < self.odds.random_shiny_rate)
-        
-        return {
+        result = {
             "frame": frame,
             "tier": chosen_tier,
             "is_shiny": is_shiny,
@@ -115,6 +114,8 @@ class Generator:
             "tier_pool_size": tier_pool_size,
             "pokemon_id": pokemon_id
         }
+        print(result)
+        return result
     
     def find_shiny_frame(self, start_frame: int = 0, max_frames_to_check: int = 100000):
         """
@@ -214,7 +215,7 @@ class Generator:
         shiny_roll = self.shiny_rng.random() # Uses the re-seeded RNG
         is_shiny = shiny_roll < self.odds.shiny_rate
         
-        return {
+        result = {
             "frame": frame,
             "tier": chosen_tier,
             "is_shiny": is_shiny,
@@ -222,6 +223,8 @@ class Generator:
             "tier_pool_size": tier_pool_size,
             "pokemon_id": pokemon_id
         }
+        print(result)
+        return result
     
     def find_shiny_raid_frame(self, start_frame: int = 0, max_frames_to_check: int = 100000):
         """
