@@ -131,6 +131,12 @@ class EmbedGenerator():
         if user.profile_image and user.profile_image != 'None':
             embed.set_thumbnail(url=user.profile_image)
         return embed
+
+    def create_full_shiny_frame(self, user, shiny_frame, pokemon_url):
+        embed=discord.Embed(description=f"Current Frame: {user.frame}\nShiny Frame: {shiny_frame}", color=0xf5a8ff)
+        embed.set_author(name=user.name)
+        embed.set_image(url=pokemon_url)
+        return embed
     
     def create_frame_embed(self, user):
         embed=discord.Embed(description=f"Current Frame: {user.frame}\nRaid Frame: {user.raid_frame}", color=default_color)

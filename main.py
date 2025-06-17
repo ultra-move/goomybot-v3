@@ -92,7 +92,8 @@ def get_help():
 * `.buy <item_name> <quantity>`: Buys the specified quantity of an item.
 * `.items`: Shows a list of your owned items.
 * `.resetseed`: Uses a Reset Seed to reset your frame and shiny seed.
-* `.shinyframe`: Uses a Shiny Frame.
+* `.shinyframe`: Dispalys the frame that your next shiny is at
+* `.fshinyframe`: Displays the pokemon at the shiny frame. Must use a normal shinyframe first.
 * `.skipframe`: Uses a Skip Frame (100 frames or to shiny frame).
 * `.rerolliv <iv_name>`: Rerolls selected buddy iv.
 """
@@ -458,7 +459,17 @@ async def shiny_frame(user):
             return embed_generator.create_shiny_frame(user=user, shiny_frame="No shiny found")
     else:
         return embed_generator.create_item_failure_embed(user, 'shinyframe')
-    
+
+async def full_shiny_frame(user):
+    if user.shiny_frame != -1:
+       print('Shiny frame not -1')
+       gen = Generator(tier_seed=user.tier_seed, type_seed=user.type_seed, pokemon_seed=user.pokemon_seed, shiny_seed=user.shiny_seed, item_seed=user.item_seed)
+       outcome = gen.get_outcome_for_frame(user.shiny_frame)
+       pokemon = await storage_manager.get_pokemon_master_by_id(outcome['pokemon_id'])
+       return embed_generator.create_full_shiny_frame(user=user, shiny_frame=user.shiny_frame, pokemon_url=pokemon.front_shiny_sprite)
+    else:
+        return embed_generator.create_item_failure_embed(user, 'fshinyframe, please use shinyframe first')
+
 async def reset_seeds(user):
     item = await storage_manager.get_user_item_by_name(user, 'resetseed')
     if item.quantity >= 1:
@@ -1163,6 +1174,10 @@ async def on_message(message):
             embed = await reroll_iv(user=user, iv=str(iv[1]))
         else:
             embed = embed_generator.create_item_failure_embed(user=user, item_name='rerolliv')
+        await message.channel.send(embed=embed)
+    
+    if '.fshinyframe' in message.content:
+        embed = await full_shiny_frame(user)
         await message.channel.send(embed=embed)
 
     if '.shinyframe' in message.content:
