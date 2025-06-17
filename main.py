@@ -16,6 +16,7 @@ from classes.battle import Battle
 from classes.data_loader import DataLoader
 from classes.database_manager import DatabaseManager
 from classes.embed_generator import EmbedGenerator
+from classes.flex_log import FlexLog
 from classes.item import Item
 from classes.pokemon_master import PokemonMaster
 from classes.redis_manager import RedisManager
@@ -953,9 +954,13 @@ async def on_message(message):
         pokemon, embed = await start_battle(user=user, channel_id=channel_id)
         await message.channel.send(embed=embed)
         if pokemon and pokemon.is_shiny:
-            channel = await client.fetch_channel(FLEX_ID)
-            embed = embed_generator.create_flex_embed(user, pokemon)
-            await channel.send(embed=embed)
+            flex_log = await storage_manager.get_flex_log(user.id, channel_id, pokemon.name)
+            if not flex_log:
+                log = FlexLog(id= uuid.uuid4(), user_id=user.id, channel_id=channel_id, name=pokemon.name, status='active', timestamp=datetime.now(timezone.utc), expiration_date= datetime.now(timezone.utc) + timedelta(hours=1))
+                await storage_manager.save_object(obj=log, cache_key=f"{REDIS_PREFIX}flexlog_id:{log.id}", table_name='flex_log', unique_columns=['id'])
+                channel = await client.fetch_channel(FLEX_ID)
+                embed = embed_generator.create_flex_embed(user, pokemon)
+                await channel.send(embed=embed)
 
     if message.content.startswith('.run'):
         local_id = message.content[-3:]
