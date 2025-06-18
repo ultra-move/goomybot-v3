@@ -105,7 +105,7 @@ def get_help_battle():
     help = """
 **__Battle Commands__**
 * `.spawn`: Initiates a new battle.
-* `.run <local_id>`: Runs from a battle with the specified local ID.
+* `.run`: Runs from a battle that the user is in.
 * `.join <local_id>`: Joins an existing battle with the specified local ID.
 """
     return embed_generator.create_help_embed(info=help)
