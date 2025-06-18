@@ -1436,11 +1436,11 @@ async def on_message(message):
         embed = await full_shiny_frame(user)
         await message.channel.send(embed=embed)
 
-    if ('.raidframe' in message.content) and user.id == 701062435678846998:
+    if ('.raidframe' in message.content):
         embed = await raid_shiny_frame(user)
         await message.channel.send(embed=embed)
     
-    if ('.fraidframe' in message.content) and user.id == 701062435678846998:
+    if ('.fraidframe' in message.content):
         embed = await raid_shiny_frame(user)
         await message.channel.send(embed=embed)
 
