@@ -299,7 +299,7 @@ class EmbedGenerator():
         return embed
     
     def create_safe_pokemon_view(self, user, pokemon):
-        embed=discord.Embed(description=f"Marked Safe! {pokemon.__str__()}", color=self.get_color(pokemon=pokemon))
+        embed=discord.Embed(description=f"{pokemon.__str__()}", color=self.get_color(pokemon=pokemon))
         embed.set_author(name=user.name)
         embed.set_thumbnail(url=pokemon.sprite_front)
         return embed
