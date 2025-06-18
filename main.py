@@ -63,14 +63,29 @@ intents.message_content = True
 #######################General methods##########################
 def get_help():
     help = """
-**__General Commands__**
+**__Help Commands__**
 * `.help`: Displays this help message.
-* `.help filter`: Displays the filter help message.
+* `.help user`: Displays the user commands help message.
+* `.help filter`: Displays the filter commands help message.
+* `.help battle`: Displays the battle commands help message.
+* `.help raid`: Displays the raid commands help message.
+* `.help items`: Displays the items commands help message.
+
+**__General Commands__**
 * `.register`: Registers you for the game. You'll need to do this before using most other commands!
 * `.odds`: Displays the current odds
 * `.bug <bug report>`: Submits a bug to the bug channel
 * `.git`: provides a link to the git repository
 
+
+
+
+
+"""
+    return embed_generator.create_help_embed(info=help)
+
+def get_help_user():
+    help = """
 **__User Commands__**
 * `.profile`: Shows your user profile.
 * `.profileimage <URL>`: Sets your profile image to the provided URL (must be from showdown sprites).
@@ -83,16 +98,30 @@ def get_help():
 * `.lottery`: Enters the lottery, or if already entered, displays information about the lottery
 * `.release duplicates`: Releases duplicate pokemon, keeps buddy, safe, shiny and tier 4 pokemon. Keeps the pokemon with the highest total iv
 * `.safe [local_id]`: Marks a pokemon as safe or not safe. Local id comes from .list command
+"""
+    return embed_generator.create_help_embed(info=help)
 
+def get_help_battle():
+    help = """
 **__Battle Commands__**
 * `.spawn`: Initiates a new battle.
 * `.run <local_id>`: Runs from a battle with the specified local ID.
 * `.join <local_id>`: Joins an existing battle with the specified local ID.
+"""
+    return embed_generator.create_help_embed(info=help)
 
+def get_help_raid():
+    help = """
 **__Raid Commands__**
 * `.raid`: Initiates a new raid (requires a raidpass).
 * `.joinraid <local_id>`: Joins an existing raid with the specified local ID.
+* `.raidframe`: Shows your shiny raid frame, this is free!
+* `.fraidframe`: Shows your full shiny raid frame, this is free!
+"""
+    return embed_generator.create_help_embed(info=help)
 
+def get_help_items():
+    help = """
 **__Item Commands__**
 * `.shop`: Displays available items in the shop
 * `.buy <item_name> <quantity>`: Buys the specified quantity of an item.
@@ -136,8 +165,7 @@ def get_admin_help():
     * `.addframe <user_id> <amount>`: Adds a specified amount of frames to a user.
     * `.removeframe <user_id> <amount>`: Removes a specified amount of frames from a user.
     * `.flush`: Clears all entires in the cache.
-    * `.raidframe`: Shows shiny frame for raid (beta).
-    * `.resetodds`: Resets the odds for something (e.g., shiny encounters).
+    * `.resetodds`: Required after adjusting odds to adjust shiny frames
     * `.adminspawn <pokedex_id> <is_shiny>`: Spawns a Pokémon. `is_shiny` can be `true` or `false`.
     * `.addmoney <user_id> <amount>`: Adds a specified amount of money to a user.
     * `.removemoney <user_id> <amount>`: Removes a specified amount of money from a user.
@@ -435,13 +463,13 @@ async def add_raid_frame(user_id, frames):
     user = await storage_manager.get_user(user_id=user_id)
     user.raid_frame += frames
     await storage_manager.save_object(obj=user, cache_key=f"{REDIS_PREFIX}user_id:{user.id}", table_name="users", unique_columns=["id"])
-    return embed_generator.create_admin_embed(f"Added {frames} frames for {user.name}")
+    return embed_generator.create_admin_embed(f"Added {frames} raid frames for {user.name}")
 
 async def remove_raid_frame(user_id, frames):
     user = await storage_manager.get_user(user_id=user_id)
     user.raid_frame -= frames
     await storage_manager.save_object(obj=user, cache_key=f"{REDIS_PREFIX}user_id:{user.id}", table_name="users", unique_columns=["id"])
-    return embed_generator.create_admin_embed(f"Added {frames} frames for {user.name}")
+    return embed_generator.create_admin_embed(f"Added {frames} raid frames for {user.name}")
 
 
 async def flush_all():
@@ -537,9 +565,17 @@ async def full_shiny_frame(user):
        gen = Generator(tier_seed=user.tier_seed, type_seed=user.type_seed, pokemon_seed=user.pokemon_seed, shiny_seed=user.shiny_seed, item_seed=user.item_seed)
        outcome = gen.get_outcome_for_frame(user.shiny_frame)
        pokemon = await storage_manager.get_pokemon_master_by_id(outcome['pokemon_id'])
-       return embed_generator.create_full_shiny_frame(user=user, shiny_frame=user.shiny_frame, pokemon_url=pokemon.front_shiny_sprite)
+       return embed_generator.create_full_shiny_frame(user=user, shiny_frame=user.shiny_frame, pokemon_name=pokemon.name, pokemon_url=pokemon.front_shiny_sprite)
     else:
         return embed_generator.create_item_failure_embed(user, 'fshinyframe, please use shinyframe first')
+
+async def full_raid_shiny_frame(user):
+    print('Shiny frame not -1')
+    gen = Generator(tier_seed=user.tier_seed, type_seed=user.type_seed, pokemon_seed=user.pokemon_seed, shiny_seed=user.shiny_seed, item_seed=user.item_seed)
+    shiny_frame = gen.find_shiny_raid_frame(user.raid_frame, 10000)
+    outcome = gen.get_outcome_for_raid_frame(shiny_frame)
+    pokemon = await storage_manager.get_raid_pokemon_master_by_id(outcome['pokemon_id'])
+    return embed_generator.create_full_raid_shiny_frame(user=user, shiny_frame=shiny_frame, pokemon_name=pokemon.name, pokemon_url=pokemon.front_shiny_sprite)
 
 async def reset_seeds(user):
     item = await storage_manager.get_user_item_by_name(user, 'resetseed')
@@ -1132,6 +1168,18 @@ async def on_message(message):
     if message.content.startswith('.help filter'):
         embed = get_help_filter()
         await message.channel.send(embed=embed)
+    elif message.content.startswith('.help user'):
+        embed = get_help_user()
+        await message.channel.send(embed=embed)
+    elif message.content.startswith('.help battle'):
+        embed = get_help_battle()
+        await message.channel.send(embed=embed)
+    elif message.content.startswith('.help raid'):
+        embed = get_help_raid()
+        await message.channel.send(embed=embed)
+    elif message.content.startswith('.help items'):
+        embed = get_help_items()
+        await message.channel.send(embed=embed)
     elif message.content.startswith('.help admin') and user.id == 701062435678846998:
         embed = get_admin_help()
         await message.channel.send(embed=embed)
@@ -1197,9 +1245,7 @@ async def on_message(message):
         embed = await flush_all()
         await message.channel.send(embed=embed)
 
-    if message.content.startswith('.raidframe') and user.id == 701062435678846998:
-        embed = await raid_shiny_frame(user)
-        await message.channel.send(embed=embed)
+
 
     if message.content.startswith('.resetodds') and user.id == 701062435678846998:
         embed = await odds_reset()
@@ -1382,12 +1428,20 @@ async def on_message(message):
             embed = embed_generator.create_item_failure_embed(user=user, item_name='rerolliv')
         await message.channel.send(embed=embed)
     
+    if '.shinyframe' in message.content:
+        embed = await shiny_frame(user)
+        await message.channel.send(embed=embed)
+    
     if '.fshinyframe' in message.content:
         embed = await full_shiny_frame(user)
         await message.channel.send(embed=embed)
 
-    if '.shinyframe' in message.content:
-        embed = await shiny_frame(user)
+    if ('.raidframe' in message.content) and user.id == 701062435678846998:
+        embed = await raid_shiny_frame(user)
+        await message.channel.send(embed=embed)
+    
+    if ('.fraidframe' in message.content) and user.id == 701062435678846998:
+        embed = await raid_shiny_frame(user)
         await message.channel.send(embed=embed)
 
     if '.skipframe' in message.content:
