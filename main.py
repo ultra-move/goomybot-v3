@@ -431,6 +431,19 @@ async def remove_frame(user_id, frames):
     await storage_manager.save_object(obj=user, cache_key=f"{REDIS_PREFIX}user_id:{user.id}", table_name="users", unique_columns=["id"])
     return embed_generator.create_admin_embed(f"Added {frames} frames for {user.name}")
 
+async def add_raid_frame(user_id, frames):
+    user = await storage_manager.get_user(user_id=user_id)
+    user.raid_frame += frames
+    await storage_manager.save_object(obj=user, cache_key=f"{REDIS_PREFIX}user_id:{user.id}", table_name="users", unique_columns=["id"])
+    return embed_generator.create_admin_embed(f"Added {frames} frames for {user.name}")
+
+async def remove_raid_frame(user_id, frames):
+    user = await storage_manager.get_user(user_id=user_id)
+    user.raid_frame -= frames
+    await storage_manager.save_object(obj=user, cache_key=f"{REDIS_PREFIX}user_id:{user.id}", table_name="users", unique_columns=["id"])
+    return embed_generator.create_admin_embed(f"Added {frames} frames for {user.name}")
+
+
 async def flush_all():
     await redis_manager.flush_all()
     return embed_generator.create_admin_embed("flushed cache")
@@ -586,9 +599,9 @@ async def raid_shiny_frame(user):
         if shiny_raid_frame:
             outcome = gen.get_outcome_for_raid_frame(shiny_raid_frame)
             print(outcome)        
-            return embed_generator.create_shiny_frame(user=user, shiny_frame=shiny_raid_frame)
+            return embed_generator.create_raid_shiny_frame(user=user, shiny_frame=shiny_raid_frame)
         else:
-            return embed_generator.create_shiny_frame(user=user, shiny_frame="No shiny found")  
+            return embed_generator.create_raid_shiny_frame(user=user, shiny_frame="No shiny found")  
 
 async def get_items(user):
     user_items = await storage_manager.get_user_items(user)
@@ -1164,6 +1177,20 @@ async def on_message(message):
         user_id = split[1]
         amount = split[2]
         embed = await remove_frame(user_id, int(amount))
+        await message.channel.send(embed=embed)
+
+    if message.content.startswith('.addraidframe') and user.id == 701062435678846998:
+        split = message.content.split()
+        user_id = split[1]
+        amount = split[2]
+        embed = await add_raid_frame(user_id, int(amount))
+        await message.channel.send(embed=embed)
+
+    if message.content.startswith('.removeraidframe') and user.id == 701062435678846998:
+        split = message.content.split()
+        user_id = split[1]
+        amount = split[2]
+        embed = await remove_raid_frame(user_id, int(amount))
         await message.channel.send(embed=embed)
 
     if message.content.startswith('.flush') and user.id == 701062435678846998:
