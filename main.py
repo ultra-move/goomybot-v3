@@ -9,6 +9,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 # Correct imports for redis-py
 # from aioredis import RedisError # This is deprecated
+from discord.abc import PrivateChannel
 from redis.exceptions import RedisError # Import RedisError from the correct package
 import discord
 
@@ -18,6 +19,7 @@ from classes.database_manager import DatabaseManager
 from classes.embed_generator import EmbedGenerator
 from classes.flex_log import FlexLog
 from classes.item import Item
+from classes.lottery import Lottery
 from classes.pokemon_master import PokemonMaster
 from classes.redis_manager import RedisManager
 from classes.storage_manager import StorageManager
@@ -46,6 +48,7 @@ REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0") # Provide a defau
 REDIS_PREFIX = os.getenv("REDIS_PREFIX")
 FLEX_ID: str | None = os.getenv("FLEX_ID")
 BUG_ID: str | None = os.getenv("BUG_ID")
+LOTTERY_ID= os.getenv("LOTTERY_ID")
 ###################################################################
 
 redis_manager = RedisManager(REDIS_URL)
@@ -77,6 +80,7 @@ def get_help():
 * `.buddy [local_id]`: If a `local_id` is provided, sets that Pokémon as your buddy. If no `local_id` is given, it shows your current buddy Pokémon.
 * `.evolve [name]`: Evolves buddy pokemon to name, buddy will evolve to a random choice if multiple are available
 * `.frame`: Views current frame
+* `.lottery`: Enters the lottery, or if already entered, displays information about the lottery
 
 **__Battle Commands__**
 * `.spawn`: Initiates a new battle.
@@ -473,7 +477,7 @@ async def buy_item(user, item_name, quantity):
     
 async def shiny_frame(user):
     if user.shiny_frame != -1:
-       print('Shiny frame not -1')
+       #print('Shiny frame not -1')
        return embed_generator.create_shiny_frame(user=user, shiny_frame=user.shiny_frame) 
     
     item = await storage_manager.get_user_item_by_name(user, 'shinyframe')
@@ -758,7 +762,7 @@ async def battle_monitor_task(interval_seconds: int):
                     if channel_id and embed: # Ensure valid channel_id and embed
                         try:
                             # client.get_channel() might return None if the channel isn't cached
-                            channel = client.get_channel(channel_id)
+                            channel = await client.fetch_channel(channel_id)
                             if channel:
                                 await channel.send(embed=embed)
                             else:
@@ -949,7 +953,7 @@ async def raid_monitor_task(interval_seconds: int):
                     if channel_id and embed: # Ensure valid channel_id and embed
                         try:
                             # client.get_channel() might return None if the channel isn't cached
-                            channel = client.get_channel(channel_id)
+                            channel = await client.fetch_channel(channel_id)
                             if channel:
                                 await channel.send(embed=embed)
                             else:
@@ -987,14 +991,83 @@ async def join_raid(user, local_id, channel_id):
     #save battle
     await storage_manager.save_object(obj=battle, cache_key=f"{REDIS_PREFIX}raid_id:{battle.id}", table_name="raids", unique_columns=["id"])
     return embed_generator.create_join_raid_embed(user_name=user.name, new_duration=duration)
-    
+
+#######################Lottery methods#######################
+
+async def enter_lottery(user):
+    lottery_entry_fee = 10000
+    lottery = await storage_manager.get_active_lottery()
+    if user.id in lottery.user_ids:
+        return embed_generator.create_lottery_embed(user=user, content=f"Current Jackpot: ${lottery.amount:,.0f}\n")
+    if user.wallet >= lottery_entry_fee:
+        user.wallet -= lottery_entry_fee
+        lottery.user_ids.append(user.id)
+        lottery.amount += lottery_entry_fee
+        await storage_manager.save_object(obj=user, cache_key=f"{REDIS_PREFIX}user_id:{user.id}", table_name="users", unique_columns=["id"]) 
+        await storage_manager.save_object(obj=lottery, cache_key=f"{REDIS_PREFIX}lottery_id:{lottery.id}", table_name="lottery", unique_columns=["id"]) 
+        return embed_generator.create_lottery_embed(user=user, content=f"Successfully entered lottery!\nCurrent Jackpot: ${lottery.amount:,.0f}\n")
+    else:
+        return embed_generator.create_lottery_embed(user=user, content=f"Could not enter lottery due to insufficient funds\n\Cost:{lottery_entry_fee}\nCurrent Jackpot: ${lottery.amount:,.0f}\n")
+
+async def process_expired_lottery(lottery: Lottery):
+    if lottery.user_ids:
+        winner = random.choice(lottery.user_ids)
+    else:
+        return embed_generator.create_lottery_embed(None, f"No winner selected, rolling over...\nAmount: ${lottery.amount:,.0f}")
+    if winner:
+        user = await storage_manager.get_user(winner)
+        user.wallet += lottery.amount
+        await storage_manager.save_object(obj=user, cache_key=f"{REDIS_PREFIX}user_id:{user.id}", table_name="users", unique_columns=["id"])
+        return embed_generator.create_lottery_embed(user, f"{user.name} has won the lottery!\nAmount: ${lottery.amount:,.0f}")
+    else:
+        duration = 24
+        start_time = datetime.now(timezone.utc)
+        delta = timedelta(hours=duration)
+        end_time = start_time + delta
+        lottery.start_time = start_time
+        lottery.end_time = end_time
+        await storage_manager.save_object(obj=lottery, cache_key=f"{REDIS_PREFIX}lottery_id:{lottery.id}", table_name="lottery", unique_columns=["id"]) 
+        return embed_generator.create_lottery_embed(None, f"No winner selected, rolling over...\nAmount: ${lottery.amount:,.0f}")
+
+async def lottery_monitor_task(interval_seconds: int):
+    """
+    Background task to periodically check for and process expired lotteries.
+
+    Args:
+        interval_seconds (int): How often to poll the database in seconds.
+    """
+    logger.info(f"Lottery monitor task started. Polling every {interval_seconds} seconds.")
+    while True:
+
+        # 1. Fetch expired battles from the database
+        expired_lottery_data = await storage_manager.get_expired_lottery()
+        if expired_lottery_data:
+            print(f"Found {expired_lottery_data.id} expired lottery to process.")
+            await storage_manager.delete_lottery_by_id(expired_lottery_data.id)
+            embed = await process_expired_lottery(expired_lottery_data)
+            channel: discord.VoiceChannel | discord.StageChannel | discord.ForumChannel | discord.TextChannel | discord.CategoryChannel | discord.Thread | PrivateChannel | None = await client.fetch_channel(LOTTERY_ID)
+            await channel.send(embed=embed)
+        else:
+            active_lottery = await storage_manager.get_active_lottery()
+            if not active_lottery:
+                duration = 24
+                start_time = datetime.now(timezone.utc)
+                delta = timedelta(hours=duration)
+                end_time = start_time + delta
+                new_lottery = Lottery(id=uuid.uuid4(), user_ids=[], start_time=start_time,end_time=end_time, amount=30000)
+                await storage_manager.save_object(obj=new_lottery, cache_key=f"{REDIS_PREFIX}lottery_id:{new_lottery.id}", table_name="lottery", unique_columns=["id"]) 
+
+        # 4. Wait for the next interval
+        await asyncio.sleep(interval_seconds)
+
 client = discord.Client(intents=intents)
 
 @client.event
 async def on_ready():
     print(f'We have logged in as {client.user}')
     battle_monitor = asyncio.create_task(battle_monitor_task(interval_seconds=10)) # Poll every 10 seconds
-    raid_monitor = asyncio.create_task(raid_monitor_task(interval_seconds=60)) # Poll every 10 seconds
+    raid_monitor = asyncio.create_task(raid_monitor_task(interval_seconds=60)) # Poll every 60 seconds
+    lottery_monitor = asyncio.create_task(lottery_monitor_task(interval_seconds=3600)) # Poll every hour
 @client.event
 async def on_message(message):
     start_time = time.time()
@@ -1095,7 +1168,7 @@ async def on_message(message):
         if pokemon and pokemon.is_shiny:
             flex_log = await storage_manager.get_flex_log(user.id, channel_id, pokemon.name)
             if not flex_log:
-                log = FlexLog(id= uuid.uuid4(), user_id=user.id, channel_id=channel_id, name=pokemon.name, status='active', timestamp=datetime.now(timezone.utc), expiration_date= datetime.now(timezone.utc) + timedelta(hours=1))
+                log = FlexLog(id= uuid.uuid4(), user_id=user.id, channel_id=channel_id, name=pokemon.name, status='active', timestamp=datetime.now(timezone.utc), expiration_date= datetime.now(timezone.utc) + timedelta(hours=4))
                 await storage_manager.save_object(obj=log, cache_key=f"{REDIS_PREFIX}flexlog_id:{log.id}", table_name='flex_log', unique_columns=['id'])
                 channel = await client.fetch_channel(FLEX_ID)
                 embed = embed_generator.create_flex_embed(user, pokemon)
@@ -1188,6 +1261,9 @@ async def on_message(message):
         embed = embed_generator.create_frame_embed(user)
         await message.channel.send(embed=embed)
 
+    if message.content.startswith('.lottery'):
+        embed = await enter_lottery(user)
+        await message.channel.send(embed=embed)        
 #######################item commands#######################
     if message.content.startswith('.shop'):
         embed = await get_shop(user)

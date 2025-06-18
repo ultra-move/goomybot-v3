@@ -6,6 +6,7 @@ from typing import Optional, Dict, Any, List, Union, Tuple
 from classes.battle import Battle
 from classes.flex_log import FlexLog
 from classes.item import Item
+from classes.lottery import Lottery
 from classes.pokemon import Pokemon
 from classes.pokemon_master import PokemonMaster
 from classes.redis_manager import RedisManager
@@ -369,6 +370,18 @@ class StorageManager:
             result.append(Battle.from_dict(battle))
         return result
     
+    async def get_expired_lottery(self):
+        result = self.db.fetch_one("SELECT * FROM lottery where end_time <= NOW()")
+        if result:
+            return Lottery.from_dict(result)
+        return None
+    
+    async def get_active_lottery(self):
+        result = self.db.fetch_one("SELECT * FROM lottery where end_time >= NOW()")
+        if result:
+            return Lottery.from_dict(result)
+        return None
+
     async def get_battle_by_local_channel(self, local_id, channel_id):
         battle = self.db.fetch_one(f"SELECT * FROM battles where status in ('active', 'joined') and local_id = '{local_id}' and channel_id = '{channel_id}'")
         if battle:
@@ -381,6 +394,10 @@ class StorageManager:
             return Battle.from_dict(battle)
         return None
     
+    async def delete_lottery_by_id(self, lottery_id):
+        self.db.delete('lottery', {'id': str(lottery_id)})
+        await self.redis.delete(f"{REDIS_PREFIX}lottery_id:{lottery_id}")
+
     async def delete_battle_by_id(self, battle_id):
         self.db.delete('battles', {'id': str(battle_id)})
         await self.redis.delete(f"{REDIS_PREFIX}battle_id:{battle_id}")
