@@ -81,6 +81,8 @@ def get_help():
 * `.evolve [name]`: Evolves buddy pokemon to name, buddy will evolve to a random choice if multiple are available
 * `.frame`: Views current frame
 * `.lottery`: Enters the lottery, or if already entered, displays information about the lottery
+* `.release duplicates`: Releases duplicate pokemon, keeps buddy, safe, shiny and tier 4 pokemon. Keeps the pokemon with the highest total iv
+* `.safe [local_id]`: Marks a pokemon as safe or not safe. Local id comes from .list command
 
 **__Battle Commands__**
 * `.spawn`: Initiates a new battle.
@@ -387,6 +389,26 @@ def parse_filter_command(message, default_filter, default_order):
 
     return parsed_filter, parsed_order, final_status
 
+async def release_duplicates(user):
+    release_count = await storage_manager.delete_duplicates(user.id, user.current_pokemon)
+    reward_amount = release_count * 100
+    user.wallet += reward_amount
+    await storage_manager.save_object(obj=user, cache_key=f"{REDIS_PREFIX}user_id:{user.id}", table_name="users", unique_columns=["id"])
+    return embed_generator.create_release_embed(user, f"Released {release_count} pokemon!\nEarned ${reward_amount:,.0f}")
+
+async def mark_safe(user, index):
+    try:
+        pokemon = await storage_manager.get_user_pokemon_by_id(user.view_table[str(index)]['id'])
+        if pokemon.safe:
+            pokemon.safe = False
+        else:
+            pokemon.safe = True
+        await storage_manager.save_object(obj=pokemon, cache_key=f"{REDIS_PREFIX}pokemon_data:{pokemon.id}", table_name="user_pokemon", unique_columns=["id"])
+        return embed_generator.create_safe_pokemon_view(user, pokemon)
+    except:
+        return embed_generator.create_safe_pokemon_failure_view(user, pokemon)
+    
+
 async def set_profile_image(user, url):
     host_string = r'https://play.pokemonshowdown.com/sprites/'
     if url.startswith(host_string):
@@ -590,10 +612,14 @@ async def admin_start_battle(pokedex_id, is_shiny, user, channel_id):
     else:
         level = 1
     pokemon_data = await storage_manager.get_pokemon_master_by_id(pokedex_id)
+    safe = False
     if is_shiny:
+        safe = True
         front_sprite = pokemon_data.front_shiny_sprite
     else:
         front_sprite = pokemon_data.front_default_sprite
+    if pokemon_data.tier == 4:
+        safe = True
     iv = {
         'hp': random.randrange(0,32),
         'attack': random.randrange(0,32),
@@ -610,7 +636,7 @@ async def admin_start_battle(pokedex_id, is_shiny, user, channel_id):
         'special_defense': 0,
         'speed': 0
     }
-    new_pokemon = Pokemon(id=uuid.uuid4(), user_id=user.id, original_user_id=user.id, pokedex_id=pokemon_data.id, name=pokemon_data.name, is_shiny=is_shiny, tier = pokemon_data.tier, types=pokemon_data.types_names, ability=random.choice(pokemon_data.abilities_names), level = level, growth_rate = pokemon_data.growth_rate_name, exp=0, next_exp=0, sprite_front=front_sprite, sprite_back=pokemon_data.back_default_sprite, region=pokemon_data.region, iv=iv, ev=ev, base_stats=pokemon_data.base_stats_json)
+    new_pokemon = Pokemon(id=uuid.uuid4(), user_id=user.id, original_user_id=user.id, pokedex_id=pokemon_data.id, name=pokemon_data.name, is_shiny=is_shiny, tier = pokemon_data.tier, types=pokemon_data.types_names, ability=random.choice(pokemon_data.abilities_names), level = level, growth_rate = pokemon_data.growth_rate_name, exp=0, next_exp=0, sprite_front=front_sprite, sprite_back=pokemon_data.back_default_sprite, region=pokemon_data.region, iv=iv, ev=ev, base_stats=pokemon_data.base_stats_json, safe=safe)
     #set embed_color
     color = embed_generator.get_color(new_pokemon)
     
@@ -641,6 +667,7 @@ async def start_battle(user, channel_id):
     gen = Generator(tier_seed=user.tier_seed, type_seed=user.type_seed, pokemon_seed=user.pokemon_seed, shiny_seed=user.shiny_seed, item_seed=user.item_seed) 
     outcome = gen.get_outcome_for_frame(user.frame)
     user.frame = user.frame + 1 
+    safe = False
     #logger.info(outcome)
     if user.current_pokemon:
         buddy = await storage_manager.get_user_pokemon_by_id(str(user.current_pokemon))
@@ -650,10 +677,15 @@ async def start_battle(user, channel_id):
         level = 1
     pokemon_data = await storage_manager.get_pokemon_master_by_id(outcome['pokemon_id'])
     if outcome['is_shiny']:
+        safe = True
         user.shiny_frame = -1
         front_sprite = pokemon_data.front_shiny_sprite
     else:
         front_sprite = pokemon_data.front_default_sprite
+
+    if pokemon_data.tier == 4:
+        safe = True
+
     iv = {
         'hp': random.randrange(0,32),
         'attack': random.randrange(0,32),
@@ -670,7 +702,7 @@ async def start_battle(user, channel_id):
         'special_defense': 0,
         'speed': 0
     }
-    new_pokemon = Pokemon(id=uuid.uuid4(), user_id=user.id, original_user_id=user.id, pokedex_id=pokemon_data.id, name=pokemon_data.name, is_shiny=outcome['is_shiny'], tier = pokemon_data.tier, types=pokemon_data.types_names, ability=random.choice(pokemon_data.abilities_names), level = level, growth_rate = pokemon_data.growth_rate_name, exp=0, next_exp=0, sprite_front=front_sprite, sprite_back=pokemon_data.back_default_sprite, region=pokemon_data.region, iv=iv, ev=ev, base_stats=pokemon_data.base_stats_json)
+    new_pokemon = Pokemon(id=uuid.uuid4(), user_id=user.id, original_user_id=user.id, pokedex_id=pokemon_data.id, name=pokemon_data.name, is_shiny=outcome['is_shiny'], tier = pokemon_data.tier, types=pokemon_data.types_names, ability=random.choice(pokemon_data.abilities_names), level = level, growth_rate = pokemon_data.growth_rate_name, exp=0, next_exp=0, sprite_front=front_sprite, sprite_back=pokemon_data.back_default_sprite, region=pokemon_data.region, iv=iv, ev=ev, base_stats=pokemon_data.base_stats_json, safe = safe)
     #set embed_color
     color = embed_generator.get_color(new_pokemon)
     
@@ -776,7 +808,7 @@ async def battle_monitor_task(interval_seconds: int):
             logger.info("Battle monitor task cancelled. Shutting down.")
             break # Exit the loop cleanly on cancellation
         except Exception as e:
-            logger.error(f"Unhandled error in battle_monitor_task: {e}")
+            logger.error(msg=f"Unhandled error in battle_monitor_task: {e}", exc_info=True)
             # Implement more robust error handling, perhaps back-off and retry
 
         # 4. Wait for the next interval
@@ -832,6 +864,7 @@ async def start_raid(user, channel_id):
         outcome = gen.get_outcome_for_raid_frame(user.raid_frame)
         user.raid_frame = user.raid_frame + 1 
         #logger.info(outcome)
+        safe = False
         if user.current_pokemon:
             buddy = await storage_manager.get_user_pokemon_by_id(str(user.current_pokemon))
             if buddy:
@@ -840,10 +873,14 @@ async def start_raid(user, channel_id):
             level = 1
         pokemon_data = await storage_manager.get_raid_pokemon_master_by_id(outcome['pokemon_id'])
         if outcome['is_shiny']:
+            safe = True
             user.shiny_frame = -1
             front_sprite = pokemon_data.front_shiny_sprite
         else:
             front_sprite = pokemon_data.front_default_sprite
+
+        if pokemon_data.tier == 4:
+            safe = False
         iv = {
             'hp': random.randrange(0,32),
             'attack': random.randrange(0,32),
@@ -860,7 +897,7 @@ async def start_raid(user, channel_id):
             'special_defense': 0,
             'speed': 0
         }
-        new_pokemon = Pokemon(id=uuid.uuid4(), user_id=user.id, original_user_id=user.id, pokedex_id=pokemon_data.id, name=pokemon_data.name, is_shiny=outcome['is_shiny'], tier = pokemon_data.tier, types=pokemon_data.types_names, ability=random.choice(pokemon_data.abilities_names), level = level, growth_rate = pokemon_data.growth_rate_name, exp=0, next_exp=0, sprite_front=front_sprite, sprite_back=pokemon_data.back_default_sprite, region=pokemon_data.region, iv=iv, ev=ev, base_stats=pokemon_data.base_stats_json)
+        new_pokemon = Pokemon(id=uuid.uuid4(), user_id=user.id, original_user_id=user.id, pokedex_id=pokemon_data.id, name=pokemon_data.name, is_shiny=outcome['is_shiny'], tier = pokemon_data.tier, types=pokemon_data.types_names, ability=random.choice(pokemon_data.abilities_names), level = level, growth_rate = pokemon_data.growth_rate_name, exp=0, next_exp=0, sprite_front=front_sprite, sprite_back=pokemon_data.back_default_sprite, region=pokemon_data.region, iv=iv, ev=ev, base_stats=pokemon_data.base_stats_json, safe=safe)
         #set embed_color
         color = embed_generator.get_color(new_pokemon)
         
@@ -1263,7 +1300,20 @@ async def on_message(message):
 
     if message.content.startswith('.lottery'):
         embed = await enter_lottery(user)
-        await message.channel.send(embed=embed)        
+        await message.channel.send(embed=embed) 
+
+    if message.content.startswith('.release duplicates'):
+        embed = await release_duplicates(user)
+        await message.channel.send(embed=embed)
+    
+    if message.content.startswith('.safe'):
+        num = message.content.split()
+        if len(num) > 1 and num[1]:
+            embed = await mark_safe(user, int(num[1]))
+        else:
+            embed = embed_generator.create_safe_pokemon_failure_view(user)
+        await message.channel.send(embed=embed)  
+
 #######################item commands#######################
     if message.content.startswith('.shop'):
         embed = await get_shop(user)

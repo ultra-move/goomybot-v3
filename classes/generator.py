@@ -35,12 +35,6 @@ class Generator:
 
 
     def get_outcome_for_frame(self, frame: int):
-        # The key to determinism per frame:
-        # Re-seed each RNG for *every frame* using a combination of its original, immutable seed
-        # and the current frame number. This ensures that the sequence of "random"
-        # numbers generated for a specific type of roll (e.g., tier) at a specific frame
-        # is always the same, regardless of previous calls to this method or different Python runs.
-
         # We combine the original integer seed with the frame number using a simple sum.
         # This is deterministic across all Python runs and for all frame numbers.
         tier_frame_seed = self.original_tier_int_seed + int(frame)

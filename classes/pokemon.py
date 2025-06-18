@@ -74,6 +74,7 @@ class Pokemon:
                  stats: Dict[str, int]= {},
                  ev: Dict[str, int] = {},
                  iv: Dict[str, int] = {},
+                 safe= False,
                  held_item_id: Optional[uuid.UUID] = None,
                  created_at: Optional[datetime.datetime] = None,
                  last_modified: Optional[datetime.datetime] = None):
@@ -117,6 +118,8 @@ class Pokemon:
         # Sprites
         self.sprite_front: str = sprite_front
         self.sprite_back: str = sprite_back
+
+        self.safe = safe
 
         # Timestamps
         self.created_at: datetime.datetime = created_at or datetime.datetime.now(datetime.timezone.utc)
@@ -172,6 +175,17 @@ class Pokemon:
                 processed_data['is_shiny'] = False
         else:
             processed_data['is_shiny'] = False # Default to False if missing or None
+
+        if 'safe' in processed_data and processed_data['safe'] is not None:
+            if isinstance(processed_data['safe'], str):
+                processed_data['safe'] = processed_data['safe'].lower() == 'true'
+            elif isinstance(processed_data['safe'], int):
+                processed_data['safe'] = bool(processed_data['safe'])
+            elif not isinstance(processed_data['safe'], bool):
+                logger.warning(f"Pokemon.from_dict: 'safe' has unexpected type {type(processed_data['safe'])}. Defaulting to False.")
+                processed_data['safe'] = False
+        else:
+            processed_data['safe'] = False # Default to False if missing or None
 
         # --- Integer Handling (pokedex_id, tier, level, exp, next_exp) ---
         int_keys = ['pokedex_id', 'tier', 'level', 'exp', 'next_exp']
@@ -381,6 +395,7 @@ class Pokemon:
             f"Nature: {self.nature}\n"
             f"Stats: {self.stats}\n"
             f"IVs: {self.iv}\n"
+            f"Safe: {self.safe}"
         )
     def to_readable_dict(self) -> Dict[str, Any]:
         """

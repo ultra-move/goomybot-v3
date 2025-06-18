@@ -525,3 +525,31 @@ class StorageManager:
             logger.error(f"StorageManager: DB error getting Master Raid Pokemon Data {pokemon_id}: {e}")
             return None # Return None or re-raise based on desired error handling
 
+    async def delete_duplicates(self, user_id, buddy_id):
+        sql_query = f"""
+DELETE FROM public.user_pokemon
+WHERE id IN (
+    SELECT
+        id
+    FROM
+        (
+            SELECT
+                id,
+                (SELECT SUM(CAST(value AS INTEGER)) FROM jsonb_each_text(up_inner.iv) AS iv_values) AS total_iv_sum,
+                COUNT(*) OVER (PARTITION BY pokedex_id, name) as duplicate_count,
+                RANK() OVER (PARTITION BY pokedex_id, name ORDER BY (SELECT SUM(CAST(value AS INTEGER)) FROM jsonb_each_text(up_inner.iv) AS iv_values) DESC) as iv_rank
+            FROM
+                public.user_pokemon up_inner
+        ) AS subquery
+    WHERE
+        duplicate_count > 1
+        AND iv_rank > 1
+        AND user_id = {int(user_id)}
+        AND NOT id = '{buddy_id}'
+        AND is_shiny = FALSE
+        AND NOT tier = 4
+        AND safe = FALSE
+);
+        """
+        rows = self.db.execute_delete_query(sql_query)
+        return rows

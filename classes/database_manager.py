@@ -264,3 +264,32 @@ class DatabaseManager:
             raise # Re-raise the exception after logging and rollback
         finally:
             self._release_connection(conn)
+
+     # --- New method for executing raw DELETE queries ---
+    def execute_delete_query(self, query: str, params: Optional[Dict[str, Any]] = None) -> int:
+        """
+        Executes a raw DELETE SQL query. Use with caution for complex deletions.
+
+        Args:
+            query (str): The full DELETE SQL query string.
+            params (Optional[Dict[str, Any]]): A dictionary of parameters for the query.
+                                               (e.g., {'user_id_param': 123, 'buddy_id_param': 'uuid-value'})
+
+        Returns:
+            int: The number of rows deleted.
+        """
+        conn = None
+        try:
+            conn = self._get_connection()
+            with conn.cursor() as cur:
+                if params:
+                    cur.execute(query, params)
+                else:
+                    cur.execute(query)
+                return cur.rowcount
+        except psycopg2.Error as e:
+            logger.error(f"DatabaseManager: Error executing custom DELETE query: {e} | Query: {query} | Params: {params}")
+            self._release_connection(conn, rollback=True)
+            raise # Re-raise the exception after logging and rollback
+        finally:
+            self._release_connection(conn)
