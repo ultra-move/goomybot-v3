@@ -1007,7 +1007,7 @@ async def enter_lottery(user):
         await storage_manager.save_object(obj=lottery, cache_key=f"{REDIS_PREFIX}lottery_id:{lottery.id}", table_name="lottery", unique_columns=["id"]) 
         return embed_generator.create_lottery_embed(user=user, content=f"Successfully entered lottery!\nCurrent Jackpot: ${lottery.amount:,.0f}\n")
     else:
-        return embed_generator.create_lottery_embed(user=user, content=f"Could not enter lottery due to insufficient funds\n\Cost:{lottery_entry_fee}\nCurrent Jackpot: ${lottery.amount:,.0f}\n")
+        return embed_generator.create_lottery_embed(user=user, content=f"Could not enter lottery due to insufficient funds\nCost:{lottery_entry_fee}\nCurrent Jackpot: ${lottery.amount:,.0f}\n")
 
 async def process_expired_lottery(lottery: Lottery):
     if lottery.user_ids:
