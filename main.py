@@ -123,6 +123,21 @@ def get_help_filter():
 
     return embed_generator.create_help_embed(info=help)
 
+def get_admin_help():
+    admin_help = """
+    ---
+## **__Admin Commands__**
+    * `.addframe <user_id> <amount>`: Adds a specified amount of frames to a user.
+    * `.removeframe <user_id> <amount>`: Removes a specified amount of frames from a user.
+    * `.flush`: Clears all entires in the cache.
+    * `.raidframe`: Shows shiny frame for raid (beta).
+    * `.resetodds`: Resets the odds for something (e.g., shiny encounters).
+    * `.adminspawn <pokedex_id> <is_shiny>`: Spawns a Pokémon. `is_shiny` can be `true` or `false`.
+    * `.addmoney <user_id> <amount>`: Adds a specified amount of money to a user.
+    * `.removemoney <user_id> <amount>`: Removes a specified amount of money from a user.
+"""
+    return embed_generator.create_help_embed(admin_help)
+
 async def register(user_id, name):
     user = User(id=user_id, discord_username=name, name=name)
     await storage_manager.save_object(obj=user, cache_key=f"{REDIS_PREFIX}user_id:{user.id}", table_name="users", unique_columns=["id"])
@@ -378,15 +393,17 @@ async def set_profile_image(user, url):
         return embed_generator.create_user_profile_image_failed_embed(user, host_string)
 
 #######################Admin methods##########################
-async def add_frame(user, frames):
+async def add_frame(user_id, frames):
+    user = await storage_manager.get_user(user_id=user_id)
     user.frame += frames
     await storage_manager.save_object(obj=user, cache_key=f"{REDIS_PREFIX}user_id:{user.id}", table_name="users", unique_columns=["id"])
-    return embed_generator.create_admin_embed(f"Added {frames} frames")
+    return embed_generator.create_admin_embed(f"Added {frames} frames for {user.name}")
 
-async def remove_frame(user, frames):
+async def remove_frame(user_id, frames):
+    user = await storage_manager.get_user(user_id=user_id)
     user.frame -= frames
     await storage_manager.save_object(obj=user, cache_key=f"{REDIS_PREFIX}user_id:{user.id}", table_name="users", unique_columns=["id"])
-    return embed_generator.create_admin_embed(f"Added {frames} frames")
+    return embed_generator.create_admin_embed(f"Added {frames} frames for {user.name}")
 
 async def flush_all():
     await redis_manager.flush_all()
@@ -992,6 +1009,9 @@ async def on_message(message):
     if message.content.startswith('.help filter'):
         embed = get_help_filter()
         await message.channel.send(embed=embed)
+    elif message.content.startswith('.help admin') and user.id == 701062435678846998:
+        embed = get_admin_help()
+        await message.channel.send(embed=embed)
     elif message.content.startswith('.help'):
         embed = get_help()
         await message.channel.send(embed=embed)
@@ -1023,13 +1043,17 @@ async def on_message(message):
 
 #######################Admin commands########################
     if message.content.startswith('.addframe') and user.id == 701062435678846998:
-        frames = message.content.split()[1]
-        embed = await add_frame(user, int(frames))
+        split = message.content.split()
+        user_id = split[1]
+        amount = split[2]
+        embed = await add_frame(user_id, int(amount))
         await message.channel.send(embed=embed)
 
     if message.content.startswith('.removeframe') and user.id == 701062435678846998:
-        frames = message.content.split()[1]
-        embed = await remove_frame(user, int(frames))
+        split = message.content.split()
+        user_id = split[1]
+        amount = split[2]
+        embed = await remove_frame(user_id, int(amount))
         await message.channel.send(embed=embed)
 
     if message.content.startswith('.flush') and user.id == 701062435678846998:
