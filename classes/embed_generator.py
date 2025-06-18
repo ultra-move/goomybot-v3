@@ -279,3 +279,12 @@ class EmbedGenerator():
         embed.set_author(name=f"Reported By: {user.name}")
         embed.set_thumbnail(url=r'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/shiny/704.png')
         return embed
+    
+    def create_lottery_embed(self, user, content):
+        embed=discord.Embed(description= content, color=default_color)
+        if user:
+            embed.set_author(name=f"{user.name}")
+        else:
+            embed.set_author(name=f"Goomybot")
+        embed.set_thumbnail(url=r'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/shiny/704.png')
+        return embed
