@@ -124,12 +124,13 @@ def get_help_items():
     help = """
 **__Item Commands__**
 * `.shop`: Displays available items in the shop
-* `.buy <item_name> <quantity>`: Buys the specified quantity of an item.
+* `.buy <item_name> <quantity>`: Buys the specified quantity of an item. If no quantity is provided it defaults to 1
 * `.items`: Shows a list of your owned items.
 * `.resetseed`: Uses a Reset Seed to reset your frame and shiny seed.
 * `.shinyframe`: Dispalys the frame that your next shiny is at
 * `.fshinyframe`: Displays the pokemon at the shiny frame. Must use a normal shinyframe first.
 * `.skipframe`: Uses a Skip Frame (100 frames or to shiny frame).
+* `.skipraidframe`: Uses a Skip Raid Frame (10 frames or to shiny frame).
 * `.rerolliv <iv_name>`: Rerolls selected buddy iv.
 """
     return embed_generator.create_help_embed(info=help)
@@ -507,7 +508,8 @@ async def get_shop(user):
         'resetseed': 5000,
         'rerolliv': 5000,
         'raidpass': 5000,
-        'skipframe': 10000
+        'skipframe': 10000,
+        'skipraidframe': 50000
     }
     return embed_generator.create_shop_view_table(user, items)
 
@@ -517,7 +519,8 @@ async def buy_item(user, item_name, quantity):
         'resetseed': 5000,
         'rerolliv': 5000,
         'raidpass': 5000,
-        'skipframe': 10000
+        'skipframe': 10000,
+        'skipraidframe': 50000
     }
     user_items = await storage_manager.get_user_items(user)
     final_item = {}
@@ -610,8 +613,29 @@ async def skip_frames(user):
         else:
             return embed_generator.create_skip_frames_embed(user)
     else:
-        return embed_generator.create_item_failure_embed(user, 'skipframe')    
-
+        return embed_generator.create_item_failure_embed(user, 'skipframe') 
+       
+async def skip_raid_frames(user):
+    item = await storage_manager.get_user_item_by_name(user, 'skipraidframe')
+    if item.quantity >= 1:
+        gen = Generator(tier_seed=user.tier_seed, type_seed=user.type_seed, pokemon_seed=user.pokemon_seed, shiny_seed=user.shiny_seed, item_seed=user.item_seed)
+        shiny_frame = gen.find_shiny_raid_frame(start_frame=user.frame+1, max_frames_to_check=10000)
+        if shiny_frame and user.raid_frame + 10 >= shiny_frame:
+            user.raid_frame = shiny_frame
+            skipped_to_shiny = True
+        else:
+            skipped_to_shiny = False
+            user.raid_frame += 10
+        item.quantity = item.quantity - 1
+        await storage_manager.save_object(obj=item, cache_key=f"{REDIS_PREFIX}item_id:{item.id}", table_name='user_items', unique_columns=['id'])
+        await storage_manager.save_object(obj=user, cache_key=f"{REDIS_PREFIX}user_id:{user.id}", table_name="users", unique_columns=["id"])
+        if skipped_to_shiny:
+            return embed_generator.create_skip_to_shiny_raid_embed(user)
+        else:
+            return embed_generator.create_skip_raid_frames_embed(user)
+    else:
+        return embed_generator.create_item_failure_embed(user, 'skipraidframe') 
+    
 async def reroll_iv(user, iv):
     if iv not in ['hp', 'attack', 'defense', 'special_attack', 'special_defense', 'speed']:
         return embed_generator.create_item_failure_embed(user, 'rerolliv') 
@@ -864,6 +888,10 @@ async def battle_monitor_task(interval_seconds: int):
         await asyncio.sleep(interval_seconds)
 
 async def join_battle(user, local_id, channel_id):
+    active_battle = await storage_manager.get_battle_by_user(user.id)
+    if active_battle:
+        logger.info('User in battle already')
+        return None, embed_generator.create_already_in_battle_embed(user_name=user.name)
     #get battle
     battle = await storage_manager.get_battle_by_local_channel(local_id=local_id, channel_id=channel_id)
     #add user to user_ids
@@ -882,12 +910,12 @@ async def join_battle(user, local_id, channel_id):
     await storage_manager.save_object(obj=battle, cache_key=f"{REDIS_PREFIX}battle_id:{battle.id}", table_name="battles", unique_columns=["id"])
     return embed_generator.create_join_battle_embed(user_name=user.name, new_duration=duration)
     
-async def run_battle(user, local_id, channel_id):
+async def run_battle(user):
     #get battle that user is in
-    battle = await storage_manager.get_battle_by_local_channel(local_id=local_id, channel_id=channel_id)
+    battle = await storage_manager.get_battle_by_user(user)
     if battle.status == 'joined':
         return embed_generator.create_run_from_battle_fail_embed(user.name)
-    #remove user_id from user_ids
+    #delete active battle
     if user.id in battle.user_ids:
         asyncio.create_task(storage_manager.delete_battle_by_id(battle.id))
         #reset user frame
@@ -900,13 +928,14 @@ async def run_battle(user, local_id, channel_id):
 #######################Raid methods#######################
 async def start_raid(user, channel_id):
     item = await storage_manager.get_user_item_by_name(user, 'raidpass')
+    active_raid = await storage_manager.get_raid_by_user(user.id)
+    if active_raid:
+        logger.info('User in raid already')
+        return None, embed_generator.create_already_in_raid_embed(user_name=user.name)
     if item and item.quantity >= 1:
         item.quantity = item.quantity - 1 
         await storage_manager.save_object(obj=item, cache_key=f"{REDIS_PREFIX}item_id:{item.id}", table_name='user_items', unique_columns=['id'])
-        active_raid = await storage_manager.get_raid_by_user(user.id)
-        if active_raid:
-            logger.info('User in raid already')
-            return None, embed_generator.create_already_in_raid_embed(user_name=user.name)
+
         
         logger.info(f"active_raid Started for: {user.id}")
         gen = Generator(tier_seed=user.tier_seed, type_seed=user.type_seed, pokemon_seed=user.pokemon_seed, shiny_seed=user.shiny_seed, item_seed=user.item_seed) 
@@ -1060,6 +1089,10 @@ async def raid_monitor_task(interval_seconds: int):
         await asyncio.sleep(interval_seconds)
 
 async def join_raid(user, local_id, channel_id):
+    active_battle = await storage_manager.get_raid_by_user(user.id)
+    if active_battle:
+        logger.info('User in raid already')
+        return None, embed_generator.create_already_in_raid_embed(user_name=user.name)
     #get battle
     battle = await storage_manager.get_raid_by_local_channel(local_id=local_id, channel_id=channel_id)
     #add user to user_ids
@@ -1286,7 +1319,7 @@ async def on_message(message):
 
     if message.content.startswith('.run'):
         local_id = message.content[-3:]
-        embed = await run_battle(user=user, local_id=local_id, channel_id=channel_id)
+        embed = await run_battle(user=user)
         await message.channel.send(embed=embed)
 
     if message.content.startswith('.join') and not message.content.startswith('.joinraid'):
@@ -1395,19 +1428,28 @@ async def on_message(message):
     if message.content.startswith('.buy'):
         name_quantity = message.content.split()
         try:
-            if len(name_quantity) == 3:
-                if name_quantity[1] == 'shinyframe':
-                    embed = await buy_item(user, 'shinyframe', int(name_quantity[2]))
-                if name_quantity[1] == 'resetseed':
-                    embed = await buy_item(user, 'resetseed', int(name_quantity[2]))
-                if name_quantity[1] == 'skipframe':
-                    embed = await buy_item(user, 'skipframe', int(name_quantity[2]))
-                if name_quantity[1] == 'rerolliv':
-                    embed = await buy_item(user, 'rerolliv', int(name_quantity[2]))
-                if name_quantity[1] == 'raidpass':
-                    embed = await buy_item(user, 'raidpass', int(name_quantity[2]))
+            name = name_quantity[1]
+            if (len(name_quantity) >= 3) and name_quantity[2]:
+                quantity = name_quantity[2]
             else:
-                embed = embed_generator.create_invalid_syntax_embed(user)
+                quantity = 1
+        except:
+            embed = embed = embed_generator.create_invalid_syntax_embed(user) 
+        try:
+                if name == 'shinyframe':
+                    embed = await buy_item(user, 'shinyframe', int(quantity))
+                elif name == 'resetseed':
+                    embed = await buy_item(user, 'resetseed', int(quantity))
+                elif name == 'skipframe':
+                    embed = await buy_item(user, 'skipframe', int(quantity))
+                elif name == 'rerolliv':
+                    embed = await buy_item(user, 'rerolliv', int(quantity))
+                elif name == 'raidpass':
+                    embed = await buy_item(user, 'raidpass', int(quantity))
+                elif name == 'skipraidframe':
+                    embed = await buy_item(user, 'skipraidframe', int(quantity))
+                else:
+                    embed = embed_generator.create_invalid_syntax_embed(user)
         except:
                 embed = embed_generator.create_invalid_syntax_embed(user)
         await message.channel.send(embed=embed)
@@ -1446,6 +1488,10 @@ async def on_message(message):
 
     if '.skipframe' in message.content:
         embed = await skip_frames(user)
+        await message.channel.send(embed=embed)
+    
+    if '.skipraidframe' in message.content:
+        embed = await skip_raid_frames(user)
         await message.channel.send(embed=embed)
 
     end_time = time.time()
