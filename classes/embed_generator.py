@@ -288,3 +288,24 @@ class EmbedGenerator():
             embed.set_author(name=f"Goomybot")
         embed.set_thumbnail(url=r'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/shiny/704.png')
         return embed
+    
+    def create_release_embed(self, user, content):
+        embed=discord.Embed(description= content, color=default_color)
+        if user:
+            embed.set_author(name=f"{user.name}")
+        else:
+            embed.set_author(name=f"Goomybot")
+        embed.set_thumbnail(url=r'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/shiny/704.png')
+        return embed
+    
+    def create_safe_pokemon_view(self, user, pokemon):
+        embed=discord.Embed(description=f"Marked Safe! {pokemon.__str__()}", color=self.get_color(pokemon=pokemon))
+        embed.set_author(name=user.name)
+        embed.set_thumbnail(url=pokemon.sprite_front)
+        return embed
+
+    def create_safe_pokemon_failure_view(self, user):
+        embed=discord.Embed(description=f"Could not mark safe! Please try again!", color=default_color)
+        embed.set_author(name=user.name)
+        embed.set_thumbnail(url=r'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/shiny/704.png')
+        return embed
