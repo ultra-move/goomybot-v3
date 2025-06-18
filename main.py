@@ -1441,7 +1441,7 @@ async def on_message(message):
         await message.channel.send(embed=embed)
     
     if ('.fraidframe' in message.content):
-        embed = await raid_shiny_frame(user)
+        embed = await full_raid_shiny_frame(user)
         await message.channel.send(embed=embed)
 
     if '.skipframe' in message.content:
