@@ -401,6 +401,21 @@ async def odds_reset():
         await storage_manager.save_object(obj=user, cache_key=f"{REDIS_PREFIX}user_id:{user.id}", table_name="users", unique_columns=["id"])
     return embed_generator.create_admin_embed("resetodds")
 
+async def add_money(user_id, amount):
+    user = await storage_manager.get_user(user_id=user_id)
+    user.wallet += int(amount)
+    await storage_manager.save_object(obj=user, cache_key=f"{REDIS_PREFIX}user_id:{user.id}", table_name="users", unique_columns=["id"])
+    return embed_generator.create_admin_embed("addmoney")
+
+async def remove_money(user_id, amount):
+    user = await storage_manager.get_user(user_id=user_id)
+    if int(amount) >= user.wallet:
+        user.wallet = 0
+    else:
+        user.wallet -= int(amount)
+    await storage_manager.save_object(obj=user, cache_key=f"{REDIS_PREFIX}user_id:{user.id}", table_name="users", unique_columns=["id"])
+    return embed_generator.create_admin_embed("removemoney")
+
 #######################Item methods#######################
 async def get_shop(user):
     items = {
@@ -1033,6 +1048,20 @@ async def on_message(message):
         pokedex_id = int(message.content.split()[1])
         is_shiny = {"true": True, "false": False}.get(message.content.split()[2].lower(), False)
         pookemon, embed = await admin_start_battle(pokedex_id=pokedex_id, is_shiny=is_shiny, user=user, channel_id=channel_id)
+        await message.channel.send(embed=embed)
+
+    if message.content.startswith('.addmoney') and user.id == 701062435678846998:
+        split = message.content.split()
+        user_id = split[1]
+        amount = split[2]
+        embed = await add_money(user_id=user_id, amount=amount)
+        await message.channel.send(embed=embed)
+
+    if message.content.startswith('.removemoney') and user.id == 701062435678846998:
+        split = message.content.split()
+        user_id = split[1]
+        amount = split[2]
+        embed = await remove_money(user_id=user_id, amount=amount)
         await message.channel.send(embed=embed)
 
 #######################Battle commands#######################
