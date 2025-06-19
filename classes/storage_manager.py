@@ -223,6 +223,7 @@ class StorageManager:
     async def filter_user_pokemon(self, user_id, filter_string, order_by_string):
         try:
             sql_query = "SELECT * from user_pokemon WHERE user_id = %(user_id)s " + filter_string + order_by_string
+            print(sql_query)
             pokemon_data = self.db.fetch_all(sql_query, {"user_id": user_id})
             result = []
             for pokemon, i in zip(pokemon_data, range(pokemon_data.length)):
@@ -354,7 +355,7 @@ class StorageManager:
 
         # Construct the final SQL query for fetching data
         sql_query = f"SELECT * FROM user_pokemon{where_clause}{order_string}{offset_string}{limit_string}"
-
+        print(sql_query)
         pokemon_data = await self.db.fetch_all(sql_query, params)
         
         result = []
@@ -529,27 +530,28 @@ class StorageManager:
         sql_query = f"""
 DELETE FROM public.user_pokemon
 WHERE id IN (
-    SELECT
-        id
-    FROM
-        (
-            SELECT
-                id,
-                (SELECT SUM(CAST(value AS INTEGER)) FROM jsonb_each_text(up_inner.iv) AS iv_values) AS total_iv_sum,
-                COUNT(*) OVER (PARTITION BY pokedex_id, name) as duplicate_count,
-                RANK() OVER (PARTITION BY pokedex_id, name ORDER BY (SELECT SUM(CAST(value AS INTEGER)) FROM jsonb_each_text(up_inner.iv) AS iv_values) DESC) as iv_rank
-            FROM
-                public.user_pokemon up_inner
-        ) AS subquery
+    SELECT id
+    FROM (
+        SELECT
+            id,
+            user_id,
+            (SELECT SUM(CAST(value AS INTEGER)) FROM jsonb_each_text(up_inner.iv)) AS total_iv_sum,
+            COUNT(*) OVER (PARTITION BY user_id, pokedex_id, name) AS duplicate_count,
+            RANK() OVER (PARTITION BY user_id, pokedex_id, name ORDER BY (SELECT SUM(CAST(value AS INTEGER)) FROM jsonb_each_text(up_inner.iv)) DESC) AS iv_rank
+        FROM
+            public.user_pokemon up_inner
+    ) AS subquery
     WHERE
         duplicate_count > 1
         AND iv_rank > 1
         AND user_id = {int(user_id)}
-        AND NOT id = '{buddy_id}'
+        AND id <> '{buddy_id}'
         AND is_shiny = FALSE
-        AND NOT tier = 4
+        AND tier <> 4
         AND safe = FALSE
 );
         """
+        print(sql_query)
         rows = self.db.execute_delete_query(sql_query)
+        print(f"Rows affected: {rows}")
         return rows
