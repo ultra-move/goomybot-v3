@@ -1126,7 +1126,7 @@ async def join_raid(user, local_id, channel_id):
 async def enter_lottery(user):
     lottery_entry_fee = 10000
     lottery = await storage_manager.get_active_lottery()
-    if user.id in lottery.user_ids:
+    if lottery and user.id in lottery.user_ids:
         print('user in lottery')
         return embed_generator.create_lottery_embed(user=user, content=f"Current Jackpot: ${lottery.amount:,.0f}\nEnd time: {lottery.end_time.strftime('%Y-%m-%d %H:%M')} (UTC)\n")
     elif user.wallet >= lottery_entry_fee:
