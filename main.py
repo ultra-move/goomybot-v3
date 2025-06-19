@@ -444,7 +444,7 @@ def parse_filter_command(message, default_filter, default_order):
 
 async def release_duplicates(user):
     release_count = await storage_manager.delete_duplicates(user.id, user.current_pokemon)
-    reward_amount = release_count * 100
+    reward_amount = release_count * 200
     user.wallet += reward_amount
     await storage_manager.save_object(obj=user, cache_key=f"{REDIS_PREFIX}user_id:{user.id}", table_name="users", unique_columns=["id"])
     return embed_generator.create_release_embed(user, f"Released {release_count} pokemon!\nEarned ${reward_amount:,.0f}")
