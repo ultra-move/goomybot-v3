@@ -131,7 +131,7 @@ def get_help_items():
 * `.shinyframe`: Dispalys the frame that your next shiny is at
 * `.fshinyframe`: Displays the pokemon at the shiny frame. Must use a normal shinyframe first.
 * `.skipframe`: Uses a Skip Frame (100 frames or to shiny frame).
-* `.skipraidframe`: Uses a Skip Raid Frame (10 frames or to shiny frame).
+* `.skipraidframe`: Uses a Skip Raid Frame (15 frames or to shiny frame).
 * `.rerolliv <iv_name>`: Rerolls selected buddy iv.
 """
     return embed_generator.create_help_embed(info=help)
@@ -623,12 +623,12 @@ async def skip_raid_frames(user):
     if item.quantity >= 1:
         gen = Generator(tier_seed=user.tier_seed, type_seed=user.type_seed, pokemon_seed=user.pokemon_seed, shiny_seed=user.shiny_seed, item_seed=user.item_seed)
         shiny_frame = gen.find_shiny_raid_frame(start_frame=user.frame+1, max_frames_to_check=10000)
-        if shiny_frame and user.raid_frame + 10 >= shiny_frame:
+        if shiny_frame and user.raid_frame + 15 >= shiny_frame:
             user.raid_frame = shiny_frame
             skipped_to_shiny = True
         else:
             skipped_to_shiny = False
-            user.raid_frame += 10
+            user.raid_frame += 15
         item.quantity = item.quantity - 1
         await storage_manager.save_object(obj=item, cache_key=f"{REDIS_PREFIX}item_id:{item.id}", table_name='user_items', unique_columns=['id'])
         await storage_manager.save_object(obj=user, cache_key=f"{REDIS_PREFIX}user_id:{user.id}", table_name="users", unique_columns=["id"])
