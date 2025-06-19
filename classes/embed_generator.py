@@ -23,8 +23,8 @@ class EmbedGenerator():
     def create_raid_finish_embed(self, pokemon_name, url, color, rewards):
         embed=discord.Embed(title=f"Caught {pokemon_name.capitalize()}!", color=color)
         embed.set_author(name="goomybot")
-        for key, value in rewards.items():
-            embed.add_field(name=key, value=value)
+        embed.add_field(name="base xp", value=rewards['exp'], inline=True)
+        embed.add_field(name="money", value=rewards['money'], inline=True)
         embed.set_image(url=url)
         return embed
 
@@ -77,8 +77,8 @@ class EmbedGenerator():
     def create_battle_finish_embed(self, pokemon_name, url, color, rewards):
         embed=discord.Embed(title=f"Caught {pokemon_name.capitalize()}!", color=color)
         embed.set_author(name="goomybot")
-        for key, value in rewards.items():
-            embed.add_field(name=key, value=value)
+        embed.add_field(name="base xp", value=rewards['exp'], inline=True)
+        embed.add_field(name="money", value=rewards['money'], inline=True)
         embed.set_image(url=url)
         return embed
 
@@ -255,6 +255,19 @@ class EmbedGenerator():
         embed.set_author(name=user.name)
         if user.profile_image and user.profile_image != 'None':
             embed.set_thumbnail(url=user.profile_image)
+        return embed
+    
+    def create_change_buddy_failed_embed(self, user):
+        embed=discord.Embed(description=f"Cannot change buddy while in a battle/raid!", color=default_color)
+        embed.set_author(name=user.name)
+        if user.profile_image and user.profile_image != 'None':
+            embed.set_thumbnail(url=user.profile_image)
+        return embed
+    
+    def create_level_up_embed(self, user, buddy, levels, reward):
+        embed=discord.Embed(description=f"{buddy.name.capitalize()} gained {levels} level(s)\nEarned: ${reward:,.0f}", color=self.get_color(buddy))
+        embed.set_author(name=user.name)
+        embed.set_thumbnail(url=buddy.sprite_front)
         return embed
     
     def create_items_view_table(self, user, items):

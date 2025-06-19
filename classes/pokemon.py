@@ -391,6 +391,7 @@ class Pokemon:
             f"Tier: {self.tier}\n"
             f"Types: {', '.join(self.types)}\n"
             f"Level: {self.level}\n"
+            f"Exp Needed: {int(self.next_exp - self.exp)}\n"
             f"Region: {self.region if self.region else 'N/A'}\n"
             f"Nature: {self.nature}\n"
             f"Stats: {self.stats}\n"
@@ -448,10 +449,13 @@ class Pokemon:
         return int(math.floor(exp))
     
     def level_up(self):
+        num_levels = 0
         while self.exp >= self.next_exp:
-            if(self.level < 100):
+            if(self.level <= 100):
+                num_levels += 1
                 self.level = self.level + 1
                 self.next_exp = self.calculate_exp(self.level + 1)
                 self.stats = self.calculate_stats()
             else:
-                return
+                return num_levels
+        return num_levels
