@@ -3,6 +3,7 @@ import asyncio.log
 from datetime import datetime, timezone, timedelta # <-- Add timezone here
 import logging # Correct import for logging
 # from asyncio.log import logger # This is generally not how you get a logger. Use logging.getLogger()
+import math
 import random
 import time
 from typing import Any, Dict, List, Optional, Tuple
@@ -821,6 +822,8 @@ async def process_expired_battle(battle: List[Battle]):
                 if buddy:
                     if buddy.level < 100:
                         buddy.exp = int(int(buddy.exp) + int((battle.rewards['exp'] * buddy.level)/4))
+                    elif buddy.level == 100:
+                        reward = math.floor(reward * 1.5)
                     num_levels = buddy.level_up()
                     if num_levels > 0:
                         reward = reward + (num_levels * 200)
@@ -828,7 +831,7 @@ async def process_expired_battle(battle: List[Battle]):
                         embed = embed_generator.create_level_up_embed(user = user, levels=num_levels, buddy= buddy, reward=(num_levels * 200))
                         await channel.send(embed=embed)
                     await storage_manager.save_object(obj=buddy, cache_key=f"{REDIS_PREFIX}pokemon_data:{buddy.id}", table_name="user_pokemon", unique_columns=["id"])
-            user.wallet = int(user.wallet) + reward
+            user.wallet = int(user.wallet) + int(reward)
             await storage_manager.save_object(obj=user, cache_key=f"{REDIS_PREFIX}user_id:{user.id}", table_name="users", unique_columns=["id"])
             
             await storage_manager.save_object(obj=pokemon, cache_key=f"{REDIS_PREFIX}pokemon_data:{pokemon.id}", table_name='user_pokemon', unique_columns=['id'])
@@ -1030,6 +1033,8 @@ async def process_expired_raid(battle: List[Battle]):
                 if buddy:
                     if buddy.level < 100:
                         buddy.exp = int(int(buddy.exp) + int((5 * battle.rewards['exp'] * buddy.level)/4))
+                    elif buddy.level == 100:
+                        reward = math.floor(reward * 1.5)
                     num_levels = buddy.level_up()
                     if num_levels > 0:
                         reward = reward + (num_levels * 200)
@@ -1037,7 +1042,7 @@ async def process_expired_raid(battle: List[Battle]):
                         embed = embed_generator.create_level_up_embed(user = user, levels=num_levels, buddy= buddy, reward=(num_levels * 200))
                         await channel.send(embed=embed)
                     await storage_manager.save_object(obj=buddy, cache_key=f"{REDIS_PREFIX}pokemon_data:{buddy.id}", table_name="user_pokemon", unique_columns=["id"])
-            user.wallet = int(user.wallet) + reward
+            user.wallet = int(user.wallet) + int(reward)
             await storage_manager.save_object(obj=user, cache_key=f"{REDIS_PREFIX}user_id:{user.id}", table_name="users", unique_columns=["id"])
 
             await storage_manager.save_object(obj=pokemon, cache_key=f"{REDIS_PREFIX}pokemon_data:{pokemon.id}", table_name='user_pokemon', unique_columns=['id'])
@@ -1197,9 +1202,22 @@ client = discord.Client(intents=intents)
 @client.event
 async def on_ready():
     print(f'We have logged in as {client.user}')
-    battle_monitor = asyncio.create_task(battle_monitor_task(interval_seconds=10)) # Poll every 10 seconds
-    raid_monitor = asyncio.create_task(raid_monitor_task(interval_seconds=60)) # Poll every 60 seconds
-    lottery_monitor = asyncio.create_task(lottery_monitor_task(interval_seconds=3600)) # Poll every hour
+
+    # Check if a flag exists on the client indicating tasks have been started
+    # or if the flag is False. Initialize it if it doesn't exist.
+    if not hasattr(client, '_monitor_tasks_started') or not client._monitor_tasks_started:
+        print("Starting background monitor tasks...")
+        
+        # Store the task objects as attributes on the client for potential cancellation/management later
+        client.battle_monitor_task_instance = asyncio.create_task(battle_monitor_task(interval_seconds=10))
+        client.raid_monitor_task_instance = asyncio.create_task(raid_monitor_task(interval_seconds=60))
+        client.lottery_monitor_task_instance = asyncio.create_task(lottery_monitor_task(interval_seconds=3600))
+        
+        # Set the flag to True so tasks aren't started again
+        client._monitor_tasks_started = True
+    else:
+        print("Background monitor tasks already running, skipping re-initialization.")
+
 @client.event
 async def on_message(message):
     start_time = time.time()
