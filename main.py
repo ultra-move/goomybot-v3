@@ -99,6 +99,8 @@ def get_help_user():
 * `.lottery`: Enters the lottery, or if already entered, displays information about the lottery
 * `.release duplicates`: Releases duplicate pokemon, keeps buddy, safe, shiny and tier 4 pokemon. Keeps the pokemon with the highest total iv
 * `.safe [local_id]`: Marks a pokemon as safe or not safe. Local id comes from .list command
+* `.pokedex <page_number>`: Shows all un-owned pokemon
+* `.raidpokedex <page_number>`: Shows all un-owned raid pokemon 
 """
     return embed_generator.create_help_embed(info=help)
 
@@ -191,6 +193,23 @@ async def list_pokemon(user, page, page_size):
    logger.debug(user.view_table)
    await storage_manager.save_object(obj=user, cache_key=f"{REDIS_PREFIX}user_id:{user.id}", table_name="users", unique_columns=["id"])
    return embed_generator.create_user_view_table(user, page+1, total_pages) 
+
+async def list_missing_pokemon(user, page, page_size):
+   records, total_pages = await storage_manager.get_missing_pokedex(user=user, page=page, pagesize=page_size)
+   #build the users view table for easy access later
+   pokemon_table = {}
+   for p,i in zip(records, range(page_size)):
+      pokemon_table[i+1] = {'id': str(p['id']), 'name': p['name']}
+   return embed_generator.create_missing_view_table(user, pokemon_table, page+1, total_pages) 
+
+async def list_missing_raid_pokemon(user, page, page_size):
+   records, total_pages = await storage_manager.get_missing_raid_pokedex(user=user, page=page, pagesize=page_size)
+   #build the users view table for easy access later
+   pokemon_table = {}
+   for p,i in zip(records, range(page_size)):
+      pokemon_table[i+1] = {'id': str(p['id']), 'name': p['name']}
+   return embed_generator.create_missing_view_table(user, pokemon_table, page+1, total_pages) 
+
 
 async def view_pokemon(user, local_id):
     pokemon = await storage_manager.get_user_pokemon_by_id(user.view_table[str(local_id)]['id'])
@@ -429,6 +448,12 @@ async def release_duplicates(user):
     user.wallet += reward_amount
     await storage_manager.save_object(obj=user, cache_key=f"{REDIS_PREFIX}user_id:{user.id}", table_name="users", unique_columns=["id"])
     return embed_generator.create_release_embed(user, f"Released {release_count} pokemon!\nEarned ${reward_amount:,.0f}")
+
+async def pokedex(user):
+    # get all user pokedex_id <= 1025
+    True
+async def raid_pokedex(user):
+    True
 
 async def mark_safe(user, index):
     try:
@@ -1354,7 +1379,7 @@ async def on_message(message):
         await message.channel.send(embed=embed)
 
 #######################Raid commands#######################
-    if message.content.startswith('.raid') and not message.content.startswith('.raidframe'):
+    if message.content.startswith('.raid') and not message.content.startswith('.raidframe') and not message.content.startswith('.raidpokedex'):
         try:
             pokemon, embed = await start_raid(user=user, channel_id=channel_id)
             await message.channel.send(embed=embed)
@@ -1398,6 +1423,41 @@ async def on_message(message):
             embed = await list_pokemon(user=user, page=0, page_size=10)
 
         await message.channel.send(embed=embed)
+
+
+
+    if message.content.startswith('.pokedex'):
+        page = message.content.split()
+        try:
+            if len(page) > 1:
+                if int(page[1]) > 0: # Ensure user doesn't ask for page 0 or negative
+                    requested_page = int(page[1]) - 1
+                    embed: discord.Embed = await list_missing_pokemon(user=user, page=requested_page, page_size=10)
+                else:
+                    embed = await list_missing_pokemon(user=user, page=0, page_size=10)
+            else:
+                embed = await list_missing_pokemon(user=user, page=0, page_size=10)
+        except:
+            embed = await list_missing_pokemon(user=user, page=0, page_size=10)
+
+        await message.channel.send(embed=embed)
+
+    if message.content.startswith('.raidpokedex'):
+        page = message.content.split()
+        try:
+            if len(page) > 1:
+                if int(page[1]) > 0: # Ensure user doesn't ask for page 0 or negative
+                    requested_page = int(page[1]) - 1
+                    embed: discord.Embed = await list_missing_raid_pokemon(user=user, page=requested_page, page_size=10)
+                else:
+                    embed = await list_missing_raid_pokemon(user=user, page=0, page_size=10)
+            else:
+                embed = await list_missing_raid_pokemon(user=user, page=0, page_size=10)
+        except:
+            embed = await list_missing_raid_pokemon(user=user, page=0, page_size=10)
+
+        await message.channel.send(embed=embed)
+
     if message.content.startswith('.view'):
         local_id = message.content.split()
         if len(local_id) > 1:
