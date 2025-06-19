@@ -453,3 +453,5 @@ class Pokemon:
                 self.level = self.level + 1
                 self.next_exp = self.calculate_exp(self.level + 1)
                 self.stats = self.calculate_stats()
+            else:
+                return
