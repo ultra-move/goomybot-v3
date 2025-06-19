@@ -131,7 +131,7 @@ def get_help_items():
 * `.shinyframe`: Dispalys the frame that your next shiny is at
 * `.fshinyframe`: Displays the pokemon at the shiny frame. Must use a normal shinyframe first.
 * `.skipframe`: Uses a Skip Frame (100 frames or to shiny frame).
-* `.skipraidframe`: Uses a Skip Raid Frame (10 frames or to shiny frame).
+* `.skipraidframe`: Uses a Skip Raid Frame (15 frames or to shiny frame).
 * `.rerolliv <iv_name>`: Rerolls selected buddy iv.
 """
     return embed_generator.create_help_embed(info=help)
@@ -569,7 +569,6 @@ async def shiny_frame(user):
 
 async def full_shiny_frame(user):
     if user.shiny_frame != -1:
-       print('Shiny frame not -1')
        gen = Generator(tier_seed=user.tier_seed, type_seed=user.type_seed, pokemon_seed=user.pokemon_seed, shiny_seed=user.shiny_seed, item_seed=user.item_seed)
        outcome = gen.get_outcome_for_frame(user.shiny_frame)
        pokemon = await storage_manager.get_pokemon_master_by_id(outcome['pokemon_id'])
@@ -578,7 +577,6 @@ async def full_shiny_frame(user):
         return embed_generator.create_item_failure_embed(user, 'fshinyframe, please use shinyframe first')
 
 async def full_raid_shiny_frame(user):
-    print('Shiny frame not -1')
     gen = Generator(tier_seed=user.tier_seed, type_seed=user.type_seed, pokemon_seed=user.pokemon_seed, shiny_seed=user.shiny_seed, item_seed=user.item_seed)
     shiny_frame = gen.find_shiny_raid_frame(user.raid_frame, 10000)
     outcome = gen.get_outcome_for_raid_frame(shiny_frame)
@@ -625,12 +623,12 @@ async def skip_raid_frames(user):
     if item.quantity >= 1:
         gen = Generator(tier_seed=user.tier_seed, type_seed=user.type_seed, pokemon_seed=user.pokemon_seed, shiny_seed=user.shiny_seed, item_seed=user.item_seed)
         shiny_frame = gen.find_shiny_raid_frame(start_frame=user.frame+1, max_frames_to_check=10000)
-        if shiny_frame and user.raid_frame + 10 >= shiny_frame:
+        if shiny_frame and user.raid_frame + 15 >= shiny_frame:
             user.raid_frame = shiny_frame
             skipped_to_shiny = True
         else:
             skipped_to_shiny = False
-            user.raid_frame += 10
+            user.raid_frame += 15
         item.quantity = item.quantity - 1
         await storage_manager.save_object(obj=item, cache_key=f"{REDIS_PREFIX}item_id:{item.id}", table_name='user_items', unique_columns=['id'])
         await storage_manager.save_object(obj=user, cache_key=f"{REDIS_PREFIX}user_id:{user.id}", table_name="users", unique_columns=["id"])
@@ -952,12 +950,6 @@ async def start_raid(user, channel_id):
         user.raid_frame = user.raid_frame + 1 
         #logger.info(outcome)
         safe = False
-        if user.current_pokemon:
-            buddy = await storage_manager.get_user_pokemon_by_id(str(user.current_pokemon))
-            if buddy:
-                level = buddy.level
-        else:
-            level = 1
         pokemon_data = await storage_manager.get_raid_pokemon_master_by_id(outcome['pokemon_id'])
         if outcome['is_shiny']:
             safe = True
@@ -984,7 +976,7 @@ async def start_raid(user, channel_id):
             'special_defense': 0,
             'speed': 0
         }
-        new_pokemon = Pokemon(id=uuid.uuid4(), user_id=user.id, original_user_id=user.id, pokedex_id=pokemon_data.id, name=pokemon_data.name, is_shiny=outcome['is_shiny'], tier = pokemon_data.tier, types=pokemon_data.types_names, ability=random.choice(pokemon_data.abilities_names), level = level, growth_rate = pokemon_data.growth_rate_name, exp=0, next_exp=0, sprite_front=front_sprite, sprite_back=pokemon_data.back_default_sprite, region=pokemon_data.region, iv=iv, ev=ev, base_stats=pokemon_data.base_stats_json, safe=safe)
+        new_pokemon = Pokemon(id=uuid.uuid4(), user_id=user.id, original_user_id=user.id, pokedex_id=pokemon_data.id, name=pokemon_data.name, is_shiny=outcome['is_shiny'], tier = pokemon_data.tier, types=pokemon_data.types_names, ability=random.choice(pokemon_data.abilities_names), level = 1, growth_rate = pokemon_data.growth_rate_name, exp=0, next_exp=0, sprite_front=front_sprite, sprite_back=pokemon_data.back_default_sprite, region=pokemon_data.region, iv=iv, ev=ev, base_stats=pokemon_data.base_stats_json, safe=safe)
         #set embed_color
         color = embed_generator.get_color(new_pokemon)
         
@@ -1135,16 +1127,18 @@ async def enter_lottery(user):
     lottery_entry_fee = 10000
     lottery = await storage_manager.get_active_lottery()
     if user.id in lottery.user_ids:
-        return embed_generator.create_lottery_embed(user=user, content=f"Current Jackpot: ${lottery.amount:,.0f}\n")
-    if user.wallet >= lottery_entry_fee:
+        print('user in lottery')
+        return embed_generator.create_lottery_embed(user=user, content=f"Current Jackpot: ${lottery.amount:,.0f}\nEnd time: {lottery.end_time.strftime('%Y-%m-%d %H:%M')} (UTC)\n")
+    elif user.wallet >= lottery_entry_fee:
+        print('entering user in lottery')
         user.wallet -= lottery_entry_fee
         lottery.user_ids.append(user.id)
         lottery.amount += lottery_entry_fee
         await storage_manager.save_object(obj=user, cache_key=f"{REDIS_PREFIX}user_id:{user.id}", table_name="users", unique_columns=["id"]) 
         await storage_manager.save_object(obj=lottery, cache_key=f"{REDIS_PREFIX}lottery_id:{lottery.id}", table_name="lottery", unique_columns=["id"]) 
-        return embed_generator.create_lottery_embed(user=user, content=f"Successfully entered lottery!\nCurrent Jackpot: ${lottery.amount:,.0f}\n")
+        return embed_generator.create_lottery_embed(user=user, content=f"Successfully entered lottery!\nCurrent Jackpot: ${lottery.amount:,.0f}\nEnd time: {lottery.end_time.strftime('%Y-%m-%d %H:%M')} (UTC)\n")
     else:
-        return embed_generator.create_lottery_embed(user=user, content=f"Could not enter lottery due to insufficient funds\nCost:${lottery_entry_fee:,.0f}\nCurrent Jackpot: ${lottery.amount:,.0f}\n")
+        return embed_generator.create_lottery_embed(user=user, content=f"Could not enter lottery due to insufficient funds\nCost:${lottery_entry_fee:,.0f}\nCurrent Jackpot: ${lottery.amount:,.0f}\nEnd time: {lottery.end_time.strftime('%Y-%m-%d %H:%M')} (UTC)\n")
 
 async def process_expired_lottery(lottery: Lottery):
     if lottery.user_ids:
@@ -1184,15 +1178,16 @@ async def lottery_monitor_task(interval_seconds: int):
             embed = await process_expired_lottery(expired_lottery_data)
             channel: discord.VoiceChannel | discord.StageChannel | discord.ForumChannel | discord.TextChannel | discord.CategoryChannel | discord.Thread | PrivateChannel | None = await client.fetch_channel(LOTTERY_ID)
             await channel.send(embed=embed)
-        else:
-            active_lottery = await storage_manager.get_active_lottery()
-            if not active_lottery:
-                duration = 24
-                start_time = datetime.now(timezone.utc)
-                delta = timedelta(hours=duration)
-                end_time = start_time + delta
-                new_lottery = Lottery(id=uuid.uuid4(), user_ids=[], start_time=start_time,end_time=end_time, amount=30000)
-                await storage_manager.save_object(obj=new_lottery, cache_key=f"{REDIS_PREFIX}lottery_id:{new_lottery.id}", table_name="lottery", unique_columns=["id"]) 
+        
+        active_lottery = await storage_manager.get_active_lottery()
+        if not active_lottery:
+            print('no active lottery, creating one')
+            duration = 24
+            start_time = datetime.now(timezone.utc)
+            delta = timedelta(hours=duration)
+            end_time = start_time + delta
+            new_lottery = Lottery(id=uuid.uuid4(), user_ids=[], start_time=start_time,end_time=end_time, amount=30000)
+            await storage_manager.save_object(obj=new_lottery, cache_key=f"{REDIS_PREFIX}lottery_id:{new_lottery.id}", table_name="lottery", unique_columns=["id"]) 
 
         # 4. Wait for the next interval
         await asyncio.sleep(interval_seconds)

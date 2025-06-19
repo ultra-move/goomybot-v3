@@ -251,7 +251,7 @@ class EmbedGenerator():
         return embed
     
     def create_skip_to_shiny_embed(self, user):
-        embed=discord.Embed(description=f"Skipped to shiny raid frame!\nCurrent Frame: {user.frame}", color=default_color)
+        embed=discord.Embed(description=f"Skipped to shiny frame!\nCurrent Frame: {user.frame}", color=default_color)
         embed.set_author(name=user.name)
         if user.profile_image and user.profile_image != 'None':
             embed.set_thumbnail(url=user.profile_image)
