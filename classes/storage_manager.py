@@ -235,7 +235,79 @@ class StorageManager:
         except psycopg2.Error as e:
             logger.error(f"StorageManager: DB error getting Pokemon Data for {user_id}: {e}")
             return None # Return None or re-raise based on desired error handling
-    
+
+    async def get_missing_pokedex(self, user, page, pagesize):
+        # Ensure page and pagesize are positive integers
+        page = max(1, int(page))
+        pagesize = max(1, int(pagesize))
+
+        offset = (page - 1) * pagesize
+
+        sql_query = f"""
+        SELECT pm.*
+        FROM pokemon_master AS pm
+        LEFT JOIN user_pokemon AS up
+            ON pm.id = up.pokedex_id
+            AND up.user_id = {user.id}
+        WHERE up.pokedex_id IS NULL
+        ORDER BY pm.id ASC -- It's crucial to have an ORDER BY clause for consistent pagination
+        LIMIT {pagesize} OFFSET {offset};
+        """
+
+        # You might also want to get the total count for pagination UI (e.g., "Page 1 of X")
+        count_query = f"""
+        SELECT COUNT(pm.id)
+        FROM pokemon_master AS pm
+        LEFT JOIN user_pokemon AS up
+            ON pm.id = up.pokedex_id
+            AND up.user_id = {user.id}
+        WHERE up.pokedex_id IS NULL;
+        """
+
+        # Execute the count query first
+        total_count_result = self.db.fetch_one(count_query)['count']
+        total_pages = math.ceil(total_count_result / pagesize) if pagesize > 0 else 0
+
+        # Execute the main query
+        records = await self.db.fetch_all(sql_query)
+        return records, total_pages 
+
+    async def get_missing_raid_pokedex(self, user, page, pagesize):
+        # Ensure page and pagesize are positive integers
+        page = max(1, int(page))
+        pagesize = max(1, int(pagesize))
+
+        offset = (page - 1) * pagesize
+
+        sql_query = f"""
+        SELECT pm.*
+        FROM raid_pokemon_master AS pm
+        LEFT JOIN user_pokemon AS up
+            ON pm.id = up.pokedex_id
+            AND up.user_id = {user.id}
+        WHERE up.pokedex_id IS NULL
+        ORDER BY pm.id ASC -- It's crucial to have an ORDER BY clause for consistent pagination
+        LIMIT {pagesize} OFFSET {offset};
+        """
+
+        # You might also want to get the total count for pagination UI (e.g., "Page 1 of X")
+        count_query = f"""
+        SELECT COUNT(pm.id)
+        FROM raid_pokemon_master AS pm
+        LEFT JOIN user_pokemon AS up
+            ON pm.id = up.pokedex_id
+            AND up.user_id = {user.id}
+        WHERE up.pokedex_id IS NULL;
+        """
+
+        # Execute the count query first
+        total_count_result = self.db.fetch_one(count_query)['count']
+        total_pages = math.ceil(total_count_result / pagesize) if pagesize > 0 else 0
+
+        # Execute the main query
+        records = await self.db.fetch_all(sql_query)
+        return records, total_pages 
+
     async def list_pokemon(self, user, page=0, page_size=10):
         # Default filter and order, potentially overridden by user.filter and user.order_by
         default_filter = {

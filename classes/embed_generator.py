@@ -108,7 +108,6 @@ class EmbedGenerator():
         embed.set_author(name=user_name)
         return embed
     
-        
     def create_user_view_table(self, user, page, total_pages):
         embed=discord.Embed(color=default_color)
         embed.set_author(name=user.name)
@@ -116,6 +115,16 @@ class EmbedGenerator():
             embed.set_thumbnail(url=user.profile_image)
         for key, value in user.view_table.items():
             embed.add_field(name=key, value=value['name'], inline=True)
+        embed.set_footer(text=f"Page {page}/{total_pages}")
+        return embed
+    
+    def create_missing_view_table(self, user, pokemon_table, page, total_pages):
+        embed=discord.Embed(color=default_color)
+        embed.set_author(name=user.name)
+        if user.profile_image and user.profile_image != 'None':
+            embed.set_thumbnail(url=user.profile_image)
+        for key, value in pokemon_table.items():
+            embed.add_field(name=value['id'], value=value['name'], inline=True)
         embed.set_footer(text=f"Page {page}/{total_pages}")
         return embed
     
