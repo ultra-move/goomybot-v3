@@ -448,18 +448,18 @@ class Pokemon:
 
         return int(math.floor(exp))
     
-def level_up(self):
-    num_levels = 0
-    exp_required_for_current_level = self.next_exp # Store current level's XP requirement
-    while self.exp >= exp_required_for_current_level and self.level < 100:
-        self.exp -= exp_required_for_current_level # <-- This is the crucial line to add
-        num_levels += 1
-        self.level += 1
-        # Calculate next_exp for the *new* level
-        self.next_exp = self.calculate_exp(self.level + 1) 
-        # Update exp_required_for_current_level for the *next* iteration of the loop
-        exp_required_for_current_level = self.next_exp 
+    def level_up(self):
+        num_levels = 0
+        exp_required_for_current_level = self.next_exp # Store current level's XP requirement
+        while self.exp >= exp_required_for_current_level and self.level < 100:
+            self.exp -= exp_required_for_current_level # <-- This is the crucial line to add
+            num_levels += 1
+            self.level += 1
+            # Calculate next_exp for the *new* level
+            self.next_exp = self.calculate_exp(self.level + 1) 
+            # Update exp_required_for_current_level for the *next* iteration of the loop
+            exp_required_for_current_level = self.next_exp 
 
-    self.stats = self.calculate_stats() 
+        self.stats = self.calculate_stats() 
 
-    return num_levels
+        return num_levels
