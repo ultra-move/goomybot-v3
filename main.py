@@ -202,6 +202,10 @@ async def view_buddy(user):
     return embed_generator.create_pokemon_view(user, pokemon)    
 
 async def set_buddy(user, local_id):
+    active_battle = await storage_manager.get_battle_by_user(user.id)
+    active_raid = await storage_manager.get_raid_by_user(user.id)
+    if active_battle or active_raid:
+        return embed_generator.create_change_buddy_failed_embed(user)
     pokemon = await storage_manager.get_user_pokemon_by_id(user.view_table[str(local_id)]['id'])
     if pokemon:
         user.current_pokemon = pokemon.id
@@ -742,12 +746,7 @@ async def start_battle(user, channel_id):
     user.frame = user.frame + 1 
     safe = False
     #logger.info(outcome)
-    if user.current_pokemon:
-        buddy = await storage_manager.get_user_pokemon_by_id(str(user.current_pokemon))
-        if buddy:
-            level = buddy.level
-    else:
-        level = 1
+    level = 1
     pokemon_data = await storage_manager.get_pokemon_master_by_id(outcome['pokemon_id'])
     if outcome['is_shiny']:
         safe = True
@@ -788,7 +787,7 @@ async def start_battle(user, channel_id):
     end_time = start_time + delta
     logger.debug(f"battle end_time: {end_time}")
     #calculate rewards, for now just money
-    rewards = {'money': 200*new_pokemon.tier, 'exp': int((int(pokemon_data.base_experience) * level+new_pokemon.tier)/4)}
+    rewards = {'money': 200*new_pokemon.tier, 'exp': int(pokemon_data.base_experience)}
     battle = Battle(id=uuid.uuid4(), user_ids=[user.id], local_id=random.randrange(100,1000), channel_id=channel_id, start_time=start_time, duration=duration, end_time=end_time, rewards=rewards, status='active', battle_pokemon_id=new_pokemon.id)
     #write new pokemon to battle_pokemon table
     asyncio.create_task(storage_manager.save_object(obj=new_pokemon, cache_key=f"{REDIS_PREFIX}battle_pokemon_id:{new_pokemon.id}", table_name="battle_pokemon", unique_columns=["id"]))
@@ -815,16 +814,23 @@ async def process_expired_battle(battle: List[Battle]):
         for user_id in battle.user_ids:
             pokemon.id = str(uuid.uuid4())
             pokemon.user_id = user_id
+            pokemon.level = 1
             user = await storage_manager.get_user(user_id=user_id)
+            reward = int(battle.rewards['money'])
             if user.current_pokemon:
                 buddy = await storage_manager.get_user_pokemon_by_id(str(user.current_pokemon))
                 if buddy:
-                    buddy.exp = int(int(buddy.exp) + int(battle.rewards['exp']))
-                    buddy.level_up()
+                    buddy.exp = int(int(buddy.exp) + int((battle.rewards['exp'] * buddy.level)/4))
+                    num_levels = buddy.level_up()
+                    if num_levels > 0:
+                        reward = reward + (num_levels * 200)
+                        channel = await client.fetch_channel(battle.channel_id)
+                        embed = embed_generator.create_level_up_embed(user = user, levels=num_levels, buddy= buddy, reward=(num_levels * 200))
+                        await channel.send(embed=embed)
                     asyncio.create_task(storage_manager.save_object(obj=buddy, cache_key=f"{REDIS_PREFIX}pokemon_data:{buddy.id}", table_name="user_pokemon", unique_columns=["id"]))
-            user.wallet = int(user.wallet) + int(battle.rewards['money'])
+            user.wallet = int(user.wallet) + reward
             asyncio.create_task(storage_manager.save_object(obj=user, cache_key=f"{REDIS_PREFIX}user_id:{user.id}", table_name="users", unique_columns=["id"]))
-
+            
             await storage_manager.save_object(obj=pokemon, cache_key=f"{REDIS_PREFIX}pokemon_data:{pokemon.id}", table_name='user_pokemon', unique_columns=['id'])
         
 
@@ -912,7 +918,7 @@ async def join_battle(user, local_id, channel_id):
     
 async def run_battle(user):
     #get battle that user is in
-    battle = await storage_manager.get_battle_by_user(user)
+    battle = await storage_manager.get_battle_by_user(user.id)
     if battle.status == 'joined':
         return embed_generator.create_run_from_battle_fail_embed(user.name)
     #delete active battle
@@ -988,7 +994,7 @@ async def start_raid(user, channel_id):
         end_time = start_time + delta
         logger.debug(f"battle end_time: {end_time}")
         #calculate rewards, for now just money
-        rewards = {'money': 1000*new_pokemon.tier, 'exp': int((int(pokemon_data.base_experience) * level+new_pokemon.tier)/4)*5}
+        rewards = {'money': 1000*new_pokemon.tier, 'exp': int(pokemon_data.base_experience)}
         raid = Battle(id=uuid.uuid4(), user_ids=[user.id], local_id=random.randrange(100,1000), channel_id=channel_id, start_time=start_time, duration=duration, end_time=end_time, rewards=rewards, status='active', battle_pokemon_id=new_pokemon.id)
         #write new pokemon to raid_pokemon table
         asyncio.create_task(storage_manager.save_object(obj=new_pokemon, cache_key=f"{REDIS_PREFIX}raid_pokemon_id:{new_pokemon.id}", table_name="raid_pokemon", unique_columns=["id"]))
@@ -1017,14 +1023,21 @@ async def process_expired_raid(battle: List[Battle]):
         for user_id in battle.user_ids:
             pokemon.id = str(uuid.uuid4())
             pokemon.user_id = user_id
+            pokemon.level = 1
             user = await storage_manager.get_user(user_id=user_id)
+            reward = int(battle.rewards['money'])
             if user.current_pokemon:
                 buddy = await storage_manager.get_user_pokemon_by_id(str(user.current_pokemon))
                 if buddy:
-                    buddy.exp = int(int(buddy.exp) + int(battle.rewards['exp']))
-                    buddy.level_up()
+                    buddy.exp = int(int(buddy.exp) + int((5 * battle.rewards['exp'] * buddy.level)/4))
+                    num_levels = buddy.level_up()
+                    if num_levels > 0:
+                        reward = reward + (num_levels * 200)
+                        channel = await client.fetch_channel(battle.channel_id)
+                        embed = embed_generator.create_level_up_embed(user = user, levels=num_levels, buddy= buddy, reward=(num_levels * 200))
+                        await channel.send(embed=embed)
                     asyncio.create_task(storage_manager.save_object(obj=buddy, cache_key=f"{REDIS_PREFIX}pokemon_data:{buddy.id}", table_name="user_pokemon", unique_columns=["id"]))
-            user.wallet = int(user.wallet) + int(battle.rewards['money'])
+            user.wallet = int(user.wallet) + reward
             asyncio.create_task(storage_manager.save_object(obj=user, cache_key=f"{REDIS_PREFIX}user_id:{user.id}", table_name="users", unique_columns=["id"]))
 
             await storage_manager.save_object(obj=pokemon, cache_key=f"{REDIS_PREFIX}pokemon_data:{pokemon.id}", table_name='user_pokemon', unique_columns=['id'])
