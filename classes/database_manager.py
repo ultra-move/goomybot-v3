@@ -266,7 +266,7 @@ class DatabaseManager:
             self._release_connection(conn)
 
      # --- New method for executing raw DELETE queries ---
-    def execute_delete_query(self, query: str, params: Optional[Dict[str, Any]] = None) -> int:
+    async def execute_delete_query(self, query: str, params: Optional[Dict[str, Any]] = None) -> int:
         """
         Executes a raw DELETE SQL query. Use with caution for complex deletions.
 
