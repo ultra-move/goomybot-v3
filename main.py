@@ -1236,7 +1236,7 @@ async def on_ready():
         # Store the task objects as attributes on the client for potential cancellation/management later
         client.battle_monitor_task_instance = asyncio.create_task(battle_monitor_task(interval_seconds=10))
         client.raid_monitor_task_instance = asyncio.create_task(raid_monitor_task(interval_seconds=60))
-        client.lottery_monitor_task_instance = asyncio.create_task(lottery_monitor_task(interval_seconds=3600))
+        client.lottery_monitor_task_instance = asyncio.create_task(lottery_monitor_task(interval_seconds=600))
         
         # Set the flag to True so tasks aren't started again
         client._monitor_tasks_started = True
