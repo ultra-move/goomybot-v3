@@ -135,7 +135,13 @@ class EmbedGenerator():
         return embed
     
     def create_rare_candy_view(self, user, pokemon):
-        embed=discord.Embed(description=f"{pokemon.name} leveled up!", color=self.get_color(pokemon=pokemon))
+        embed=discord.Embed(description=f"{pokemon.name.capitalize()} leveled up!\nLevel: {pokemon.level}", color=self.get_color(pokemon=pokemon))
+        embed.set_author(name=user.name)
+        embed.set_thumbnail(url=pokemon.sprite_front)
+        return embed
+
+    def create_rare_candy_fail_view(self, user, pokemon):
+        embed=discord.Embed(description=f"{pokemon.name.capitalize()} cannot level up!", color=self.get_color(pokemon=pokemon))
         embed.set_author(name=user.name)
         embed.set_thumbnail(url=pokemon.sprite_front)
         return embed
