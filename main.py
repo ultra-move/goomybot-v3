@@ -142,6 +142,7 @@ def get_help_items():
 * `.skipframe`: Uses a Skip Frame (100 frames or to shiny frame).
 * `.skipraidframe`: Uses a Skip Raid Frame (15 frames or to shiny frame).
 * `.rerolliv <iv_name>`: Rerolls selected buddy iv.
+* `.rarecandy`: Levels up your buddy
 """
     return embed_generator.create_help_embed(info=help)
 
@@ -543,6 +544,7 @@ async def get_shop(user):
         'resetseed': 5000,
         'rerolliv': 5000,
         'raidpass': 5000,
+        'rarecandy': 5000,
         'skipframe': 10000,
         'skipraidframe': 50000
     }
@@ -554,6 +556,7 @@ async def buy_item(user, item_name, quantity):
         'resetseed': 5000,
         'rerolliv': 5000,
         'raidpass': 5000,
+        'rarecandy': 5000,
         'skipframe': 10000,
         'skipraidframe': 50000
     }
@@ -685,6 +688,21 @@ async def reroll_iv(user, iv):
         return embed_generator.create_rerolliv_view(user, buddy)
     else:
         return embed_generator.create_item_failure_embed(user, 'rerolliv')  
+
+async def rare_candy(user):
+    item = await storage_manager.get_user_item_by_name(user, 'rarecandy')
+    if item.quantity >= 1:
+        buddy = await storage_manager.get_user_pokemon_by_id(str(user.current_pokemon))
+        try:
+            buddy.level = buddy.level + 1
+            item.quantity = item.quantity - 1
+            await storage_manager.save_object(obj=item, cache_key=f"{REDIS_PREFIX}item_id:{item.id}", table_name='user_items', unique_columns=['id'])
+            await storage_manager.save_object(obj=buddy, cache_key=f"{REDIS_PREFIX}pokemon_data:{buddy.id}", table_name="user_pokemon", unique_columns=["id"])
+        except:
+            return embed_generator.create_item_failure_embed(user, 'rarecandy')  
+        return embed_generator.create_rare_candy_view(user, buddy)
+    else:
+        return embed_generator.create_item_failure_embed(user, 'rarecandy')  
 
 async def raid_shiny_frame(user):
         gen = Generator(tier_seed=user.tier_seed, type_seed=user.type_seed, pokemon_seed=user.pokemon_seed, shiny_seed=user.shiny_seed, item_seed=user.item_seed)
@@ -1542,6 +1560,8 @@ async def on_message(message):
                     embed = await buy_item(user, 'raidpass', int(quantity))
                 elif name == 'skipraidframe':
                     embed = await buy_item(user, 'skipraidframe', int(quantity))
+                elif name == 'rarecandy':
+                    embed = await buy_item(user, 'rarecandy', int(quantity))
                 else:
                     embed = embed_generator.create_invalid_syntax_embed(user)
         except:
@@ -1563,7 +1583,11 @@ async def on_message(message):
         else:
             embed = embed_generator.create_item_failure_embed(user=user, item_name='rerolliv')
         await message.channel.send(embed=embed)
-    
+
+    if message.content.startswith('.rarecandy'):
+        embed = rare_candy(user)
+        await message.channel.send(embed=embed)
+        
     if '.shinyframe' in message.content:
         embed = await shiny_frame(user)
         await message.channel.send(embed=embed)

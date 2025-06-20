@@ -134,6 +134,12 @@ class EmbedGenerator():
         embed.set_thumbnail(url=pokemon.sprite_front)
         return embed
     
+    def create_rare_candy_view(self, user, pokemon):
+        embed=discord.Embed(description=f"{pokemon.name} leveled up!", color=self.get_color(pokemon=pokemon))
+        embed.set_author(name=user.name)
+        embed.set_thumbnail(url=pokemon.sprite_front)
+        return embed
+
     def create_shiny_frame(self, user, shiny_frame):
         embed=discord.Embed(description=f"Current Frame: {user.frame}\nShiny Frame: {shiny_frame}", color=0xf5a8ff)
         embed.set_author(name=user.name)
