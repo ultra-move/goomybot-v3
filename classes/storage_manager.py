@@ -309,131 +309,93 @@ class StorageManager:
         return records, total_pages 
 
     async def list_pokemon(self, user, page=0, page_size=10):
-        # Default filter and order, potentially overridden by user.filter and user.order_by
         default_filter = {
             'shiny': False,
-            'type': [], # This refers to the 'types' array in DB - CORRECTLY INITIALIZED AS A LIST
+            'type': [],
             'name': '',
             'tier': 0,
             'level': 0,
             'nature': '',
             'region': '',
-            'held_item': False #False means do not filter here, true means filter where held_item IS NOT NULL
+            'held_item': False
         }
         default_order = {
-            'pokedex': {'value': False, 'order': "ASC"}, # Maps to pokedex_id in DB
+            'pokedex': {'value': False, 'order': "ASC"},
             'tier': {'value': False, 'order': "ASC"},
             'level': {'value': False, 'order': "ASC"},
+            'recent': {'value': False, 'order': "DESC"},
+            'created_at': {'value': False, 'order': "DESC"}
         }
 
-        # Use user's filter and order if available, otherwise use defaults
-        # Ensure user.filter and user.order_by are dictionaries after deserialization
         current_filter = user.filter if isinstance(user.filter, dict) else default_filter
         current_order = user.order_by if isinstance(user.order_by, dict) else default_order
-
 
         filter_conditions = []
         params = {"user_id": user.id}
 
-        # Build filter_string
         if current_filter.get('shiny') is True:
             filter_conditions.append("is_shiny = TRUE")
 
-        # --- Adjusted string_fields processing ---
-        # Special handling for 'types' (array) and 'name' (LIKE search)
-        
-        # Name: Use ILIKE for case-insensitive partial matching
         name_value = current_filter.get('name')
         if name_value:
-            filter_conditions.append(f"name ILIKE %({'name'})s") # Use ILIKE for case-insensitive contains
-            params['name'] = f"%{name_value.lower()}%" # Add wildcards
+            filter_conditions.append("name ILIKE %(name)s")
+            params['name'] = f"%{name_value.lower()}%"
 
-        # Types: Handle a list of types to check against the 'types' array column in DB
-        type_values_list = current_filter.get('type') # 'type' is the filter key, now a list
-        if type_values_list and isinstance(type_values_list, list) and len(type_values_list) > 0:
-            # We want to find pokemon where ANY of the types in type_values_list
-            # are present in the pokemon's 'types' array column.
-            # This is commonly done with 'ANY' or '&&' (array overlap) in PostgreSQL.
-            
-            # Create a list of conditions for each type
-            type_sub_conditions = []
-            
-            for idx, type_str in enumerate(type_values_list):
-                param_name = f"type_{idx}" # Create unique parameter name for each type
-                type_sub_conditions.append(f"%({param_name})s = ANY(types)")
-                params[param_name] = type_str.lower() # Store the lowercase type value
+        type_values = current_filter.get('type')
+        if type_values:
+            type_sub = []
+            for idx, t in enumerate(type_values):
+                pname = f"type_{idx}"
+                type_sub.append(f"%({pname})s = ANY(types)")
+                params[pname] = t.lower()
+            filter_conditions.append(f"({' OR '.join(type_sub)})")
 
-            if type_sub_conditions:
-                # Join individual type conditions with OR
-                filter_conditions.append(f"({' OR '.join(type_sub_conditions)})")
-
-        # Other simple string fields
-        simple_string_fields = ['nature', 'region']
-        for field in simple_string_fields:
-            value = current_filter.get(field)
-            if value: # Check if value is not empty string
+        for field in ['nature', 'region']:
+            val = current_filter.get(field)
+            if val:
                 filter_conditions.append(f"{field} ILIKE %({field})s")
-                params[field] = value.lower() # Assuming case-insensitive search or exact match
+                params[field] = val.lower()
 
-        numeric_fields = ['tier', 'level']
-        for field in numeric_fields:
-            value = current_filter.get(field)
-            if value is not None and value > 0: # Check if value is provided and greater than 0
+        for field in ['tier', 'level']:
+            val = current_filter.get(field)
+            if val and val > 0:
                 filter_conditions.append(f"{field} = %({field})s")
-                params[field] = value
+                params[field] = val
 
         if current_filter.get('held_item') is True:
-            filter_conditions.append("held_item_id IS NOT NULL") # Use held_item_id column
+            filter_conditions.append("held_item_id IS NOT NULL")
 
-        # Construct the WHERE clause (used for both count and data fetch)
         where_clause = " WHERE user_id = %(user_id)s"
         if filter_conditions:
             where_clause += " AND " + " AND ".join(filter_conditions)
 
-        # --- Calculate Total Records and Page Numbers ---
-        count_sql_query = f"SELECT COUNT(*) as total_records FROM user_pokemon{where_clause}"
-        total_records = int(self.db.fetch_one(count_sql_query, params)['total_records'])
-        
+        count_query = f"SELECT COUNT(*) as total FROM user_pokemon{where_clause}"
+        total_records = int(self.db.fetch_one(count_query, params)['total'])
         total_pages = math.ceil(total_records / page_size) if page_size > 0 else 0
-        
-        # Adjust page if out of bounds
         if page < 0:
             page = 0
         elif page >= total_pages and total_pages > 0:
             page = total_pages - 1
 
-
-        # Build order_string
         order_clauses = []
-        # Define a desired order of preference for sorting
-        order_preference = ['pokedex', 'tier', 'level'] # These are your filter/order keys
-
-        for field_key in order_preference:
-            order_data = current_order.get(field_key)
-            if order_data and order_data.get('value') is True:
-                db_column_name = field_key
-                if field_key == 'pokedex': # Map 'pokedex' filter key to 'pokedex_id' column
-                    db_column_name = 'pokedex_id'
-                    
-                order_type = order_data.get('order', "ASC").upper()
-                if order_type not in ["ASC", "DESC"]:
-                    order_type = "ASC" # Default to ASC if invalid
-                order_clauses.append(f"{db_column_name} {order_type}")
+        order_preference = ['pokedex', 'tier', 'level', 'created_at']  # only real DB columns
+        for key in order_preference:
+            od = current_order.get(key)
+            if od and od['value'] is True:
+                col = 'pokedex_id' if key == 'pokedex' else key
+                direction = od['order'].upper() if od['order'] in ['ASC', 'DESC'] else "ASC"
+                order_clauses.append(f"{col} {direction}")
 
         order_string = " ORDER BY " + ", ".join(order_clauses) if order_clauses else ""
-
         offset_string = f" OFFSET {page * page_size}"
         limit_string = f" LIMIT {page_size}"
 
-        # Construct the final SQL query for fetching data
-        sql_query = f"SELECT * FROM user_pokemon{where_clause}{order_string}{offset_string}{limit_string}"
-        print(sql_query)
-        pokemon_data = await self.db.fetch_all(sql_query, params)
-        
-        result = []
-        for pokemon in pokemon_data:
-            result.append(Pokemon.from_dict(pokemon))
-        
+        sql = f"SELECT * FROM user_pokemon{where_clause}{order_string}{offset_string}{limit_string}"
+        print(sql)
+
+        pokemon_data = await self.db.fetch_all(sql, params)
+        result = [Pokemon.from_dict(p) for p in pokemon_data]
+
         return total_pages, result
     
     async def get_expired_battles(self):
@@ -624,6 +586,6 @@ WHERE id IN (
 );
         """
         print(sql_query)
-        rows = self.db.execute_delete_query(sql_query)
+        rows = await self.db.execute_delete_query(sql_query)
         print(f"Rows affected: {rows}")
         return rows

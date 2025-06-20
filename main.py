@@ -67,6 +67,7 @@ def get_help():
 **__Help Commands__**
 * `.help`: Displays this help message.
 * `.help user`: Displays the user commands help message.
+* `.help pokemon`: Displays the pokemon commands help message.
 * `.help filter`: Displays the filter commands help message.
 * `.help battle`: Displays the battle commands help message.
 * `.help raid`: Displays the raid commands help message.
@@ -75,6 +76,7 @@ def get_help():
 **__General Commands__**
 * `.register`: Registers you for the game. You'll need to do this before using most other commands!
 * `.odds`: Displays the current odds
+* `.lottery`: Enters the lottery, or if already entered, displays information about the lottery
 * `.bug <bug report>`: Submits a bug to the bug channel
 * `.git`: provides a link to the git repository
 
@@ -93,12 +95,17 @@ def get_help_user():
 * `.list [page_number]`: Displays a list of your Pokémon. You can specify a page number to view more.
 * `.view [local_id]`: If a `local_id` is provided, views details of that specific Pokémon. If no `local_id` is given, it shows details of your current buddy Pokémon.
 * `.filter <filter_message>`: Filters your Pokémon list based on your criteria.
+* `.frame`: Views current frame & raid frame
+"""
+    return embed_generator.create_help_embed(info=help)
+
+def get_help_pokemon():
+    help = """
+**__Pokemon Commands__**
 * `.buddy [local_id]`: If a `local_id` is provided, sets that Pokémon as your buddy. If no `local_id` is given, it shows your current buddy Pokémon.
-* `.evolve [name]`: Evolves buddy pokemon to name, buddy will evolve to a random choice if multiple are available
-* `.frame`: Views current frame
-* `.lottery`: Enters the lottery, or if already entered, displays information about the lottery
-* `.release duplicates`: Releases duplicate pokemon, keeps buddy, safe, shiny and tier 4 pokemon. Keeps the pokemon with the highest total iv
+* `.evolve [name]`: Evolves buddy pokemon to name, buddy will evolve to a random choice if multiple are available and no name is provided
 * `.safe [local_id]`: Marks a pokemon as safe or not safe. Local id comes from .list command
+* `.release duplicates`: Releases duplicate pokemon, keeps buddy, safe, shiny and tier 4 pokemon. Keeps the pokemon with the highest total iv
 * `.pokedex <page_number>`: Shows all un-owned pokemon
 * `.raidpokedex <page_number>`: Shows all un-owned raid pokemon 
 """
@@ -156,6 +163,7 @@ def get_help_filter():
     * `.filter order pokedex asc`: Orders Pokémon by Pokedex number in ascending order.
     * `.filter order tier desc`: Orders Pokémon by Tier in descending order.
     * `.filter order level asc`: Orders Pokémon by Level in ascending order.
+    * `.filter order recent`: Orders Pokémon by most recently caught
 * You can combine multiple filters and orders in one command:
     * `.filter shiny true tier 1 order level desc`
 """
@@ -308,138 +316,135 @@ async def evolve_buddy(user, name: Optional[str] = None):
 
 
 async def filter_pokemon(user, filter_message):
-   default_filter = {
-            'shiny': False,
-            'type': [],
-            'name': '',
-            'tier': 0,
-            'level': 0,
-            'nature': '',
-            'region': '',
-            'held_item': False #False means do not filter here, true means filter where held_item IS NOT NULL
-   }
-   default_order = {
-            'pokedex': {'value': False, 'order': "ASC"},
-            'tier': {'value': False, 'order': "ASC"},
-            'level': {'value': False, 'order': "ASC"},
-   }
-   
-   parsed_filter, parsed_order, final_status = parse_filter_command(message=filter_message, default_filter=default_filter, default_order=default_order )
-   logger.debug(final_status)
-   user.filter = parsed_filter
-   user.order_by = parsed_order
-   #list_pokemon performs the save of the user
-   return await list_pokemon(user=user, page=0, page_size=10)
+    default_filter = {
+        'shiny': False,
+        'type': [],
+        'name': '',
+        'tier': 0,
+        'level': 0,
+        'nature': '',
+        'region': '',
+        'held_item': False  # False means do not filter; True means filter where held_item IS NOT NULL
+    }
+    default_order = {
+        'pokedex': {'value': False, 'order': "ASC"},
+        'tier': {'value': False, 'order': "ASC"},
+        'level': {'value': False, 'order': "ASC"},
+        'recent': {'value': False, 'order': "DESC"},   # virtual
+        'created_at': {'value': False, 'order': "DESC"}  # real column
+    }
+
+    parsed_filter, parsed_order, final_status = parse_filter_command(
+        message=filter_message,
+        default_filter=default_filter,
+        default_order=default_order
+    )
+    logger.debug(final_status)
+
+    user.filter = parsed_filter
+    user.order_by = parsed_order
+
+    return await list_pokemon(user=user, page=0, page_size=10)
 
 def parse_filter_command(message, default_filter, default_order):
     """
     Parses a user command string to extract filter and order criteria.
 
-    Args:
-        message (str): The user's command string (e.g., ".filter shiny true tier 1 order pokedex asc").
-        default_filter (dict): The base filter dictionary to merge with.
-        default_order (dict): The base order dictionary to merge with.
-
-    Returns:
-        Tuple[Dict, Dict, str]: A tuple containing:
-            - The parsed filter dictionary.
-            - The parsed order dictionary.
-            - A status message indicating success or errors.
+    Supports 'recent' as a friendly alias for ordering by created_at DESC.
     """
     parsed_filter = default_filter.copy()
-    parsed_order = {k: v.copy() for k, v in default_order.items()}  # Deep copy
+    parsed_order = {k: v.copy() for k, v in default_order.items()}
     status_messages = []
 
-    # Normalize message for parsing
     tokens = message.lower().strip().split()
-
-    # Remove the initial command prefix if present (e.g., ".filter")
     if tokens and tokens[0] == ".filter":
-        tokens = tokens[1:]  # Remove the command word itself
+        tokens = tokens[1:]
 
     if not tokens:
         return parsed_filter, parsed_order, "No filters or order specified."
 
-    # Process tokens in a single pass to handle sections correctly
     i = 0
     while i < len(tokens):
         token = tokens[i]
 
         if token == "order":
-            # Switch to parsing order arguments for the rest of the tokens
-            i += 1 # Move past "order" keyword
+            i += 1  # skip 'order'
             while i < len(tokens):
                 order_key = tokens[i]
-                if i + 1 < len(tokens):
-                    order_direction_str = tokens[i+1]
-                    if order_key in parsed_order:
-                        if order_direction_str in ['asc', 'desc']:
-                            parsed_order[order_key]['value'] = True
-                            parsed_order[order_key]['order'] = order_direction_str.upper()
-                        else:
-                            status_messages.append(f"Invalid order direction for '{order_key}': '{order_direction_str}'. Expected 'asc' or 'desc'.")
-                    else:
-                        status_messages.append(f"Warning: Unrecognized order parameter '{order_key}'. Skipping.")
-                    i += 2 # Move past key and value
-                else:
-                    status_messages.append(f"Warning: Order parameter '{order_key}' provided without a direction (ASC/DESC). Skipping.")
-                    i += 1 # Move past key
-            break # Exit the main loop after processing order arguments
 
-        # --- Parse Filter Arguments ---
+                # Special handling: 'recent' means 'created_at DESC'
+                if order_key == 'recent':
+                    parsed_order['recent']['value'] = True
+                    parsed_order['recent']['order'] = "DESC"
+                    parsed_order['created_at']['value'] = True
+                    parsed_order['created_at']['order'] = "DESC"
+                    i += 1
+                    # Skip a possible direction token for 'recent' if present
+                    if i < len(tokens) and tokens[i] in ['asc', 'desc']:
+                        i += 1
+                    continue
+
+                if order_key in parsed_order:
+                    if i + 1 < len(tokens):
+                        direction = tokens[i + 1]
+                        if direction in ['asc', 'desc']:
+                            parsed_order[order_key]['value'] = True
+                            parsed_order[order_key]['order'] = direction.upper()
+                        else:
+                            status_messages.append(f"Invalid order direction for '{order_key}': '{direction}'.")
+                        i += 2
+                    else:
+                        status_messages.append(f"Order key '{order_key}' missing direction.")
+                        i += 1
+                else:
+                    status_messages.append(f"Unrecognized order key '{order_key}'.")
+                    i += 1
+            break  # done parsing
+
+        # --- Filters ---
         key = token
         value_str = None
 
         if '=' in key:
-            # Handle key=value format
             parts = key.split('=', 1)
-            key = parts[0]
-            value_str = parts[1]
-            i += 1 # Only advance by one token (the current token)
+            key, value_str = parts[0], parts[1]
+            i += 1
         elif i + 1 < len(tokens):
-            # Handle key value format
-            value_str = tokens[i+1]
-            i += 2 # Advance by two tokens (key and value)
+            value_str = tokens[i + 1]
+            i += 2
         else:
-            status_messages.append(f"Warning: Filter parameter '{key}' provided without a value. Skipping.")
-            i += 1 # Advance by one token (the current token)
-            continue # Continue to the next token
+            status_messages.append(f"Filter key '{key}' missing value.")
+            i += 1
+            continue
 
         if key in parsed_filter:
             if key == 'type':
-                # Special handling for 'type' to allow multiple types
-                if 'type' not in parsed_filter or parsed_filter['type'] is None:
-                    parsed_filter['type'] = [] # Initialize as a list if not already
-                
-                # Split by commas if present, and add each type
                 for t in value_str.split(','):
                     t_clean = t.strip()
-                    if t_clean: # Ensure it's not an empty string
+                    if t_clean:
                         parsed_filter['type'].append(t_clean)
-
             elif key in ['shiny', 'held_item']:
                 if value_str in ['true', 'false']:
                     parsed_filter[key] = (value_str == 'true')
                 else:
-                    status_messages.append(f"Invalid value for '{key}': '{value_str}'. Expected 'true' or 'false'.")
+                    status_messages.append(f"Invalid value for '{key}': '{value_str}'.")
             elif key in ['tier', 'level']:
                 try:
-                    num_val = int(value_str)
-                    if num_val >= 0:
-                        parsed_filter[key] = num_val
+                    num = int(value_str)
+                    if num >= 0:
+                        parsed_filter[key] = num
                     else:
-                        status_messages.append(f"Invalid value for '{key}': '{value_str}'. Expected a non-negative integer.")
+                        status_messages.append(f"Invalid value for '{key}': must be non-negative.")
                 except ValueError:
-                    status_messages.append(f"Invalid value for '{key}': '{value_str}'. Expected an integer.")
+                    status_messages.append(f"Invalid integer for '{key}': '{value_str}'.")
             elif key in ['name', 'nature', 'region']:
                 parsed_filter[key] = value_str
             else:
-                status_messages.append(f"Warning: Unrecognized filter key '{key}'. Skipping.")
+                status_messages.append(f"Unknown filter key '{key}'.")
         else:
-            status_messages.append(f"Warning: Unrecognized filter parameter '{key}'. Skipping.")
+            status_messages.append(f"Unknown filter key '{key}'.")
 
-    final_status = "Successfully parsed command." if not status_messages else "\n".join(status_messages)
-
+    final_status = "Parsed successfully." if not status_messages else "\n".join(status_messages)
     return parsed_filter, parsed_order, final_status
 
 async def release_duplicates(user):
@@ -1254,6 +1259,9 @@ async def on_message(message):
         await message.channel.send(embed=embed)
     elif message.content.startswith('.help user'):
         embed = get_help_user()
+        await message.channel.send(embed=embed)
+    elif message.content.startswith('.help pokemon'):
+        embed = get_help_pokemon()
         await message.channel.send(embed=embed)
     elif message.content.startswith('.help battle'):
         embed = get_help_battle()
