@@ -694,10 +694,14 @@ async def rare_candy(user):
     if item.quantity >= 1:
         buddy = await storage_manager.get_user_pokemon_by_id(str(user.current_pokemon))
         try:
-            buddy.level = buddy.level + 1
-            item.quantity = item.quantity - 1
-            await storage_manager.save_object(obj=item, cache_key=f"{REDIS_PREFIX}item_id:{item.id}", table_name='user_items', unique_columns=['id'])
-            await storage_manager.save_object(obj=buddy, cache_key=f"{REDIS_PREFIX}pokemon_data:{buddy.id}", table_name="user_pokemon", unique_columns=["id"])
+            if buddy.level < 100:
+                buddy.exp += buddy.next_exp
+                buddy.level_up()
+                item.quantity = item.quantity - 1
+                await storage_manager.save_object(obj=item, cache_key=f"{REDIS_PREFIX}item_id:{item.id}", table_name='user_items', unique_columns=['id'])
+                await storage_manager.save_object(obj=buddy, cache_key=f"{REDIS_PREFIX}pokemon_data:{buddy.id}", table_name="user_pokemon", unique_columns=["id"])
+            else:
+                return embed_generator.create_rare_candy_fail_view(user, buddy)
         except:
             return embed_generator.create_item_failure_embed(user, 'rarecandy')  
         return embed_generator.create_rare_candy_view(user, buddy)
@@ -1585,7 +1589,7 @@ async def on_message(message):
         await message.channel.send(embed=embed)
 
     if message.content.startswith('.rarecandy'):
-        embed = rare_candy(user)
+        embed = await rare_candy(user)
         await message.channel.send(embed=embed)
         
     if '.shinyframe' in message.content:
