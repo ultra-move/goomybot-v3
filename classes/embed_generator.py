@@ -134,8 +134,8 @@ class EmbedGenerator():
         embed.set_thumbnail(url=pokemon.sprite_front)
         return embed
     
-    def create_rare_candy_view(self, user, pokemon):
-        embed=discord.Embed(description=f"{pokemon.name.capitalize()} leveled up!\nLevel: {pokemon.level}", color=self.get_color(pokemon=pokemon))
+    def create_rare_candy_view(self, user, pokemon, quantity):
+        embed=discord.Embed(description=f"{pokemon.name.capitalize()} leveled up {quantity} time(s)!\nLevel: {pokemon.level}", color=self.get_color(pokemon=pokemon))
         embed.set_author(name=user.name)
         embed.set_thumbnail(url=pokemon.sprite_front)
         return embed

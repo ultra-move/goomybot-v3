@@ -142,7 +142,7 @@ def get_help_items():
 * `.skipframe`: Uses a Skip Frame (100 frames or to shiny frame).
 * `.skipraidframe`: Uses a Skip Raid Frame (15 frames or to shiny frame).
 * `.rerolliv <iv_name>`: Rerolls selected buddy iv.
-* `.rarecandy`: Levels up your buddy
+* `.rarecandy <quantity>`: Levels up your buddy
 """
     return embed_generator.create_help_embed(info=help)
 
@@ -541,10 +541,10 @@ async def remove_money(user_id, amount):
 async def get_shop(user):
     items = {
         'shinyframe': 1000,
+        'rarecandy': 3000,
         'resetseed': 5000,
         'rerolliv': 5000,
         'raidpass': 5000,
-        'rarecandy': 5000,
         'skipframe': 10000,
         'skipraidframe': 50000
     }
@@ -553,10 +553,10 @@ async def get_shop(user):
 async def buy_item(user, item_name, quantity):
     items = {
         'shinyframe': 1000,
+        'rarecandy': 3000,
         'resetseed': 5000,
         'rerolliv': 5000,
         'raidpass': 5000,
-        'rarecandy': 5000,
         'skipframe': 10000,
         'skipraidframe': 50000
     }
@@ -689,22 +689,23 @@ async def reroll_iv(user, iv):
     else:
         return embed_generator.create_item_failure_embed(user, 'rerolliv')  
 
-async def rare_candy(user):
+async def rare_candy(user, quantity):
     item = await storage_manager.get_user_item_by_name(user, 'rarecandy')
-    if item.quantity >= 1:
+    if item.quantity >= quantity:
         buddy = await storage_manager.get_user_pokemon_by_id(str(user.current_pokemon))
         try:
-            if buddy.level < 100:
-                buddy.exp += buddy.next_exp
-                buddy.level_up()
-                item.quantity = item.quantity - 1
-                await storage_manager.save_object(obj=item, cache_key=f"{REDIS_PREFIX}item_id:{item.id}", table_name='user_items', unique_columns=['id'])
-                await storage_manager.save_object(obj=buddy, cache_key=f"{REDIS_PREFIX}pokemon_data:{buddy.id}", table_name="user_pokemon", unique_columns=["id"])
-            else:
-                return embed_generator.create_rare_candy_fail_view(user, buddy)
+            for i in range(quantity):
+                if buddy.level < 100:
+                    buddy.exp += buddy.next_exp
+                    buddy.level_up()
+                    item.quantity = item.quantity - 1
+                else:
+                    return embed_generator.create_rare_candy_fail_view(user, buddy)
+            await storage_manager.save_object(obj=item, cache_key=f"{REDIS_PREFIX}item_id:{item.id}", table_name='user_items', unique_columns=['id'])
+            await storage_manager.save_object(obj=buddy, cache_key=f"{REDIS_PREFIX}pokemon_data:{buddy.id}", table_name="user_pokemon", unique_columns=["id"])
         except:
             return embed_generator.create_item_failure_embed(user, 'rarecandy')  
-        return embed_generator.create_rare_candy_view(user, buddy)
+        return embed_generator.create_rare_candy_view(user, buddy, quantity)
     else:
         return embed_generator.create_item_failure_embed(user, 'rarecandy')  
 
@@ -1589,7 +1590,12 @@ async def on_message(message):
         await message.channel.send(embed=embed)
 
     if message.content.startswith('.rarecandy'):
-        embed = await rare_candy(user)
+        try:
+            quantity = int(message.content.split()[1])
+        except:
+            quantity = 1
+
+        embed = await rare_candy(user, quantity)
         await message.channel.send(embed=embed)
         
     if '.shinyframe' in message.content:
