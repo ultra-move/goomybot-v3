@@ -48,17 +48,19 @@ class EmbedGenerator():
         embed.set_footer(text=formatted_duration)
         return embed
     
-    def create_join_raid_embed(self, user_name, new_duration):
+    def create_join_raid_embed(self, user, new_duration):
         embed=discord.Embed(title=f"Joined raid!", color=default_color)
         if new_duration > 60:
             minutes = math.floor(new_duration / 60)
             seconds = new_duration % 60
             # Use f-string for formatting, adding a leading zero to seconds if less than 10
-            formatted_duration = f"{minutes}m {seconds:02d}s"
+            formatted_duration = f"Time left: {minutes}m {seconds:02d}s!"
         else:
-            formatted_duration = f"{new_duration} seconds"
-        embed.add_field(name="duration", value=formatted_duration)
-        embed.set_author(name=user_name)
+            formatted_duration = f"Time left: {new_duration} seconds!"
+        if user.profile_image:
+            embed.set_thumbnail(url = user.profile_image)
+        embed.set_footer(text=formatted_duration)
+        embed.set_author(name=user.name)
         return embed
 
     def create_raid_failure_embed(self, user_name):

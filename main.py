@@ -1238,17 +1238,11 @@ async def join_raid(user, local_id, channel_id):
     if battle and user.id in battle.user_ids:
         return embed_generator.create_already_in_raid_embed(user_name=user.name)
     battle.user_ids.append(user.id)
-    #reset duration
-    duration = battle.duration
-    start_time = datetime.now(timezone.utc)
-    delta = timedelta(seconds=duration)
-    end_time = start_time + delta
-    battle.start_time = start_time
-    battle.end_time = end_time
+    time_until_end = battle.end_time - datetime.now(timezone.utc)
     battle.status = 'joined'
     #save battle
     await storage_manager.save_object(obj=battle, cache_key=f"{REDIS_PREFIX}raid_id:{battle.id}", table_name="raids", unique_columns=["id"])
-    return embed_generator.create_join_raid_embed(user_name=user.name, new_duration=duration)
+    return embed_generator.create_join_raid_embed(user=user, new_duration=time_until_end.seconds)
 
 #######################Lottery methods#######################
 

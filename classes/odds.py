@@ -7,7 +7,7 @@ class Odds:
         self.tier1_rate = 1
         self.tier2_rate = 1/2
         self.tier3_rate = 1/4
-        self.tier4_rate = 1/100
+        self.tier4_rate = 1/50
 
         self.tier1_pool_size = 336
         self.tier2_pool_size = 399
