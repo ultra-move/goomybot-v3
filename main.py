@@ -102,7 +102,7 @@ def get_help_user():
 def get_help_pokemon():
     help = """
 **__Pokemon Commands__**
-* `.buddy [local_id]`: If a `local_id` is provided, sets that Pokémon as your buddy. If no `local_id` is given, it shows your current buddy Pokémon.
+* `.buddy [local_id] or [recent]`: If a `local_id` is provided, sets that Pokémon as your buddy. If no `local_id` is given, it shows your current buddy Pokémon.
 * `.evolve [name]`: Evolves buddy pokemon to name, buddy will evolve to a random choice if multiple are available and no name is provided
 * `.safe [local_id]`: Marks a pokemon as safe or not safe. Local id comes from .list command
 * `.release duplicates`: Releases duplicate pokemon, keeps buddy, safe, shiny and tier 4 pokemon. Keeps the pokemon with the highest total iv
@@ -235,6 +235,17 @@ async def view_buddy(user):
     pokemon = await storage_manager.get_user_pokemon_by_id(str(user.current_pokemon))
     logger.debug(pokemon)
     return embed_generator.create_pokemon_view(user, pokemon)    
+
+async def set_buddy_recent(user):
+    active_battle = await storage_manager.get_battle_by_user(user.id)
+    active_raid = await storage_manager.get_raid_by_user(user.id)
+    if active_battle or active_raid:
+        return embed_generator.create_change_buddy_failed_embed(user)
+    pokemon = await storage_manager.get_user_pokemon_by_recent(user)
+    if pokemon:
+        user.current_pokemon = pokemon.id
+        await storage_manager.save_object(obj=user, cache_key=f"{REDIS_PREFIX}user_id:{user.id}", table_name="users", unique_columns=["id"])
+        return embed_generator.create_pokemon_view(user, pokemon)
 
 async def set_buddy(user, local_id):
     active_battle = await storage_manager.get_battle_by_user(user.id)
@@ -888,9 +899,9 @@ async def process_expired_battle(battle: List[Battle]):
                         reward = math.floor(reward * 1.5)
                     num_levels = buddy.level_up()
                     if num_levels > 0:
-                        reward = reward + (num_levels * 200)
+                        reward = reward + (num_levels * 500)
                         channel = await client.fetch_channel(battle.channel_id)
-                        embed = embed_generator.create_level_up_embed(user = user, levels=num_levels, buddy= buddy, reward=(num_levels * 200))
+                        embed = embed_generator.create_level_up_embed(user = user, levels=num_levels, buddy= buddy, reward=(num_levels * 500))
                         await channel.send(embed=embed)
                     await storage_manager.save_object(obj=buddy, cache_key=f"{REDIS_PREFIX}pokemon_data:{buddy.id}", table_name="user_pokemon", unique_columns=["id"])
             user.wallet = int(user.wallet) + int(reward)
@@ -1147,9 +1158,9 @@ async def process_expired_raid(battle: List[Battle]):
                         reward = math.floor(reward * 1.5)
                     num_levels = buddy.level_up()
                     if num_levels > 0:
-                        reward = reward + (num_levels * 200)
+                        reward = reward + (num_levels * 500)
                         channel = await client.fetch_channel(battle.channel_id)
-                        embed = embed_generator.create_level_up_embed(user = user, levels=num_levels, buddy= buddy, reward=(num_levels * 200))
+                        embed = embed_generator.create_level_up_embed(user = user, levels=num_levels, buddy= buddy, reward=(num_levels * 500))
                         await channel.send(embed=embed)
                     await storage_manager.save_object(obj=buddy, cache_key=f"{REDIS_PREFIX}pokemon_data:{buddy.id}", table_name="user_pokemon", unique_columns=["id"])
             user.wallet = int(user.wallet) + int(reward)
@@ -1579,7 +1590,10 @@ async def on_message(message):
         embed = await filter_pokemon(user=user, filter_message=message.content)
         await message.channel.send(embed=embed)
 
-    if message.content.startswith('.buddy'):
+    if message.content.startswith('.buddy recent'):
+        embed = await set_buddy_recent(user)
+        await message.channel.send(embed=embed)
+    elif message.content.startswith('.buddy'):
         local_id = message.content.split()
         if len(local_id) > 1:
             embed = await set_buddy(user=user, local_id=str(local_id[1]))
