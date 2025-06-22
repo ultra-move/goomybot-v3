@@ -569,20 +569,20 @@ WHERE id IN (
         SELECT
             id,
             user_id,
-            (SELECT SUM(CAST(value AS INTEGER)) FROM jsonb_each_text(up_inner.iv)) AS total_iv_sum,
-            COUNT(*) OVER (PARTITION BY user_id, pokedex_id, name) AS duplicate_count,
-            RANK() OVER (PARTITION BY user_id, pokedex_id, name ORDER BY (SELECT SUM(CAST(value AS INTEGER)) FROM jsonb_each_text(up_inner.iv)) DESC) AS iv_rank
+            ROW_NUMBER() OVER (
+                PARTITION BY user_id, pokedex_id, name
+                ORDER BY (SELECT SUM(CAST(value AS INTEGER)) FROM jsonb_each_text(up_inner.iv)) DESC, id DESC -- Added id to ORDER BY for deterministic tie-breaking
+            ) as rn
         FROM
             public.user_pokemon up_inner
+        WHERE
+            user_id = {int(user_id)}
+            AND id <> '{buddy_id}'
+            AND is_shiny = FALSE
+            AND tier <> 4
+            AND safe = FALSE
     ) AS subquery
-    WHERE
-        duplicate_count > 1
-        AND iv_rank > 1
-        AND user_id = {int(user_id)}
-        AND id <> '{buddy_id}'
-        AND is_shiny = FALSE
-        AND tier <> 4
-        AND safe = FALSE
+    WHERE rn > 1
 );
         """
         print(sql_query)
