@@ -118,8 +118,8 @@ class EmbedGenerator():
         embed.set_footer(text=f"Page {page}/{total_pages}")
         return embed
     
-    def create_missing_view_table(self, user, pokemon_table, page, total_pages):
-        embed=discord.Embed(color=default_color)
+    def create_missing_view_table(self, user, pokemon_table, page, total_pages, total_count, all_pokemon_count):
+        embed=discord.Embed(title = f"{((all_pokemon_count - int(total_count))/all_pokemon_count):.2%} complete!", color=default_color)
         embed.set_author(name=user.name)
         if user.profile_image and user.profile_image != 'None':
             embed.set_thumbnail(url=user.profile_image)

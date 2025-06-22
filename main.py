@@ -14,6 +14,7 @@ from discord.abc import PrivateChannel
 from redis.exceptions import RedisError # Import RedisError from the correct package
 import discord
 
+from classes.async_database_manager import AsyncDatabaseManager
 from classes.battle import Battle
 from classes.data_loader import DataLoader
 from classes.database_manager import DatabaseManager
@@ -53,8 +54,9 @@ LOTTERY_ID= os.getenv("LOTTERY_ID")
 ###################################################################
 
 redis_manager = RedisManager(REDIS_URL)
-database_manager = DatabaseManager(DATABASE_URL) 
-storage_manager = StorageManager(redis_manager=redis_manager, database_manager=database_manager) 
+database_manager = DatabaseManager(DATABASE_URL)
+async_database_manager = AsyncDatabaseManager(DATABASE_URL) 
+storage_manager = StorageManager(redis_manager=redis_manager, database_manager=database_manager, async_database_manager=async_database_manager) 
 #data_loader = DataLoader()
 embed_generator = EmbedGenerator()
 
@@ -204,21 +206,20 @@ async def list_pokemon(user, page, page_size):
    return embed_generator.create_user_view_table(user, page+1, total_pages) 
 
 async def list_missing_pokemon(user, page, page_size):
-   records, total_pages = await storage_manager.get_missing_pokedex(user=user, page=page, pagesize=page_size)
+   records, total_pages, total_count_result = await storage_manager.get_missing_pokedex(user=user, page=page, pagesize=page_size)
    #build the users view table for easy access later
    pokemon_table = {}
    for p,i in zip(records, range(page_size)):
       pokemon_table[i+1] = {'id': str(p['id']), 'name': p['name']}
-   return embed_generator.create_missing_view_table(user, pokemon_table, page+1, total_pages) 
+   return embed_generator.create_missing_view_table(user, pokemon_table, page+1, total_pages, total_count_result, 1025) 
 
 async def list_missing_raid_pokemon(user, page, page_size):
-   records, total_pages = await storage_manager.get_missing_raid_pokedex(user=user, page=page, pagesize=page_size)
+   records, total_pages, total_count_result = await storage_manager.get_missing_raid_pokedex(user=user, page=page, pagesize=page_size)
    #build the users view table for easy access later
    pokemon_table = {}
    for p,i in zip(records, range(page_size)):
       pokemon_table[i+1] = {'id': str(p['id']), 'name': p['name']}
-   return embed_generator.create_missing_view_table(user, pokemon_table, page+1, total_pages) 
-
+   return embed_generator.create_missing_view_table(user, pokemon_table, page+1, total_pages, total_count_result, 259) 
 
 async def view_pokemon(user, local_id):
     pokemon = await storage_manager.get_user_pokemon_by_id(user.view_table[str(local_id)]['id'])
@@ -1263,6 +1264,7 @@ async def on_ready():
         
         # Set the flag to True so tasks aren't started again
         client._monitor_tasks_started = True
+        await async_database_manager.initialize()
     else:
         print("Background monitor tasks already running, skipping re-initialization.")
 

@@ -3,6 +3,7 @@ import json
 import math
 import os
 from typing import Optional, Dict, Any, List, Union, Tuple
+from classes.async_database_manager import AsyncDatabaseManager
 from classes.battle import Battle
 from classes.flex_log import FlexLog
 from classes.item import Item
@@ -28,7 +29,7 @@ class StorageManager:
     and PostgreSQL for persistent storage. Implements a cache-aside strategy.
     """
 
-    def __init__(self, redis_manager: RedisManager, database_manager: DatabaseManager):
+    def __init__(self, redis_manager: RedisManager, database_manager: DatabaseManager, async_database_manager: AsyncDatabaseManager):
         """
         Initializes the StorageManager with instances of RedisManager and DatabaseManager.
 
@@ -38,6 +39,7 @@ class StorageManager:
         """
         self.redis = redis_manager
         self.db = database_manager
+        self.async_db = async_database_manager
         self.cache_ttl = 500 
         logger.debug("StorageManager: Initialized with Redis and Database managers.")
 
@@ -270,7 +272,7 @@ class StorageManager:
 
         # Execute the main query
         records = await self.db.fetch_all(sql_query)
-        return records, total_pages 
+        return records, total_pages, total_count_result 
 
     async def get_missing_raid_pokedex(self, user, page, pagesize):
         # Ensure page and pagesize are positive integers
@@ -306,7 +308,7 @@ class StorageManager:
 
         # Execute the main query
         records = await self.db.fetch_all(sql_query)
-        return records, total_pages 
+        return records, total_pages, total_count_result 
 
     async def list_pokemon(self, user, page=0, page_size=10):
         default_filter = {
@@ -586,6 +588,6 @@ WHERE id IN (
 );
         """
         print(sql_query)
-        rows = await self.db.execute_delete_query(sql_query)
+        rows = await self.async_db.execute_delete_query(sql_query)
         print(f"Rows affected: {rows}")
         return rows

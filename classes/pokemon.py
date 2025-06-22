@@ -386,16 +386,14 @@ class Pokemon:
         return (
             f"Pokédex ID: {self.pokedex_id}\n"
             f"Name: {self.name.capitalize()}\n"
-            f"Nickname: {self.nickname if self.nickname else 'None'}\n"
             f"Shiny: {'Yes' if self.is_shiny else 'No'}\n"
             f"Tier: {self.tier}\n"
             f"Types: {', '.join(self.types)}\n"
             f"Level: {self.level}\n"
             f"Exp Needed: {int(self.next_exp - self.exp)}\n"
-            f"Region: {self.region if self.region else 'N/A'}\n"
-            f"Nature: {self.nature}\n"
             f"Stats: {self.stats}\n"
             f"IVs: {self.iv}\n"
+            f"IVs percentage: {self.calculate_total_iv_percentage()}%\n"
             f"Safe: {self.safe}"
         )
     def to_readable_dict(self) -> Dict[str, Any]:
@@ -463,3 +461,28 @@ class Pokemon:
         self.stats = self.calculate_stats() 
 
         return num_levels
+
+    def calculate_total_iv_percentage(self):
+        """
+        Calculates the total Individual Values (IVs) as a percentage.
+
+        Args:
+            iv_data (dict): A dictionary containing IVs for 'hp', 'attack', 'defense',
+                            'special_attack', 'special_defense', and 'speed'.
+                            Each IV should be an integer between 0 and 31 (inclusive).
+
+        Returns:
+            float: The total IVs as a percentage, rounded to two decimal places.
+                Returns 0.0 if iv_data is empty or invalid.
+        """
+        max_iv_per_stat = 31
+        number_of_stats = len(self.iv)
+
+        total_possible_ivs = max_iv_per_stat * number_of_stats
+        current_total_ivs = sum(self.iv.values())
+
+        if total_possible_ivs == 0:  # Avoid division by zero if for some reason number_of_stats is 0
+            return 0.0
+
+        percentage = (current_total_ivs / total_possible_ivs) * 100
+        return round(percentage, 2)
