@@ -134,6 +134,19 @@ class EmbedGenerator():
         embed.set_thumbnail(url=pokemon.sprite_front)
         return embed
     
+    def create_master_pokemon_view(self, pokemon_master):
+        pokemon_master.is_shiny = False
+        embed=discord.Embed(description=pokemon_master.__str__(), color=self.get_color(pokemon_master))
+        embed.set_author(name="Goomybot")
+        embed.set_image(url=pokemon_master.front_shiny_sprite)
+        embed.set_thumbnail(url=pokemon_master.front_default_sprite)
+        return embed
+
+    def create_master_pokemon_view_failure(self):
+        embed=discord.Embed(description=f"No pokemon found, please check name", color=default_color)
+        embed.set_author(name="Goomybot")
+        return embed
+    
     def create_rare_candy_view(self, user, pokemon, quantity):
         embed=discord.Embed(description=f"{pokemon.name.capitalize()} leveled up {quantity} time(s)!\nLevel: {pokemon.level}", color=self.get_color(pokemon=pokemon))
         embed.set_author(name=user.name)

@@ -107,7 +107,8 @@ def get_help_pokemon():
 * `.safe [local_id]`: Marks a pokemon as safe or not safe. Local id comes from .list command
 * `.release duplicates`: Releases duplicate pokemon, keeps buddy, safe, shiny and tier 4 pokemon. Keeps the pokemon with the highest total iv
 * `.pokedex <page_number>`: Shows all un-owned pokemon
-* `.raidpokedex <page_number>`: Shows all un-owned raid pokemon 
+* `.raidpokedex <page_number>`: Shows all un-owned raid pokemon
+* `.see <name>`: Displays sprites of a given pokemon, works with raid pokemon
 """
     return embed_generator.create_help_embed(info=help)
 
@@ -180,6 +181,7 @@ def get_admin_help():
     * `.flush`: Clears all entires in the cache.
     * `.resetodds`: Required after adjusting odds to adjust shiny frames
     * `.adminspawn <pokedex_id> <is_shiny>`: Spawns a Pokémon. `is_shiny` can be `true` or `false`.
+    * `.adminraid <pokedex_id> <is_shiny>`: Spawns a Pokémon. `is_shiny` can be `true` or `false`.
     * `.addmoney <user_id> <amount>`: Adds a specified amount of money to a user.
     * `.removemoney <user_id> <amount>`: Removes a specified amount of money from a user.
 """
@@ -446,6 +448,17 @@ def parse_filter_command(message, default_filter, default_order):
 
     final_status = "Parsed successfully." if not status_messages else "\n".join(status_messages)
     return parsed_filter, parsed_order, final_status
+
+async def see_pokemon(name):
+    result = await storage_manager.get_pokemon_master_by_name(name)
+    if result:
+        return embed_generator.create_master_pokemon_view(result)
+    else:
+        result = await storage_manager.get_raid_pokemon_master_by_name(name)
+        if result:
+             return embed_generator.create_master_pokemon_view(result)
+        else:
+            return embed_generator.create_master_pokemon_view_failure()
 
 async def release_duplicates(user):
     release_count = await storage_manager.delete_duplicates(user.id, user.current_pokemon)
@@ -985,6 +998,60 @@ async def run_battle(user):
 
 
 #######################Raid methods#######################
+async def admin_start_raid(pokedex_id, is_shiny, user, channel_id):
+    item = await storage_manager.get_user_item_by_name(user, 'raidpass')
+    active_raid = await storage_manager.get_raid_by_user(user.id)
+    if active_raid:
+        logger.info('User in raid already')
+        return None, embed_generator.create_already_in_raid_embed(user_name=user.name)
+    safe = False
+    pokemon_data = await storage_manager.get_raid_pokemon_master_by_id(pokedex_id)
+    if is_shiny:
+        safe = True
+        front_sprite = pokemon_data.front_shiny_sprite
+    else:
+        front_sprite = pokemon_data.front_default_sprite
+
+    if pokemon_data.tier == 4:
+        safe = False
+    iv = {
+        'hp': random.randrange(0,32),
+        'attack': random.randrange(0,32),
+        'defense': random.randrange(0,32),
+        'special_attack': random.randrange(0,32),
+        'special_defense': random.randrange(0,32),
+        'speed': random.randrange(0,32)
+    }
+    ev = {
+        'hp': 0,
+        'attack': 0,
+        'defense': 0,
+        'special_attack': 0,
+        'special_defense': 0,
+        'speed': 0
+    }
+    new_pokemon = Pokemon(id=uuid.uuid4(), user_id=user.id, original_user_id=user.id, pokedex_id=pokemon_data.id, name=pokemon_data.name, is_shiny=is_shiny, tier = pokemon_data.tier, types=pokemon_data.types_names, ability=random.choice(pokemon_data.abilities_names), level = 1, growth_rate = pokemon_data.growth_rate_name, exp=0, next_exp=0, sprite_front=front_sprite, sprite_back=pokemon_data.back_default_sprite, region=pokemon_data.region, iv=iv, ev=ev, base_stats=pokemon_data.base_stats_json, safe=safe)
+    #set embed_color
+    color = embed_generator.get_color(new_pokemon)
+    
+    #save user
+    await storage_manager.save_object(obj=user, cache_key=f"{REDIS_PREFIX}user_id:{user.id}", table_name="users", unique_columns=["id"])
+    #calculate duration
+    duration = 100 * int(new_pokemon.tier) + random.randrange(0,61) 
+    start_time = datetime.now(timezone.utc)
+    delta = timedelta(seconds=duration)
+    end_time = start_time + delta
+    logger.debug(f"battle end_time: {end_time}")
+    #calculate rewards, for now just money
+    rewards = {'money': 1000*new_pokemon.tier, 'exp': int(pokemon_data.base_experience)}
+    raid = Battle(id=uuid.uuid4(), user_ids=[user.id], local_id=random.randrange(100,1000), channel_id=channel_id, start_time=start_time, duration=duration, end_time=end_time, rewards=rewards, status='active', battle_pokemon_id=new_pokemon.id)
+    #write new pokemon to raid_pokemon table
+    await storage_manager.save_object(obj=new_pokemon, cache_key=f"{REDIS_PREFIX}raid_pokemon_id:{new_pokemon.id}", table_name="raid_pokemon", unique_columns=["id"])
+    #write battle to table
+    await storage_manager.save_object(obj=raid, cache_key=f"{REDIS_PREFIX}raid_id:{raid.id}", table_name="raids", unique_columns=["id"])
+    return new_pokemon, embed_generator.create_raid_embed(user_name=user.name, pokemon_name=new_pokemon.name, join_code=raid.local_id,duration=raid.duration, color=color, url=front_sprite)
+
+
 async def start_raid(user, channel_id):
     item = await storage_manager.get_user_item_by_name(user, 'raidpass')
     active_raid = await storage_manager.get_raid_by_user(user.id)
@@ -1371,6 +1438,12 @@ async def on_message(message):
         pookemon, embed = await admin_start_battle(pokedex_id=pokedex_id, is_shiny=is_shiny, user=user, channel_id=channel_id)
         await message.channel.send(embed=embed)
 
+    if message.content.startswith('.adminraid') and user.id == 701062435678846998:
+        pokedex_id = int(message.content.split()[1])
+        is_shiny = {"true": True, "false": False}.get(message.content.split()[2].lower(), False)
+        pookemon, embed = await admin_start_raid(pokedex_id=pokedex_id, is_shiny=is_shiny, user=user, channel_id=channel_id)
+        await message.channel.send(embed=embed)
+
     if message.content.startswith('.addmoney') and user.id == 701062435678846998:
         split = message.content.split()
         user_id = split[1]
@@ -1414,9 +1487,13 @@ async def on_message(message):
             pokemon, embed = await start_raid(user=user, channel_id=channel_id)
             await message.channel.send(embed=embed)
             if pokemon and pokemon.is_shiny:
-                channel = await client.fetch_channel(FLEX_ID)
-                embed = embed_generator.create_flex_embed(user, pokemon)
-                await channel.send(embed=embed)
+                flex_log = await storage_manager.get_flex_log(user.id, channel_id, pokemon.name)
+                if not flex_log:
+                    log = FlexLog(id= uuid.uuid4(), user_id=user.id, channel_id=channel_id, name=pokemon.name, status='active', timestamp=datetime.now(timezone.utc), expiration_date= datetime.now(timezone.utc) + timedelta(hours=4))
+                    await storage_manager.save_object(obj=log, cache_key=f"{REDIS_PREFIX}flexlog_id:{log.id}", table_name='flex_log', unique_columns=['id'])
+                    channel = await client.fetch_channel(FLEX_ID)
+                    embed = embed_generator.create_flex_embed(user, pokemon)
+                    await channel.send(embed=embed)
         except:
             embed = embed_generator.create_raid_failure_embed(user)
             await message.channel.send(embed=embed)
@@ -1534,7 +1611,15 @@ async def on_message(message):
             embed = await mark_safe(user, int(num[1]))
         else:
             embed = embed_generator.create_safe_pokemon_failure_view(user)
-        await message.channel.send(embed=embed)  
+        await message.channel.send(embed=embed)
+
+    if message.content.startswith('.see'):
+        name = message.content.split()
+        if len(name) > 1 and name[1]:
+            embed = await see_pokemon(name[1])
+        else:
+            embed = embed_generator.create_master_pokemon_view_failure()
+        await message.channel.send(embed=embed) 
 
 #######################item commands#######################
     if message.content.startswith('.shop'):

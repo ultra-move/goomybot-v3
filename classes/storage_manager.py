@@ -487,6 +487,52 @@ class StorageManager:
             logger.error(f"StorageManager: DB error getting Master Pokemon Data {pokemon_id}: {e}")
             return None # Return None or re-raise based on desired error handling
 
+    async def get_pokemon_master_by_name(self, name):
+        cache_key = f"{REDIS_PREFIX}pokemon_master_data:{name}"
+        # 1. Try cache
+        pokemon_data = await self._get_from_cache(cache_key)
+        if pokemon_data:
+            logger.debug(f"StorageManager: Retrieved Master Pokemon Data for {name} from cache.")
+            return PokemonMaster.from_dict(pokemon_data)
+        # 2. Cache miss, try database
+        logger.debug(f"StorageManager: Cache miss for Master Pokemon Data {name}. Fetching from DB.")
+        try:
+            sql_query = "SELECT * from pokemon_master WHERE name ILIKE %(pokemon_name)s ORDER BY ID"
+            pokemon_data = self.db.fetch_one(sql_query, {"pokemon_name": f"{name}%"})
+            if pokemon_data:
+                logger.debug(f"StorageManager: Retrieved Master Pokemon Data for {name} from DB.")
+                # 3. Cache the result for next time (e.g., cache for 5 minutes)
+                await self._set_to_cache(cache_key, pokemon_data, ttl=self.cache_ttl)
+                return PokemonMaster.from_dict(pokemon_data)
+            logger.debug(f"StorageManager: Master Pokemon Data for {name} not found in DB.")
+            return None
+        except psycopg2.Error as e:
+            logger.error(f"StorageManager: DB error getting Master Pokemon Data {name}: {e}")
+            return None # Return None or re-raise based on desired error handling
+
+    async def get_raid_pokemon_master_by_name(self, name):
+        cache_key = f"{REDIS_PREFIX}pokemon_master_data:{name}"
+        # 1. Try cache
+        pokemon_data = await self._get_from_cache(cache_key)
+        if pokemon_data:
+            logger.debug(f"StorageManager: Retrieved Master Pokemon Data for {name} from cache.")
+            return PokemonMaster.from_dict(pokemon_data)
+        # 2. Cache miss, try database
+        logger.debug(f"StorageManager: Cache miss for Master Pokemon Data {name}. Fetching from DB.")
+        try:
+            sql_query = "SELECT * from raid_pokemon_master WHERE name ILIKE %(pokemon_name)s ORDER BY ID"
+            pokemon_data = self.db.fetch_one(sql_query, {"pokemon_name": f"{name}%"})
+            if pokemon_data:
+                logger.debug(f"StorageManager: Retrieved Master Pokemon Data for {name} from DB.")
+                # 3. Cache the result for next time (e.g., cache for 5 minutes)
+                await self._set_to_cache(cache_key, pokemon_data, ttl=self.cache_ttl)
+                return PokemonMaster.from_dict(pokemon_data)
+            logger.debug(f"StorageManager: Master Pokemon Data for {name} not found in DB.")
+            return None
+        except psycopg2.Error as e:
+            logger.error(f"StorageManager: DB error getting Master Pokemon Data {name}: {e}")
+            return None # Return None or re-raise based on desired error handling
+
     async def get_expired_raids(self):
         battles = await self.db.fetch_all("SELECT * FROM raids where status in ('active', 'joined') and end_time <= NOW()")
         result = []

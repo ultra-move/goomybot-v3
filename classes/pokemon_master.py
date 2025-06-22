@@ -30,6 +30,13 @@ class PokemonMaster:
         self.region = region
         self.tier = tier
 
+    def __str__(self):
+        return (
+            f"ID: {self.id}\n"
+            f"Name: {self.name}\n"
+            f"Tier: {self.tier}\n"
+        )
+
     def to_dict(self):
         # Serialize lists and dictionaries to JSON strings for database storage
         return {
