@@ -227,7 +227,7 @@ async def view_pokemon(user, local_id):
     return embed_generator.create_pokemon_view(user, pokemon)
 
 async def view_recent_pokemon(user):
-    pokemon = await storage_manager.get_user_pokemon_by_recent()
+    pokemon = await storage_manager.get_user_pokemon_by_recent(user)
     logger.debug(pokemon)
     return embed_generator.create_pokemon_view(user, pokemon)
 

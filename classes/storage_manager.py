@@ -220,9 +220,9 @@ class StorageManager:
             logger.error(f"StorageManager: DB error getting Pokemon Data {pokemon_id}: {e}")
             return None # Return None or re-raise based on desired error handling
 
-    async def get_user_pokemon_by_recent(self):
+    async def get_user_pokemon_by_recent(self, user):
         try:
-            sql_query = "select * from user_pokemon ORDER BY created_at DESC LIMIT 1"
+            sql_query = f"select * from user_pokemon where user_id = {user.id} ORDER BY created_at DESC LIMIT 1"
             pokemon_data = self.db.fetch_one(sql_query)
             if pokemon_data:
                 return Pokemon.from_dict(pokemon_data)
