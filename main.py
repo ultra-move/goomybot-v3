@@ -14,7 +14,6 @@ from discord.abc import PrivateChannel
 from redis.exceptions import RedisError # Import RedisError from the correct package
 import discord
 
-from classes.async_database_manager import AsyncDatabaseManager
 from classes.battle import Battle
 from classes.data_loader import DataLoader
 from classes.database_manager import DatabaseManager
@@ -55,8 +54,7 @@ LOTTERY_ID= os.getenv("LOTTERY_ID")
 
 redis_manager = RedisManager(REDIS_URL)
 database_manager = DatabaseManager(DATABASE_URL)
-async_database_manager = AsyncDatabaseManager(DATABASE_URL) 
-storage_manager = StorageManager(redis_manager=redis_manager, database_manager=database_manager, async_database_manager=async_database_manager) 
+storage_manager = StorageManager(redis_manager=redis_manager, database_manager=database_manager) 
 #data_loader = DataLoader()
 embed_generator = EmbedGenerator()
 
@@ -1264,7 +1262,6 @@ async def on_ready():
         
         # Set the flag to True so tasks aren't started again
         client._monitor_tasks_started = True
-        await async_database_manager.initialize()
     else:
         print("Background monitor tasks already running, skipping re-initialization.")
 
