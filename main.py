@@ -93,7 +93,7 @@ def get_help_user():
 * `.profile`: Shows your user profile.
 * `.profileimage <URL>`: Sets your profile image to the provided URL (must be from showdown sprites).
 * `.list [page_number]`: Displays a list of your Pokémon. You can specify a page number to view more.
-* `.view [local_id]`: If a `local_id` is provided, views details of that specific Pokémon. If no `local_id` is given, it shows details of your current buddy Pokémon.
+* `.view [local_id] or [recent]`: If a `local_id` is provided, views details of that specific Pokémon. If no `local_id` is given, it shows details of your current buddy Pokémon.
 * `.filter <filter_message>`: Filters your Pokémon list based on your criteria.
 * `.frame`: Views current frame & raid frame
 """
@@ -223,6 +223,11 @@ async def list_missing_raid_pokemon(user, page, page_size):
 
 async def view_pokemon(user, local_id):
     pokemon = await storage_manager.get_user_pokemon_by_id(user.view_table[str(local_id)]['id'])
+    logger.debug(pokemon)
+    return embed_generator.create_pokemon_view(user, pokemon)
+
+async def view_recent_pokemon(user):
+    pokemon = await storage_manager.get_user_pokemon_by_recent()
     logger.debug(pokemon)
     return embed_generator.create_pokemon_view(user, pokemon)
 
@@ -745,13 +750,7 @@ async def admin_start_battle(pokedex_id, is_shiny, user, channel_id):
     
     logger.info(f"Battle Started for: {user.id}")
     user.frame = user.frame + 1 
-    #logger.info(outcome)
-    if user.current_pokemon:
-        buddy = await storage_manager.get_user_pokemon_by_id(str(user.current_pokemon))
-        if buddy:
-            level = buddy.level
-    else:
-        level = 1
+    level = 1
     pokemon_data = await storage_manager.get_pokemon_master_by_id(pokedex_id)
     safe = False
     if is_shiny:
@@ -1565,7 +1564,10 @@ async def on_message(message):
 
         await message.channel.send(embed=embed)
 
-    if message.content.startswith('.view'):
+    if message.content.startswith('.view recent'):
+        embed = await view_recent_pokemon(user)
+        await message.channel.send(embed=embed)
+    elif message.content.startswith('.view'):
         local_id = message.content.split()
         if len(local_id) > 1:
             embed = await view_pokemon(user=user, local_id=str(local_id[1]))
