@@ -57,7 +57,7 @@ class EmbedGenerator():
             formatted_duration = f"Time left: {minutes}m {seconds:02d}s!"
         else:
             formatted_duration = f"Time left: {new_duration} seconds!"
-        if user.profile_image:
+        if user.profile_image and user.profile_image != 'None':
             embed.set_thumbnail(url = user.profile_image)
         embed.set_footer(text=formatted_duration)
         embed.set_author(name=user.name)
@@ -99,10 +99,12 @@ class EmbedGenerator():
         embed.set_author(name=user_name)
         return embed   
     
-    def create_join_battle_embed(self, user_name, new_duration):
+    def create_join_battle_embed(self, user, new_duration):
         embed=discord.Embed(title=f"Joined battle!", color=default_color)
-        embed.add_field(name="duration", value=new_duration)
-        embed.set_author(name=user_name)
+        embed.set_footer(text=f"Time left: {new_duration} seconds!")
+        if user.profile_image and user.profile_image != 'None':
+            embed.set_thumbnail(url = user.profile_image)
+        embed.set_author(name=user.name)
         return embed
     
     def create_evolved_fail_embed(self, user_name, message):
@@ -264,15 +266,15 @@ class EmbedGenerator():
         embed.set_author(name=user.name)
         return embed
     
-    def create_skip_frames_embed(self, user):
-        embed=discord.Embed(description=f"Skipped 100 frames!\nCurrent Frame: {user.frame}", color=default_color)
+    def create_skip_frames_embed(self, user, num_frames):
+        embed=discord.Embed(description=f"Skipped {num_frames} frames!\nCurrent Frame: {user.frame}", color=default_color)
         embed.set_author(name=user.name)
         if user.profile_image and user.profile_image != 'None':
             embed.set_thumbnail(url=user.profile_image)
         return embed
     
-    def create_skip_raid_frames_embed(self, user):
-        embed=discord.Embed(description=f"Skipped 10 raid frames!\nCurrent Frame: {user.raid_frame}", color=default_color)
+    def create_skip_raid_frames_embed(self, user, num_frames):
+        embed=discord.Embed(description=f"Skipped {num_frames} raid frames!\nCurrent Frame: {user.raid_frame}", color=default_color)
         embed.set_author(name=user.name)
         if user.profile_image and user.profile_image != 'None':
             embed.set_thumbnail(url=user.profile_image)

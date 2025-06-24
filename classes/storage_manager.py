@@ -247,11 +247,7 @@ class StorageManager:
             return None # Return None or re-raise based on desired error handling
 
     async def get_missing_pokedex(self, user, page, pagesize):
-        # Ensure page and pagesize are positive integers
-        page = max(1, int(page))
-        pagesize = max(1, int(pagesize))
-
-        offset = (page - 1) * pagesize
+        offset = (page) * pagesize
 
         sql_query = f"""
         SELECT pm.*
@@ -260,7 +256,7 @@ class StorageManager:
             ON pm.id = up.pokedex_id
             AND up.user_id = {user.id}
         WHERE up.pokedex_id IS NULL
-        ORDER BY pm.id ASC -- It's crucial to have an ORDER BY clause for consistent pagination
+        ORDER BY pm.id ASC
         LIMIT {pagesize} OFFSET {offset};
         """
 
@@ -283,11 +279,7 @@ class StorageManager:
         return records, total_pages, total_count_result 
 
     async def get_missing_raid_pokedex(self, user, page, pagesize):
-        # Ensure page and pagesize are positive integers
-        page = max(1, int(page))
-        pagesize = max(1, int(pagesize))
-
-        offset = (page - 1) * pagesize
+        offset = (page) * pagesize
 
         sql_query = f"""
         SELECT pm.*
@@ -296,7 +288,7 @@ class StorageManager:
             ON pm.id = up.pokedex_id
             AND up.user_id = {user.id}
         WHERE up.pokedex_id IS NULL
-        ORDER BY pm.id ASC -- It's crucial to have an ORDER BY clause for consistent pagination
+        ORDER BY pm.id ASC
         LIMIT {pagesize} OFFSET {offset};
         """
 
@@ -507,8 +499,8 @@ class StorageManager:
         # 2. Cache miss, try database
         logger.debug(f"StorageManager: Cache miss for Master Pokemon Data {name}. Fetching from DB.")
         try:
-            sql_query = "SELECT * from pokemon_master WHERE name ILIKE %(pokemon_name)s ORDER BY ID"
-            pokemon_data = self.db.fetch_one(sql_query, {"pokemon_name": f"{name}%"})
+            sql_query = "SELECT * from pokemon_master WHERE name = %(pokemon_name)s ORDER BY ID"
+            pokemon_data = self.db.fetch_one(sql_query, {"pokemon_name": f"{name}"})
             if pokemon_data:
                 logger.debug(f"StorageManager: Retrieved Master Pokemon Data for {name} from DB.")
                 # 3. Cache the result for next time (e.g., cache for 5 minutes)
@@ -530,8 +522,8 @@ class StorageManager:
         # 2. Cache miss, try database
         logger.debug(f"StorageManager: Cache miss for Master Pokemon Data {name}. Fetching from DB.")
         try:
-            sql_query = "SELECT * from raid_pokemon_master WHERE name ILIKE %(pokemon_name)s ORDER BY ID"
-            pokemon_data = self.db.fetch_one(sql_query, {"pokemon_name": f"{name}%"})
+            sql_query = "SELECT * from raid_pokemon_master WHERE name = %(pokemon_name)s ORDER BY ID"
+            pokemon_data = self.db.fetch_one(sql_query, {"pokemon_name": f"{name}"})
             if pokemon_data:
                 logger.debug(f"StorageManager: Retrieved Master Pokemon Data for {name} from DB.")
                 # 3. Cache the result for next time (e.g., cache for 5 minutes)
