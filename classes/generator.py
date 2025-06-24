@@ -74,9 +74,9 @@ class Generator:
         pokemon_id = tier_pool[pokemon_index]
 
         # === 3) Determine Shininess ===
-        shiny_rate = self.odds.event_shiny_rate if (user.event and pokemon_id in self.event_ids) else self.odds.shiny_rate
+        shiny_rate = self.odds.shiny_rate
         shiny_roll = self.shiny_rng.random()
-        is_shiny = (shiny_roll < shiny_rate) or (self.shiny_rng.random() < self.odds.random_shiny_rate)
+        is_shiny = (shiny_roll < shiny_rate)
 
         event = False
         # === 4) Attempt event override if NOT shiny ===
@@ -84,6 +84,8 @@ class Generator:
             candidates = list(set(self.event_ids).intersection(tier_pool))
             if candidates and self.tier_rng.random() < self.odds.event_rate:
                 event = True
+                shiny_rate = self.odds.event_shiny_rate
+                is_shiny = (shiny_roll < shiny_rate)
                 pokemon_id = self.tier_rng.choice(candidates)
 
         # === 5) Pack result ===
