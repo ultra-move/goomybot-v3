@@ -81,31 +81,23 @@ class Generator:
         chosen_pokemon_index = max(0, min(chosen_pokemon_index, tier_pool_size - 1))
         pokemon_id = tier_pool[chosen_pokemon_index]
 
-        # === Determine Shininess for the original Pokémon ===
-        # This uses the shiny_rng to ensure deterministic shininess based on the frame
-        shiny_roll = self.shiny_rng.random()
-        # Note: The random.random() for random_shiny_rate is truly random,
-        # not tied to the frame seed. If you want it tied to the frame,
-        # you'd need another seeded RNG for it. For now, it's global random.
-        is_shiny = (shiny_roll < self.odds.shiny_rate) or (random.random() < self.odds.random_shiny_rate)
-
         # === 2) Attempt event override ===
-        # Only do this if the user has an event active AND the original Pokémon is NOT shiny
-        # AND the chosen Pokémon is not already an event Pokémon
-        if user.event and (not is_shiny) and (pokemon_id not in self.event_ids):
+        # Only do this if the chosen Pokémon is not already an event Pokémon
+        if user.event and (pokemon_id not in self.event_ids):
             # Find possible event Pokémon for this tier
             event_candidates = list(set(self.event_ids).intersection(tier_pool))
             if event_candidates and self.tier_rng.random() < self.odds.event_rate:
                 # Override: force pick an event Pokémon from valid ones
                 pokemon_id = self.tier_rng.choice(event_candidates)
 
-        # If the Pokémon was overridden by an event, we need to recalculate if it's shiny
-        # based on event shiny rates. If it wasn't overridden, `is_shiny` is already correct.
+        # === 3) Determine Shininess ===
         if user.event and (pokemon_id in self.event_ids):
-            # Recalculate shininess for the *event* Pokémon
-            # We must use the *same* shiny_rng roll to maintain determinism for the frame
-            is_shiny = (shiny_roll < self.odds.event_shiny_rate) or (random.random() < self.odds.random_shiny_rate)
+            shiny_rate = self.odds.event_shiny_rate
+        else:
+            shiny_rate = self.odds.shiny_rate
 
+        shiny_roll = self.shiny_rng.random()
+        is_shiny = (shiny_roll < shiny_rate) or (random.random() < self.odds.random_shiny_rate)
 
         # === 4) Pack result ===
         result = {
@@ -124,8 +116,6 @@ class Generator:
         """
         Searches for a frame number that would result in a shiny Pokémon.
         This iterates through frames and checks the shiny outcome for each.
-        If an event is active, it will prioritize finding a frame where the
-        original Pokémon would be shiny and *not* overridden by an event Pokémon.
 
         Args:
             user: The user object, containing 'event' status.
@@ -134,7 +124,7 @@ class Generator:
 
         Returns:
             int or None: The first frame number found that yields a shiny Pokémon,
-                         or None if no such frame is found within the specified range.
+                        or None if no such frame is found within the specified range.
         """
         #print(f"Searching for a non-event shiny frame between {start_frame} and {start_frame + max_frames_to_check - 1}...")
         for frame in range(start_frame, start_frame + max_frames_to_check):
@@ -153,6 +143,7 @@ class Generator:
 
             item_frame_seed = self.original_item_int_seed + int(frame)
             self.item_rng.seed(item_frame_seed)
+
 
             # Replicate the logic from get_outcome_for_frame to determine the full outcome
             # === 1) Determine Tier ===
@@ -180,38 +171,27 @@ class Generator:
             pokemon_index_roll = self.pokemon_rng.random()
             chosen_pokemon_index = math.floor(pokemon_index_roll * tier_pool_size)
             chosen_pokemon_index = max(0, min(chosen_pokemon_index, tier_pool_size - 1))
-            original_pokemon_id = tier_pool[chosen_pokemon_index] # Store as original_pokemon_id
+            pokemon_id = tier_pool[chosen_pokemon_index]
 
-            # === Determine Shininess for the ORIGINAL Pokémon ===
-            # This uses the shiny_rng to ensure deterministic shininess based on the frame
-            shiny_roll = self.shiny_rng.random()
-            # The random.random() for random_shiny_rate is truly random, not tied to the frame seed
-            # If you want it tied to the frame, you'd need another seeded RNG for it.
-            # For this search, we want deterministic results for the "base" shiny rate.
-            original_is_shiny = (shiny_roll < self.odds.shiny_rate)
+            # === 2) Attempt event override ===
+            if user.event and (pokemon_id not in self.event_ids):
+                event_candidates = list(set(self.event_ids).intersection(tier_pool))
+                if event_candidates and self.tier_rng.random() < self.odds.event_rate:
+                    pokemon_id = self.tier_rng.choice(event_candidates)
 
-            # === Logic Adjustment for finding a shiny frame ===
-            # If the original Pokémon is shiny, we found a potential candidate.
-            # Now, we must ensure it's *not* overridden by an event Pokémon.
-            if original_is_shiny:
-                # If there's an event active and the original shiny is NOT an event Pokémon,
-                # check if it *would* be overridden.
-                if user.event and (original_pokemon_id not in self.event_ids):
-                    event_candidates = list(set(self.event_ids).intersection(tier_pool))
-                    # If there are event candidates and the event override roll succeeds,
-                    # then this original shiny Pokémon *would* be overridden.
-                    # In this case, we continue to the next frame.
-                    if event_candidates and self.tier_rng.random() < self.odds.event_rate:
-                        continue # This shiny would be overridden by an event, so skip it.
-
-                # If we reach here, it means:
-                # 1. The original Pokémon is shiny.
-                # 2. EITHER there's no event, OR there's an event but the original shiny
-                #    would NOT be overridden by an event Pokémon (either it's already an event
-                #    Pokémon or the event override roll failed).
-                # This is the shiny frame we're looking for.
-                print(f"Found shiny frame: {frame} (Shiny roll: {shiny_roll:.4f} < Shiny rate: {self.odds.shiny_rate}) for Original Pokemon ID: {original_pokemon_id}")
-                return frame
+            # === 3) Determine Shininess and Event Status ===
+            if user.event and (pokemon_id in self.event_ids):
+                shiny_rate = self.odds.event_shiny_rate
+                shiny_roll = self.shiny_rng.random()
+                # FIX: Use self.shiny_rng for random_shiny_rate as well for determinism
+                if (shiny_roll < shiny_rate) or (self.shiny_rng.random() < self.odds.random_shiny_rate):
+                    continue # Skip this frame if it's an event shiny
+            else:
+                shiny_rate = self.odds.shiny_rate
+                shiny_roll = self.shiny_rng.random()
+                if (shiny_roll < shiny_rate):
+                    print(f"Found non-event shiny frame: {frame} (Shiny roll: {shiny_roll:.4f} < Shiny rate: {shiny_rate}) for Pokemon ID: {pokemon_id}")
+                    return frame
 
         #print(f"No non-event shiny frame found within {max_frames_to_check} frames starting from {start_frame}.")
         return None
