@@ -1704,8 +1704,6 @@ async def on_message(message):
             embed = embed_generator.create_master_pokemon_view_failure()
         await message.channel.send(embed=embed) 
 
-    
-
 #######################event commands#######################
     if message.content.startswith('.event toggle'):
         embed = await toggle_event(user)
@@ -1807,7 +1805,7 @@ async def on_message(message):
             quantity = int(message.content.split()[1])
         except:
             quantity = 1
-        embed = await skip_raid_frames(user)
+        embed = await skip_raid_frames(user, quantity)
         await message.channel.send(embed=embed)
 
     end_time = time.time()
