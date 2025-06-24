@@ -72,18 +72,21 @@ def get_help():
 * `.help battle`: Displays the battle commands help message.
 * `.help raid`: Displays the raid commands help message.
 * `.help items`: Displays the items commands help message.
-
+* `.help event`: Displays the event commands help message.
 **__General Commands__**
 * `.register`: Registers you for the game. You'll need to do this before using most other commands!
 * `.odds`: Displays the current odds
 * `.lottery`: Enters the lottery, or if already entered, displays information about the lottery
 * `.bug <bug report>`: Submits a bug to the bug channel
 * `.git`: provides a link to the git repository
+"""
+    return embed_generator.create_help_embed(info=help)
 
-
-
-
-
+def get_help_event():
+    help = """
+**__Event Commands__**
+* `.event`: displays information about the current event
+* `.event toggle`: joins/leaves the current event
 """
     return embed_generator.create_help_embed(info=help)
 
@@ -96,6 +99,7 @@ def get_help_user():
 * `.view [local_id] or [recent]`: If a `local_id` is provided, views details of that specific Pokémon. If no `local_id` is given, it shows details of your current buddy Pokémon.
 * `.filter <filter_message>`: Filters your Pokémon list based on your criteria.
 * `.frame`: Views current frame & raid frame
+* `.fullframe`: Toggles whether shinyframe commands show the pokemon or not
 """
     return embed_generator.create_help_embed(info=help)
 
@@ -105,6 +109,7 @@ def get_help_pokemon():
 * `.buddy [local_id] or [recent]`: If a `local_id` is provided, sets that Pokémon as your buddy. If no `local_id` is given, it shows your current buddy Pokémon.
 * `.evolve [name]`: Evolves buddy pokemon to name, buddy will evolve to a random choice if multiple are available and no name is provided
 * `.safe [local_id]`: Marks a pokemon as safe or not safe. Local id comes from .list command
+* `.release [local_id]`: Releases specified pokemon (from .list)
 * `.release duplicates`: Releases duplicate pokemon, keeps buddy, safe, shiny and tier 4 pokemon. Keeps the pokemon with the highest total iv
 * `.pokedex <page_number>`: Shows all un-owned pokemon
 * `.raidpokedex <page_number>`: Shows all un-owned raid pokemon
@@ -127,7 +132,6 @@ def get_help_raid():
 * `.raid`: Initiates a new raid (requires a raidpass).
 * `.joinraid <local_id>`: Joins an existing raid with the specified local ID.
 * `.raidframe`: Shows your shiny raid frame, this is free!
-* `.fraidframe`: Shows your full shiny raid frame, this is free!
 """
     return embed_generator.create_help_embed(info=help)
 
@@ -139,7 +143,6 @@ def get_help_items():
 * `.items`: Shows a list of your owned items.
 * `.resetseed`: Uses a Reset Seed to reset your frame and shiny seed.
 * `.shinyframe`: Dispalys the frame that your next shiny is at
-* `.fshinyframe`: Displays the pokemon at the shiny frame. Must use a normal shinyframe first.
 * `.skipframe <quantity>`: Uses a Skip Frame (quantity * 100 frames or to shiny frame).
 * `.skipraidframe <quantity>`: Uses a Skip Raid Frame (quantity * 15 frames or to shiny frame).
 * `.rerolliv <iv_name>`: Rerolls selected buddy iv.
@@ -489,6 +492,23 @@ async def release_duplicates(user):
     await storage_manager.save_object(obj=user, cache_key=f"{REDIS_PREFIX}user_id:{user.id}", table_name="users", unique_columns=["id"])
     return embed_generator.create_release_embed(user, f"Released {release_count} pokemon!\nEarned ${reward_amount:,.0f}")
 
+async def release_single(user, selection):
+    try:
+        to_delete = user.view_table[str(selection)]['id']
+        pokemon = await storage_manager.get_user_pokemon_by_id(to_delete)
+        if pokemon.safe or str(user.current_pokemon) == str(to_delete):
+            return embed_generator.create_release_embed(user, content="Can not release safe or buddy pokemon!")
+        else:
+            await storage_manager.delete_user_pokemon_by_id(to_delete)
+            reward_amount = 200
+            user.wallet += reward_amount
+            await storage_manager.save_object(obj=user, cache_key=f"{REDIS_PREFIX}user_id:{user.id}", table_name="users", unique_columns=["id"])
+            return embed_generator.create_release_embed(user, f"Released {pokemon.name.capitalize()}!\nEarned ${reward_amount:,.0f}")
+    except Exception as e:
+        logger.error(f"Error processing release: {e}")
+        return embed_generator.create_release_embed(user, content="Could not release pokemon, please check syntax")
+
+
 async def pokedex(user):
     # get all user pokedex_id <= 1025
     True
@@ -516,6 +536,16 @@ async def set_profile_image(user, url):
         return embed_generator.create_user_profile_image_success_embed(user)
     else:
         return embed_generator.create_user_profile_image_failed_embed(user, host_string)
+
+async def toggle_full_frame(user):
+    if user.full_frame:
+        user.full_frame = False
+        await storage_manager.save_object(obj=user, cache_key=f"{REDIS_PREFIX}user_id:{user.id}", table_name="users", unique_columns=["id"])
+        return embed_generator.create_full_frame_embed(user)
+    else:
+        user.full_frame = True
+        await storage_manager.save_object(obj=user, cache_key=f"{REDIS_PREFIX}user_id:{user.id}", table_name="users", unique_columns=["id"])
+        return embed_generator.create_full_frame_embed(user)
 
 #######################Admin methods##########################
 async def add_frame(user_id, frames):
@@ -623,7 +653,7 @@ async def shiny_frame(user):
         gen = Generator(tier_seed=user.tier_seed, type_seed=user.type_seed, pokemon_seed=user.pokemon_seed, shiny_seed=user.shiny_seed, item_seed=user.item_seed)
         shiny_frame = gen.find_shiny_frame(start_frame=user.frame+1, max_frames_to_check=10000)
         if shiny_frame:
-            outcome = gen.get_outcome_for_frame(shiny_frame)
+            outcome = gen.get_outcome_for_frame(shiny_frame, user)
             user.shiny_frame = shiny_frame
             item.quantity = item.quantity - 1
             await storage_manager.save_object(obj=user, cache_key=f"{REDIS_PREFIX}user_id:{user.id}", table_name="users", unique_columns=["id"])
@@ -634,14 +664,40 @@ async def shiny_frame(user):
     else:
         return embed_generator.create_item_failure_embed(user, 'shinyframe')
 
+async def get_pokemon_for_shiny_frame(user, frame):
+    gen = Generator(tier_seed=user.tier_seed, type_seed=user.type_seed, pokemon_seed=user.pokemon_seed, shiny_seed=user.shiny_seed, item_seed=user.item_seed)
+    outcome = gen.get_outcome_for_frame(frame, user)
+    pokemon = await storage_manager.get_pokemon_master_by_id(outcome['pokemon_id'])
+    return pokemon
+
 async def full_shiny_frame(user):
     if user.shiny_frame != -1:
-       gen = Generator(tier_seed=user.tier_seed, type_seed=user.type_seed, pokemon_seed=user.pokemon_seed, shiny_seed=user.shiny_seed, item_seed=user.item_seed)
-       outcome = gen.get_outcome_for_frame(user.shiny_frame)
-       pokemon = await storage_manager.get_pokemon_master_by_id(outcome['pokemon_id'])
-       return embed_generator.create_full_shiny_frame(user=user, shiny_frame=user.shiny_frame, pokemon_name=pokemon.name, pokemon_url=pokemon.front_shiny_sprite)
+       #print('Shiny frame not -1')
+        if user.full_frame:
+            pokemon = await get_pokemon_for_shiny_frame(user, user.shiny_frame)
+            return embed_generator.create_full_shiny_frame(user, user.shiny_frame, pokemon.name, pokemon.front_shiny_sprite)
+        else:
+            return embed_generator.create_shiny_frame(user=user, shiny_frame=user.shiny_frame) 
+    
+    item = await storage_manager.get_user_item_by_name(user, 'shinyframe')
+    if item.quantity >= 1:
+        gen = Generator(tier_seed=user.tier_seed, type_seed=user.type_seed, pokemon_seed=user.pokemon_seed, shiny_seed=user.shiny_seed, item_seed=user.item_seed)
+        shiny_frame = gen.find_shiny_frame(start_frame=user.frame+1, max_frames_to_check=10000)
+        if shiny_frame:
+            user.shiny_frame = shiny_frame
+            item.quantity = item.quantity - 1
+            await storage_manager.save_object(obj=user, cache_key=f"{REDIS_PREFIX}user_id:{user.id}", table_name="users", unique_columns=["id"])
+            await storage_manager.save_object(obj=item, cache_key=f"{REDIS_PREFIX}item_id:{item.id}", table_name='user_items', unique_columns=['id'])            
+            if user.full_frame:
+                pokemon = await get_pokemon_for_shiny_frame(user, user.shiny_frame)
+                return embed_generator.create_full_shiny_frame(user, user.shiny_frame, pokemon.name, pokemon.front_shiny_sprite)
+            else:
+                return embed_generator.create_shiny_frame(user=user, shiny_frame=shiny_frame)
+        else:
+            return embed_generator.create_shiny_frame(user=user, shiny_frame="No shiny found")
     else:
-        return embed_generator.create_item_failure_embed(user, 'fshinyframe, please use shinyframe first')
+        return embed_generator.create_item_failure_embed(user, 'shinyframe')
+
 
 async def full_raid_shiny_frame(user):
     gen = Generator(tier_seed=user.tier_seed, type_seed=user.type_seed, pokemon_seed=user.pokemon_seed, shiny_seed=user.shiny_seed, item_seed=user.item_seed)
@@ -775,6 +831,20 @@ async def get_items(user):
     user_items = await storage_manager.get_user_items(user)
     return embed_generator.create_items_view_table(user, user_items)
 
+#######################Event methods#######################
+async def toggle_event(user):
+    if user.event:
+        user.event = False
+        await storage_manager.save_object(obj=user, cache_key=f"{REDIS_PREFIX}user_id:{user.id}", table_name="users", unique_columns=["id"])
+        return embed_generator.create_left_event_embed(user)
+    else:
+        user.event = True
+        await storage_manager.save_object(obj=user, cache_key=f"{REDIS_PREFIX}user_id:{user.id}", table_name="users", unique_columns=["id"])
+        return embed_generator.create_joined_event_embed(user)
+
+async def get_event_details(user):
+    return embed_generator.create_event_embed(user)
+
 #######################Battle methods#######################
 async def admin_start_battle(pokedex_id, is_shiny, user, channel_id):
     print(is_shiny)
@@ -840,7 +910,7 @@ async def start_battle(user, channel_id):
     
     logger.info(f"Battle Started for: {user.id}")
     gen = Generator(tier_seed=user.tier_seed, type_seed=user.type_seed, pokemon_seed=user.pokemon_seed, shiny_seed=user.shiny_seed, item_seed=user.item_seed) 
-    outcome = gen.get_outcome_for_frame(user.frame)
+    outcome = gen.get_outcome_for_frame(user.frame, user)
     user.frame = user.frame + 1 
     safe = False
     #logger.info(outcome)
@@ -1387,6 +1457,9 @@ async def on_message(message):
     elif message.content.startswith('.help items'):
         embed = get_help_items()
         await message.channel.send(embed=embed)
+    elif message.content.startswith('.help event'):
+        embed = get_help_event()
+        await message.channel.send(embed=embed)
     elif message.content.startswith('.help admin') and user.id == 701062435678846998:
         embed = get_admin_help()
         await message.channel.send(embed=embed)
@@ -1633,6 +1706,13 @@ async def on_message(message):
     if message.content.startswith('.release duplicates'):
         embed = await release_duplicates(user)
         await message.channel.send(embed=embed)
+    elif message.content.startswith('.release'):
+        try:
+            num = int(message.content.split()[1])
+            embed = await release_single(user, num)
+        except:
+            embed = embed_generator.create_release_embed(user=user, content="Could not release! Please select a pokemon from .list")
+        await message.channel.send(embed=embed)
     
     if message.content.startswith('.safe'):
         num = message.content.split()
@@ -1649,6 +1729,17 @@ async def on_message(message):
         else:
             embed = embed_generator.create_master_pokemon_view_failure()
         await message.channel.send(embed=embed) 
+
+    
+
+#######################event commands#######################
+    if message.content.startswith('.event toggle'):
+        embed = await toggle_event(user)
+        await message.channel.send(embed=embed) 
+
+    elif message.content.startswith('.event'):
+        embed = await get_event_details(user)
+        await message.channel.send(embed=embed)         
 
 #######################item commands#######################
     if message.content.startswith('.shop'):
@@ -1710,21 +1801,23 @@ async def on_message(message):
 
         embed = await rare_candy(user, quantity)
         await message.channel.send(embed=embed)
-        
-    if '.shinyframe' in message.content:
-        embed = await shiny_frame(user)
-        await message.channel.send(embed=embed)
-    
-    if '.fshinyframe' in message.content:
-        embed = await full_shiny_frame(user)
+
+    if message.content.startswith('.fullframe'):
+        embed = await toggle_full_frame(user)
         await message.channel.send(embed=embed)
 
-    if ('.raidframe' in message.content):
-        embed = await raid_shiny_frame(user)
+    if '.shinyframe' in message.content:
+        if user.full_frame:
+            embed = await full_shiny_frame(user)
+        else:
+            embed = await shiny_frame(user)
         await message.channel.send(embed=embed)
     
-    if ('.fraidframe' in message.content):
-        embed = await full_raid_shiny_frame(user)
+    if '.raidframe' in message.content:
+        if user.full_frame:
+            embed = await full_raid_shiny_frame(user)
+        else:
+            embed = await raid_shiny_frame(user)
         await message.channel.send(embed=embed)
 
     if message.content.startswith('.skipframe'):

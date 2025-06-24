@@ -5,7 +5,7 @@ import discord
 from classes.odds import Odds
 
 default_color = 0xffffff
-
+event_color = 0xff7b00
 class EmbedGenerator():
 
     def get_color(self, pokemon):
@@ -393,4 +393,36 @@ class EmbedGenerator():
         embed=discord.Embed(description=f"Could not mark safe! Please try again!", color=default_color)
         embed.set_author(name=user.name)
         embed.set_thumbnail(url=r'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/shiny/704.png')
+        return embed
+    
+    def create_joined_event_embed(self, user):
+        embed=discord.Embed(description= "Joined Event!", color=event_color)
+        if user:
+            embed.set_author(name=f"{user.name}")
+        else:
+            embed.set_author(name=f"Goomybot")
+        embed.set_thumbnail(url=r'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/shiny/704.png')
+        return embed
+    
+    def create_left_event_embed(self, user):
+        embed=discord.Embed(description= "Left Event!", color=event_color)
+        if user:
+            embed.set_author(name=f"{user.name}")
+        else:
+            embed.set_author(name=f"Goomybot")
+        embed.set_thumbnail(url=r'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/shiny/704.png')
+        return embed
+
+    def create_event_embed(self, user):
+        embed=discord.Embed(title="Shiny Goomy!", description= "Goomy has an increased encounter & shiny rate!\n", color=event_color)
+        embed.set_author(name="Goomybot")
+        embed.set_image(url=r'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/shiny/704.png')
+        embed.set_footer(text="use .event toggle to join/leave the event")
+        return embed
+    
+    def create_full_frame_embed(self, user):
+        embed=discord.Embed(description=f"Full Shiny Frame: {user.full_frame}", color=default_color)
+        embed.set_author(name=user.name)
+        if user.profile_image and user.profile_image != 'None':
+            embed.set_thumbnail(url=user.profile_image)
         return embed

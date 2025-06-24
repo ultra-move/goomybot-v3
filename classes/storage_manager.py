@@ -443,6 +443,11 @@ class StorageManager:
         self.db.delete('battle_pokemon', {'id': str(pokemon_id)})
         await self.redis.delete(f"{REDIS_PREFIX}battle_pokemon_id:{pokemon_id}")
     
+    async def delete_user_pokemon_by_id(self, pokemon_id):
+        self.db.delete('user_pokemon', {'id': str(pokemon_id)})
+        await self.redis.delete(f"{REDIS_PREFIX}pokemon_id:{pokemon_id}")
+    
+
     async def get_battle_pokemon_by_id(self, pokemon_id):
         cache_key = f"{REDIS_PREFIX}pokemon_data:{pokemon_id}"
         # 1. Try cache

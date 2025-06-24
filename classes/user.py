@@ -31,7 +31,9 @@ class User:
                  filter: dict={},
                  order_by: dict={},
                  shiny_frame = -1,
-                 raid_frame = 0
+                 raid_frame = 0,
+                 event = False,
+                 full_frame = False
                  ):
         
         self.id: int = id
@@ -59,6 +61,8 @@ class User:
         self.last_activity_date: datetime.datetime = last_activity_date or datetime.datetime.now(datetime.timezone.utc)
         self.created_at: datetime.datetime = created_at or datetime.datetime.now(datetime.timezone.utc)
         self.last_modified: datetime.datetime = last_modified or datetime.datetime.now(datetime.timezone.utc)
+        self.event = event
+        self.full_frame = full_frame
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]):
@@ -146,6 +150,23 @@ class User:
                     processed_data[key] = {}
             else:
                 processed_data[key] = {} # Default to empty dict if missing or None
+                # --- Boolean Handling (is_shiny) ---
+        if 'event' in processed_data and processed_data['event'] is not None:
+            if isinstance(processed_data['event'], str):
+                processed_data['event'] = processed_data['event'].lower() == 'true'
+            elif isinstance(processed_data['event'], int):
+                processed_data['event'] = bool(processed_data['event'])
+            elif not isinstance(processed_data['event'], bool):
+                logger.warning(f"Pokemon.from_dict: 'event' has unexpected type {type(processed_data['event'])}. Defaulting to False.")
+                processed_data['event'] = False
+        if 'full_frame' in processed_data and processed_data['full_frame'] is not None:
+            if isinstance(processed_data['full_frame'], str):
+                processed_data['full_frame'] = processed_data['full_frame'].lower() == 'true'
+            elif isinstance(processed_data['full_frame'], int):
+                processed_data['full_frame'] = bool(processed_data['full_frame'])
+            elif not isinstance(processed_data['full_frame'], bool):
+                logger.warning(f"Pokemon.from_dict: 'full_frame' has unexpected type {type(processed_data['full_frame'])}. Defaulting to False.")
+                processed_data['full_frame'] = False             
         # --- Integer Handling (pokedex_id, tier, level, exp, next_exp) ---
         int_keys = ['wallet', 'shiny_frame']
         for key in int_keys:
