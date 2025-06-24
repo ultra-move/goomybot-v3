@@ -126,7 +126,7 @@ class Generator:
             int or None: The first frame number found that yields a shiny Pokémon,
                         or None if no such frame is found within the specified range.
         """
-        print(f"Searching for a non-event shiny frame between {start_frame} and {start_frame + max_frames_to_check - 1}...")
+        #print(f"Searching for a non-event shiny frame between {start_frame} and {start_frame + max_frames_to_check - 1}...")
         for frame in range(start_frame, start_frame + max_frames_to_check):
             # === Reseed ALL RNGs deterministically per frame for accurate outcome ===
             tier_frame_seed = self.original_tier_int_seed + int(frame)
@@ -189,12 +189,11 @@ class Generator:
             else:
                 shiny_rate = self.odds.shiny_rate
                 shiny_roll = self.shiny_rng.random()
-                # FIX: Use self.shiny_rng for random_shiny_rate as well for determinism
-                if (shiny_roll < shiny_rate) or (self.shiny_rng.random() < self.odds.random_shiny_rate):
+                if (shiny_roll < shiny_rate):
                     print(f"Found non-event shiny frame: {frame} (Shiny roll: {shiny_roll:.4f} < Shiny rate: {shiny_rate}) for Pokemon ID: {pokemon_id}")
                     return frame
 
-        print(f"No non-event shiny frame found within {max_frames_to_check} frames starting from {start_frame}.")
+        #print(f"No non-event shiny frame found within {max_frames_to_check} frames starting from {start_frame}.")
         return None
     
     def get_outcome_for_raid_frame(self, frame: int):
