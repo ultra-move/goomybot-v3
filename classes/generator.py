@@ -112,12 +112,13 @@ class Generator:
         return result
 
     
-    def find_shiny_frame(self, start_frame: int = 0, max_frames_to_check: int = 100000):
+    def find_shiny_frame(self, user, start_frame: int = 0, max_frames_to_check: int = 100000):
         """
         Searches for a frame number that would result in a shiny Pokémon.
         This iterates through frames and checks the shiny outcome for each.
 
         Args:
+            user: The user object, containing 'event' status.
             start_frame (int): The frame number to start searching from.
             max_frames_to_check (int): The maximum number of frames to check.
 
@@ -125,17 +126,75 @@ class Generator:
             int or None: The first frame number found that yields a shiny Pokémon,
                         or None if no such frame is found within the specified range.
         """
-        print(f"Searching for a shiny frame between {start_frame} and {start_frame + max_frames_to_check - 1}...")
+        print(f"Searching for a non-event shiny frame between {start_frame} and {start_frame + max_frames_to_check - 1}...")
         for frame in range(start_frame, start_frame + max_frames_to_check):
-            # Re-seed the shiny RNG specifically for this frame check
+            # === Reseed ALL RNGs deterministically per frame for accurate outcome ===
+            tier_frame_seed = self.original_tier_int_seed + int(frame)
+            self.tier_rng.seed(tier_frame_seed)
+
             shiny_frame_seed = self.original_shiny_int_seed + int(frame)
             self.shiny_rng.seed(shiny_frame_seed)
-            
-            shiny_roll = self.shiny_rng.random()
-            if shiny_roll < self.odds.shiny_rate:
-                print(f"Found shiny frame: {frame} (Shiny roll: {shiny_roll:.4f} < Shiny rate: {self.odds.shiny_rate})")
-                return frame
-        print(f"No shiny frame found within {max_frames_to_check} frames starting from {start_frame}.")
+
+            pokemon_frame_seed = self.original_pokemon_int_seed + int(frame)
+            self.pokemon_rng.seed(pokemon_frame_seed)
+
+            type_frame_seed = self.original_type_int_seed + int(frame)
+            self.type_rng.seed(type_frame_seed)
+
+            item_frame_seed = self.original_item_int_seed + int(frame)
+            self.item_rng.seed(item_frame_seed)
+
+
+            # Replicate the logic from get_outcome_for_frame to determine the full outcome
+            # === 1) Determine Tier ===
+            tier_roll = self.tier_rng.random()
+            tier_sum_of_rates = self.odds.tier1_rate + self.odds.tier2_rate + self.odds.tier3_rate + self.odds.tier4_rate
+
+            normalized_tier1_cutoff = self.odds.tier1_rate / tier_sum_of_rates
+            normalized_tier2_cutoff = (self.odds.tier1_rate + self.odds.tier2_rate) / tier_sum_of_rates
+            normalized_tier3_cutoff = (self.odds.tier1_rate + self.odds.tier2_rate + self.odds.tier3_rate) / tier_sum_of_rates
+
+            if tier_roll < normalized_tier1_cutoff:
+                chosen_tier = 1
+                tier_pool = self.tier_1_ids
+            elif tier_roll < normalized_tier2_cutoff:
+                chosen_tier = 2
+                tier_pool = self.tier_2_ids
+            elif tier_roll < normalized_tier3_cutoff:
+                chosen_tier = 3
+                tier_pool = self.tier_3_ids
+            else:
+                chosen_tier = 4
+                tier_pool = self.tier_4_ids
+
+            tier_pool_size = len(tier_pool)
+            pokemon_index_roll = self.pokemon_rng.random()
+            chosen_pokemon_index = math.floor(pokemon_index_roll * tier_pool_size)
+            chosen_pokemon_index = max(0, min(chosen_pokemon_index, tier_pool_size - 1))
+            pokemon_id = tier_pool[chosen_pokemon_index]
+
+            # === 2) Attempt event override ===
+            if user.event and (pokemon_id not in self.event_ids):
+                event_candidates = list(set(self.event_ids).intersection(tier_pool))
+                if event_candidates and self.tier_rng.random() < self.odds.event_rate:
+                    pokemon_id = self.tier_rng.choice(event_candidates)
+
+            # === 3) Determine Shininess and Event Status ===
+            if user.event and (pokemon_id in self.event_ids):
+                shiny_rate = self.odds.event_shiny_rate
+                shiny_roll = self.shiny_rng.random()
+                # FIX: Use self.shiny_rng for random_shiny_rate as well for determinism
+                if (shiny_roll < shiny_rate) or (self.shiny_rng.random() < self.odds.random_shiny_rate):
+                    continue # Skip this frame if it's an event shiny
+            else:
+                shiny_rate = self.odds.shiny_rate
+                shiny_roll = self.shiny_rng.random()
+                # FIX: Use self.shiny_rng for random_shiny_rate as well for determinism
+                if (shiny_roll < shiny_rate) or (self.shiny_rng.random() < self.odds.random_shiny_rate):
+                    print(f"Found non-event shiny frame: {frame} (Shiny roll: {shiny_roll:.4f} < Shiny rate: {shiny_rate}) for Pokemon ID: {pokemon_id}")
+                    return frame
+
+        print(f"No non-event shiny frame found within {max_frames_to_check} frames starting from {start_frame}.")
         return None
     
     def get_outcome_for_raid_frame(self, frame: int):

@@ -581,7 +581,7 @@ async def odds_reset():
     users = await storage_manager.get_all_users()
     for user in users:
         gen = Generator(tier_seed=user.tier_seed, type_seed=user.type_seed, pokemon_seed=user.pokemon_seed, shiny_seed=user.shiny_seed, item_seed=user.item_seed)
-        shiny_frame = gen.find_shiny_frame(start_frame=user.frame+1, max_frames_to_check=10000)
+        shiny_frame = gen.find_shiny_frame(user = user, start_frame=user.frame+1, max_frames_to_check=10000)
         user.shiny_frame = shiny_frame
         await storage_manager.save_object(obj=user, cache_key=f"{REDIS_PREFIX}user_id:{user.id}", table_name="users", unique_columns=["id"])
     return embed_generator.create_admin_embed("resetodds")
@@ -604,7 +604,6 @@ async def remove_money(user_id, amount):
 #######################Item methods#######################
 async def get_shop(user):
     items = {
-        'shinyframe': 1000,
         'rerolliv': 2000,
         'rarecandy': 3000,
         'resetseed': 5000,
@@ -616,7 +615,6 @@ async def get_shop(user):
 
 async def buy_item(user, item_name, quantity):
     items = {
-        'shinyframe': 1000,
         'rerolliv': 2000,
         'rarecandy': 3000,
         'resetseed': 5000,
@@ -644,25 +642,15 @@ async def buy_item(user, item_name, quantity):
         return embed_generator.create_item_bought_failed_embed(user, item_name, quantity)
     
 async def shiny_frame(user):
-    if user.shiny_frame != -1:
-       #print('Shiny frame not -1')
-       return embed_generator.create_shiny_frame(user=user, shiny_frame=user.shiny_frame) 
-    
-    item = await storage_manager.get_user_item_by_name(user, 'shinyframe')
-    if item.quantity >= 1:
-        gen = Generator(tier_seed=user.tier_seed, type_seed=user.type_seed, pokemon_seed=user.pokemon_seed, shiny_seed=user.shiny_seed, item_seed=user.item_seed)
-        shiny_frame = gen.find_shiny_frame(start_frame=user.frame+1, max_frames_to_check=10000)
-        if shiny_frame:
-            outcome = gen.get_outcome_for_frame(shiny_frame, user)
-            user.shiny_frame = shiny_frame
-            item.quantity = item.quantity - 1
-            await storage_manager.save_object(obj=user, cache_key=f"{REDIS_PREFIX}user_id:{user.id}", table_name="users", unique_columns=["id"])
-            await storage_manager.save_object(obj=item, cache_key=f"{REDIS_PREFIX}item_id:{item.id}", table_name='user_items', unique_columns=['id'])            
-            return embed_generator.create_shiny_frame(user=user, shiny_frame=shiny_frame)
-        else:
-            return embed_generator.create_shiny_frame(user=user, shiny_frame="No shiny found")
+    gen = Generator(tier_seed=user.tier_seed, type_seed=user.type_seed, pokemon_seed=user.pokemon_seed, shiny_seed=user.shiny_seed, item_seed=user.item_seed)
+    shiny_frame = gen.find_shiny_frame(user= user, start_frame=user.frame+1, max_frames_to_check=10000)
+    if shiny_frame:
+        outcome = gen.get_outcome_for_frame(shiny_frame, user)
+        user.shiny_frame = shiny_frame
+        await storage_manager.save_object(obj=user, cache_key=f"{REDIS_PREFIX}user_id:{user.id}", table_name="users", unique_columns=["id"])      
+        return embed_generator.create_shiny_frame(user=user, shiny_frame=shiny_frame)
     else:
-        return embed_generator.create_item_failure_embed(user, 'shinyframe')
+        return embed_generator.create_shiny_frame(user=user, shiny_frame="No shiny found")
 
 async def get_pokemon_for_shiny_frame(user, frame):
     gen = Generator(tier_seed=user.tier_seed, type_seed=user.type_seed, pokemon_seed=user.pokemon_seed, shiny_seed=user.shiny_seed, item_seed=user.item_seed)
@@ -671,32 +659,18 @@ async def get_pokemon_for_shiny_frame(user, frame):
     return pokemon
 
 async def full_shiny_frame(user):
-    if user.shiny_frame != -1:
-       #print('Shiny frame not -1')
+    gen = Generator(tier_seed=user.tier_seed, type_seed=user.type_seed, pokemon_seed=user.pokemon_seed, shiny_seed=user.shiny_seed, item_seed=user.item_seed)
+    shiny_frame = gen.find_shiny_frame(user=user,start_frame=user.frame+1, max_frames_to_check=10000)
+    if shiny_frame:
+        user.shiny_frame = shiny_frame
+        await storage_manager.save_object(obj=user, cache_key=f"{REDIS_PREFIX}user_id:{user.id}", table_name="users", unique_columns=["id"])        
         if user.full_frame:
             pokemon = await get_pokemon_for_shiny_frame(user, user.shiny_frame)
             return embed_generator.create_full_shiny_frame(user, user.shiny_frame, pokemon.name, pokemon.front_shiny_sprite)
         else:
-            return embed_generator.create_shiny_frame(user=user, shiny_frame=user.shiny_frame) 
-    
-    item = await storage_manager.get_user_item_by_name(user, 'shinyframe')
-    if item.quantity >= 1:
-        gen = Generator(tier_seed=user.tier_seed, type_seed=user.type_seed, pokemon_seed=user.pokemon_seed, shiny_seed=user.shiny_seed, item_seed=user.item_seed)
-        shiny_frame = gen.find_shiny_frame(start_frame=user.frame+1, max_frames_to_check=10000)
-        if shiny_frame:
-            user.shiny_frame = shiny_frame
-            item.quantity = item.quantity - 1
-            await storage_manager.save_object(obj=user, cache_key=f"{REDIS_PREFIX}user_id:{user.id}", table_name="users", unique_columns=["id"])
-            await storage_manager.save_object(obj=item, cache_key=f"{REDIS_PREFIX}item_id:{item.id}", table_name='user_items', unique_columns=['id'])            
-            if user.full_frame:
-                pokemon = await get_pokemon_for_shiny_frame(user, user.shiny_frame)
-                return embed_generator.create_full_shiny_frame(user, user.shiny_frame, pokemon.name, pokemon.front_shiny_sprite)
-            else:
-                return embed_generator.create_shiny_frame(user=user, shiny_frame=shiny_frame)
-        else:
-            return embed_generator.create_shiny_frame(user=user, shiny_frame="No shiny found")
+            return embed_generator.create_shiny_frame(user=user, shiny_frame=shiny_frame)
     else:
-        return embed_generator.create_item_failure_embed(user, 'shinyframe')
+        return embed_generator.create_shiny_frame(user=user, shiny_frame="No shiny found")
 
 
 async def full_raid_shiny_frame(user):
@@ -725,7 +699,7 @@ async def skip_frames(user, quantity):
     item = await storage_manager.get_user_item_by_name(user, 'skipframe')
     if item.quantity >= quantity:
         gen = Generator(tier_seed=user.tier_seed, type_seed=user.type_seed, pokemon_seed=user.pokemon_seed, shiny_seed=user.shiny_seed, item_seed=user.item_seed)
-        shiny_frame = gen.find_shiny_frame(start_frame=user.frame+1, max_frames_to_check=10000)
+        shiny_frame = gen.find_shiny_frame(user=user, start_frame=user.frame+1, max_frames_to_check=10000)
         frames_skipped = 0
         quantity_used = 0
         for i in range(quantity):
