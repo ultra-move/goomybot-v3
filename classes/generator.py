@@ -96,7 +96,6 @@ class Generator:
             "pokemon_id": pokemon_id,
             "event": event
         }
-        print(result)
         return result
 
     
@@ -120,6 +119,7 @@ class Generator:
            if result['event']: 
                continue
            elif result['is_shiny']:
+               print(result)
                return frame                
         return None
     
