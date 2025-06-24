@@ -55,23 +55,27 @@ class Generator:
 
         if tier_roll < t1:
             chosen_tier = 1
+            pool_size = self.odds.tier1_pool_size
             tier_pool = self.tier_1_ids
         elif tier_roll < t2:
             chosen_tier = 2
+            pool_size = self.odds.tier2_pool_size
             tier_pool = self.tier_2_ids
         elif tier_roll < t3:
             chosen_tier = 3
+            pool_size = self.odds.tier3_pool_size
             tier_pool = self.tier_3_ids
         else:
             chosen_tier = 4
+            pool_size = self.odds.tier4_pool_size
             tier_pool = self.tier_4_ids
 
-        # === 2) Pick Pokémon ===
-        pokemon_index = min(
-            max(int(self.pokemon_rng.random() * len(tier_pool)), 0),
-            len(tier_pool) - 1
-        )
-        pokemon_id = tier_pool[pokemon_index]
+        # === 2) Pick Pokémon using fixed pool size ===
+        pokemon_index_roll = self.pokemon_rng.random()
+        pokemon_index = math.floor(pokemon_index_roll * pool_size)
+        pokemon_index = max(0, min(pokemon_index, pool_size - 1))
+        # Map index to actual list with modulus to avoid index errors if list is smaller than pool_size
+        pokemon_id = tier_pool[pokemon_index % len(tier_pool)]
 
         # === 3) Determine Shininess ===
         shiny_rate = self.odds.shiny_rate
@@ -94,7 +98,7 @@ class Generator:
             "tier": chosen_tier,
             "is_shiny": is_shiny,
             "pokemon_index_in_tier": pokemon_index,
-            "tier_pool_size": len(tier_pool),
+            "tier_pool_size": pool_size,
             "pokemon_id": pokemon_id,
             "event": event
         }
