@@ -84,19 +84,25 @@ class EmbedGenerator():
         embed.set_image(url=url)
         return embed
 
-    def create_already_in_battle_embed(self,user_name):
+    def create_already_in_battle_embed(self,user):
         embed=discord.Embed(title=f"Already in battle!", color=default_color)
-        embed.set_author(name=user_name)
+        embed.set_author(name=user.name)
+        if user.profile_image and user.profile_image != 'None':
+            embed.set_thumbnail(url = user.profile_image)
         return embed
     
-    def create_run_from_battle_embed(self, user_name):
+    def create_run_from_battle_embed(self, user):
         embed=discord.Embed(title=f"Ran from battle!", color=default_color)
-        embed.set_author(name=user_name)
+        embed.set_author(name=user.name)
+        if user.profile_image and user.profile_image != 'None':
+            embed.set_thumbnail(url = user.profile_image)
         return embed
     
-    def create_run_from_battle_fail_embed(self, user_name):
+    def create_run_from_battle_fail_embed(self, user):
         embed=discord.Embed(title=f"Cannot run from a battle with other users!", color=default_color)
-        embed.set_author(name=user_name)
+        if user.profile_image and user.profile_image != 'None':
+            embed.set_thumbnail(url = user.profile_image)
+        embed.set_author(name=user.name)
         return embed   
     
     def create_join_battle_embed(self, user, new_duration):

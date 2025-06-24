@@ -781,7 +781,7 @@ async def admin_start_battle(pokedex_id, is_shiny, user, channel_id):
     active_battle = await storage_manager.get_battle_by_user(user.id)
     if active_battle:
         logger.info('User in battle already')
-        return None, embed_generator.create_already_in_battle_embed(user_name=user.name)
+        return None, embed_generator.create_already_in_battle_embed(user=user)
     
     logger.info(f"Battle Started for: {user.id}")
     user.frame = user.frame + 1 
@@ -836,7 +836,7 @@ async def start_battle(user, channel_id):
     active_battle = await storage_manager.get_battle_by_user(user.id)
     if active_battle:
         logger.info('User in battle already')
-        return None, embed_generator.create_already_in_battle_embed(user_name=user.name)
+        return None, embed_generator.create_already_in_battle_embed(user=user)
     
     logger.info(f"Battle Started for: {user.id}")
     gen = Generator(tier_seed=user.tier_seed, type_seed=user.type_seed, pokemon_seed=user.pokemon_seed, shiny_seed=user.shiny_seed, item_seed=user.item_seed) 
@@ -997,12 +997,12 @@ async def join_battle(user, local_id, channel_id):
     active_battle = await storage_manager.get_battle_by_user(user.id)
     if active_battle:
         logger.info('User in battle already')
-        return None, embed_generator.create_already_in_battle_embed(user_name=user.name)
+        return embed_generator.create_already_in_battle_embed(user=user)
     #get battle
     battle = await storage_manager.get_battle_by_local_channel(local_id=local_id, channel_id=channel_id)
     #add user to user_ids
     if battle and user.id in battle.user_ids:
-        return embed_generator.create_already_in_battle_embed(user_name=user.name)
+        return embed_generator.create_already_in_battle_embed(user=user)
     battle.user_ids.append(user.id)
     #reset duration
     duration = battle.duration
@@ -1020,7 +1020,7 @@ async def run_battle(user):
     #get battle that user is in
     battle = await storage_manager.get_battle_by_user(user.id)
     if battle.status == 'joined':
-        return embed_generator.create_run_from_battle_fail_embed(user.name)
+        return embed_generator.create_run_from_battle_fail_embed(user)
     #delete active battle
     if user.id in battle.user_ids:
         await storage_manager.delete_battle_by_id(battle.id)
