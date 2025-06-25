@@ -84,13 +84,12 @@ class Generator:
 
         event = False
         # === 4) Attempt event override if NOT shiny ===
-        if not is_shiny and user.event and (pokemon_id not in self.event_ids):
-            candidates = list(set(self.event_ids).intersection(tier_pool))
-            if candidates and self.tier_rng.random() < self.odds.event_rate:
+        if not is_shiny and user.event  and chosen_tier != 4:
+            if  self.item_rng.random() < self.odds.event_rate:
                 event = True
                 shiny_rate = self.odds.event_shiny_rate
                 is_shiny = (shiny_roll < shiny_rate)
-                pokemon_id = self.tier_rng.choice(candidates)
+                pokemon_id = self.tier_rng.choice(self.event_ids)
 
         # === 5) Pack result ===
         result = {
@@ -127,6 +126,28 @@ class Generator:
            elif result['is_shiny']:
                print(result)
                return frame                
+        return None
+
+    def find_event_shiny_frame(self, user, start_frame: int = 0, max_frames_to_check: int = 100000):
+        """
+        Searches for a frame number that would result in a shiny Pokémon.
+        This iterates through frames and checks the shiny outcome for each.
+
+        Args:
+            user: The user object, containing 'event' status.
+            start_frame (int): The frame number to start searching from.
+            max_frames_to_check (int): The maximum number of frames to check.
+
+        Returns:
+            int or None: The first frame number found that yields a shiny Pokémon,
+                        or None if no such frame is found within the specified range.
+        """
+        #print(f"Searching for a non-event shiny frame between {start_frame} and {start_frame + max_frames_to_check - 1}...")
+        for frame in range(start_frame, start_frame + max_frames_to_check):
+           result = self.get_outcome_for_frame(frame = frame, user = user)
+           if result['event'] and result['is_shiny']:
+               print(result)
+               return frame        
         return None
     
     def get_outcome_for_raid_frame(self, frame: int):

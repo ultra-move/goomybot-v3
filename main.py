@@ -87,6 +87,7 @@ def get_help_event():
 **__Event Commands__**
 * `.event`: displays information about the current event
 * `.event toggle`: joins/leaves the current event
+* `.eventframe`: Shows the shinyframe of the event pokemon
 """
     return embed_generator.create_help_embed(info=help)
 
@@ -671,8 +672,7 @@ async def full_shiny_frame(user):
             return embed_generator.create_shiny_frame(user=user, shiny_frame=shiny_frame)
     else:
         return embed_generator.create_shiny_frame(user=user, shiny_frame="No shiny found")
-
-
+    
 async def full_raid_shiny_frame(user):
     gen = Generator(tier_seed=user.tier_seed, type_seed=user.type_seed, pokemon_seed=user.pokemon_seed, shiny_seed=user.shiny_seed, item_seed=user.item_seed)
     shiny_frame = gen.find_shiny_raid_frame(user.raid_frame, 10000)
@@ -818,6 +818,20 @@ async def toggle_event(user):
 
 async def get_event_details(user):
     return embed_generator.create_event_embed(user)
+
+async def full_event_shiny_frame(user):
+    gen = Generator(tier_seed=user.tier_seed, type_seed=user.type_seed, pokemon_seed=user.pokemon_seed, shiny_seed=user.shiny_seed, item_seed=user.item_seed)
+    shiny_frame = gen.find_event_shiny_frame(user=user,start_frame=user.frame+1, max_frames_to_check=10000)
+    if shiny_frame:
+        user.shiny_frame = shiny_frame
+        await storage_manager.save_object(obj=user, cache_key=f"{REDIS_PREFIX}user_id:{user.id}", table_name="users", unique_columns=["id"])        
+        if user.full_frame:
+            pokemon = await get_pokemon_for_shiny_frame(user, user.shiny_frame)
+            return embed_generator.create_full_shiny_frame(user, user.shiny_frame, pokemon.name, pokemon.front_shiny_sprite)
+        else:
+            return embed_generator.create_shiny_frame(user=user, shiny_frame=shiny_frame)
+    else:
+        return embed_generator.create_shiny_frame(user=user, shiny_frame="No shiny found")
 
 #######################Battle methods#######################
 async def admin_start_battle(pokedex_id, is_shiny, user, channel_id):
@@ -1708,7 +1722,9 @@ async def on_message(message):
     if message.content.startswith('.event toggle'):
         embed = await toggle_event(user)
         await message.channel.send(embed=embed) 
-
+    elif message.content.startswith('.eventframe'):
+        embed = await full_event_shiny_frame(user)
+        await message.channel.send(embed=embed) 
     elif message.content.startswith('.event'):
         embed = await get_event_details(user)
         await message.channel.send(embed=embed)         
