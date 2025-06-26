@@ -1,7 +1,7 @@
+import os
 from PIL import Image
 import requests
 from io import BytesIO
-import os # Import the os module for path operations
 
 class ImageCombiner:
     def __init__(self, urls):
@@ -43,18 +43,23 @@ class ImageCombiner:
             print(f"Could not identify image from {url}. It might not be a valid image: {e}")
             raise
 
-    def combine_images(self, output_path="combined_image.png", horizontal_spacing=0):
+    def combine_images(self, output_path="combined_image.png", horizontal_spacing=0, vertical_align='bottom'):
         """
         Downloads all images from the provided URLs, resizes them to the smallest
         common overall height, and combines them side-by-side into a single image,
-        aligning their visible content to a common bottom line.
+        with spacing applied between content areas and specified vertical alignment.
 
         Args:
             output_path (str): The full path and filename to save the combined image,
                                 including the directory.
-            horizontal_spacing (int): The horizontal spacing between images in pixels.
-                                      Use a positive value for gaps, 0 for touching,
-                                      and a negative value for overlapping.
+            horizontal_spacing (int): The horizontal spacing between *image content* in pixels.
+                                    Use a positive value for gaps, 0 for touching,
+                                    and a negative value for overlapping.
+            vertical_align (str): Defines the vertical alignment strategy.
+                                  Can be 'top', 'bottom', or 'center'.
+                                  'top': Aligns the top of each resized image to the top of the canvas.
+                                  'bottom': Aligns the visible content of images to a common bottom line.
+                                  'center': Aligns the visible content of images to the vertical center of the canvas.
 
         Returns:
             PIL.Image.Image: The combined image object.
@@ -62,6 +67,9 @@ class ImageCombiner:
         if not self.urls:
             print("No URLs provided to combine.")
             return None
+
+        if vertical_align not in ['top', 'bottom', 'center']:
+            raise ValueError("vertical_align must be 'top', 'bottom', or 'center'.")
 
         images = []
         for url in self.urls:
@@ -76,82 +84,99 @@ class ImageCombiner:
             print("No images were successfully downloaded to combine.")
             return None
 
-        # Convert all images to RGBA and find the minimum overall height
-        # This min_overall_height will be the height of our final combined canvas
-        processed_images = []
+        processed_images_info = []
         for img in images:
             if img.mode != 'RGBA':
                 img = img.convert('RGBA')
-            processed_images.append(img)
+            processed_images_info.append({'image': img})
 
-        # Find the minimum *overall* height (including transparency) among all images.
-        min_overall_height = min(img.height for img in processed_images)
+        min_overall_height = min(info['image'].height for info in processed_images_info)
 
-        resized_images_info = [] # Store (resized_img, content_bottom_y_in_resized_img)
-        for img in processed_images:
-            # Resize image to the common minimum overall height
+        resized_images_data = [] # Store {image, content_bottom_y, content_left_x, content_right_x, content_top_y, content_height}
+        for info in processed_images_info:
+            img = info['image']
+            
             if img.height != min_overall_height:
                 width = int(img.width * min_overall_height / img.height)
-                if width == 0: width = 1 # Ensure width is at least 1 to avoid errors
+                if width == 0: width = 1 
                 resized_img = img.resize((width, min_overall_height), Image.LANCZOS)
             else:
                 resized_img = img
 
-            # Find the bounding box of the *actual content* (non-transparent pixels)
-            # of the resized image. bbox is (left, upper, right, lower).
-            bbox = resized_img.getbbox()
+            bbox = resized_img.getbbox() 
             
-            # The 'lower' value of the bbox is the y-coordinate of the content's bottom edge
-            # relative to the resized image's top (y=0).
-            # If bbox is None, the image is fully transparent, so its "content bottom"
-            # is considered the image's full height, aligning it to the canvas bottom.
             if bbox:
-                content_bottom_y_in_resized_img = bbox[3] 
+                content_left_x = bbox[0]
+                content_top_y = bbox[1]
+                content_right_x = bbox[2]
+                content_bottom_y = bbox[3]
+                content_height = content_bottom_y - content_top_y
             else:
-                content_bottom_y_in_resized_img = resized_img.height # Fully transparent image
+                content_left_x = 0
+                content_top_y = 0
+                content_right_x = resized_img.width
+                content_bottom_y = resized_img.height
+                content_height = resized_img.height
 
-            resized_images_info.append({
+            resized_images_data.append({
                 'image': resized_img,
-                'content_bottom_y': content_bottom_y_in_resized_img
+                'content_left_x': content_left_x,
+                'content_top_y': content_top_y,
+                'content_right_x': content_right_x,
+                'content_bottom_y': content_bottom_y,
+                'content_height': content_height
             })
 
-        # Determine the target common bottom y-coordinate on the combined canvas.
-        # This will be the maximum content_bottom_y found among all resized images.
-        # This ensures all images' visible content bottoms are aligned to this line.
-        target_content_bottom_y = max(info['content_bottom_y'] for info in resized_images_info)
-        
-        # Calculate total width of the combined image
-        total_width = sum(info['image'].width for info in resized_images_info)
-        if len(resized_images_info) > 1:
-            total_width += (len(resized_images_info) - 1) * horizontal_spacing
+        # Calculate total width of the combined image based on content and spacing
+        total_canvas_width_needed = 0
+        current_content_x_on_canvas = 0
 
-        # Create the final combined image with a fully transparent background.
+        for i, info in enumerate(resized_images_data):
+            content_left_x = info['content_left_x']
+            content_right_x = info['content_right_x']
+            
+            paste_x_for_image = current_content_x_on_canvas - content_left_x
+            
+            current_image_content_right_on_canvas = paste_x_for_image + content_right_x
+
+            total_canvas_width_needed = max(total_canvas_width_needed, current_image_content_right_on_canvas)
+
+            current_content_x_on_canvas = current_image_content_right_on_canvas + horizontal_spacing
+
+        total_width = max(1, total_canvas_width_needed)
+
         combined_image = Image.new('RGBA', (total_width, min_overall_height), (0, 0, 0, 0))
 
-        x_offset = 0
-        for info in resized_images_info:
+        current_content_x_on_canvas = 0
+
+        # Determine target_content_bottom_y for 'bottom' alignment
+        # This will be the maximum content_bottom_y found among all resized images.
+        target_content_bottom_y = max(info['content_bottom_y'] for info in resized_images_data)
+
+        for info in resized_images_data:
             img = info['image']
-            content_bottom_y = info['content_bottom_y']
-
-            # Calculate the y_offset needed to align this image's content bottom
-            # with the shared target_content_bottom_y.
-            y_offset = target_content_bottom_y - content_bottom_y
-
-            # Create a temporary blank layer the size of the combined image
-            layer = Image.new('RGBA', (total_width, min_overall_height), (0, 0, 0, 0))
             
-            # Paste the current image onto its specific spot on the layer with the calculated y_offset.
-            # The img itself serves as the mask when pasting an RGBA image onto another RGBA layer.
-            layer.paste(img, (x_offset, y_offset), img)
+            y_offset = 0 # Default for 'top' alignment
 
-            # Alpha composite the layer onto the main combined image.
-            # This correctly blends the current image, respecting its alpha channel,
-            # and prevents parts of previously pasted images from being "erased".
+            if vertical_align == 'bottom':
+                # Calculate y_offset to align content bottom to the lowest content bottom
+                y_offset = target_content_bottom_y - info['content_bottom_y']
+            elif vertical_align == 'center':
+                # Calculate y_offset to center content vertically within the canvas height
+                content_mid_point_y_in_image = info['content_top_y'] + info['content_height'] / 2
+                target_mid_point_y_on_canvas = min_overall_height / 2
+                y_offset = int(target_mid_point_y_on_canvas - content_mid_point_y_in_image) # Cast to int for pixel precision
+
+            paste_x_offset = current_content_x_on_canvas - info['content_left_x']
+            
+            layer = Image.new('RGBA', (combined_image.width, combined_image.height), (0, 0, 0, 0))
+            layer.paste(img, (paste_x_offset, y_offset), img)
+
             combined_image = Image.alpha_composite(combined_image, layer)
 
-            x_offset += img.width + horizontal_spacing
+            current_image_content_right_on_canvas = paste_x_offset + info['content_right_x']
+            current_content_x_on_canvas = current_image_content_right_on_canvas + horizontal_spacing
 
-        # Ensure the output directory exists before saving
         output_directory = os.path.dirname(output_path)
         if output_directory and not os.path.exists(output_directory):
             try:
@@ -161,7 +186,6 @@ class ImageCombiner:
                 print(f"Error creating directory {output_directory}: {e}")
                 return None
 
-        # Save the final combined image
         try:
             combined_image.save(output_path)
             print(f"Combined image saved to {output_path}")
@@ -174,23 +198,23 @@ class ImageCombiner:
 # --- Example Usage ---
 if __name__ == "__main__":
     pokemon_urls = [
-        "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/shiny/1.png",
-        "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/shiny/4.png", 
-        "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/shiny/7.png", 
+        "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/shiny/374.png", # Beldum
+        "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/shiny/375.png", # Metang
+        "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/shiny/376.png", # Metagross
     ]
 
     # Define a relative directory to save the image
-    output_dir = "sprites"
-    output_filename = "kanto_starters.png"
-
+    output_dir = r"sprites"
+    output_filename = "Luke_event.png"
 
     # Create the 'sprites' directory if it doesn't exist
     os.makedirs(output_dir, exist_ok=True)
-    full_output_path_overlapping = os.path.join(output_dir, output_filename)
-
-    horizontal_spacing = -60
-    print(f"\n--- Combining images with {horizontal_spacing} spacing (overlapping) ---")
-    combiner_overlapping = ImageCombiner(pokemon_urls)
-    combined_img_overlapping = combiner_overlapping.combine_images(full_output_path_overlapping, horizontal_spacing=horizontal_spacing)
-    if combined_img_overlapping:
-        print("Images overlapping process complete.")
+    
+# Example 3: Center Alignment
+    output_filename_center = "Luke_event.png"
+    full_output_path_center = os.path.join(output_dir, output_filename_center)
+    print(f"\n--- Combining images with 10px spacing (Center Aligned) ---")
+    combiner_center = ImageCombiner(pokemon_urls)
+    combined_img_center = combiner_center.combine_images(full_output_path_center, horizontal_spacing=10, vertical_align='center')
+    if combined_img_center:
+        print(f"Images combined with 10px spacing, center aligned. Process complete.")
