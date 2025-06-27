@@ -414,10 +414,19 @@ class EmbedGenerator():
         return embed
 
     def create_event_embed(self, user):
-        embed=discord.Embed(title="Shiny Goomy!", description= "Goomy has an increased encounter & shiny rate!\n", color=event_color)
+        embed=discord.Embed(title="Shiny Beldum, Metang & Metagross!", description= "This event ends on 7/2!\n", color=event_color)
         embed.set_author(name="Goomybot")
-        embed.set_image(url=r'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/shiny/704.png')
+        embed.set_image(url=r'https://github.com/ultra-move/goomybot-v3/blob/prod/sprites/Luke_event.png?raw=true')
         embed.set_footer(text="use .event toggle to join/leave the event")
+        return embed
+    
+    def create_not_in_event_embed(self, user):
+        embed=discord.Embed(title="Not in the event!",description= "Use .event toggle to join the event", color=event_color)
+        if user:
+            embed.set_author(name=f"{user.name}")
+        else:
+            embed.set_author(name=f"Goomybot")
+        embed.set_thumbnail(url=r'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/shiny/704.png')
         return embed
     
     def create_full_frame_embed(self, user):
