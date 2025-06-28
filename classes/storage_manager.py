@@ -11,6 +11,7 @@ from classes.pokemon import Pokemon
 from classes.pokemon_master import PokemonMaster
 from classes.redis_manager import RedisManager
 from classes.database_manager import DatabaseManager
+from classes.trade import Trade
 from classes.user import User
 from redis.exceptions import RedisError # Import RedisError for handling cache issues
 import psycopg2 # Import psycopg2 for handling database specific errors
@@ -448,6 +449,7 @@ class StorageManager:
         await self.redis.delete(f"{REDIS_PREFIX}pokemon_id:{pokemon_id}")
     
 
+
     async def get_battle_pokemon_by_id(self, pokemon_id):
         cache_key = f"{REDIS_PREFIX}pokemon_data:{pokemon_id}"
         # 1. Try cache
@@ -612,6 +614,91 @@ class StorageManager:
         except psycopg2.Error as e:
             logger.error(f"StorageManager: DB error getting Master Raid Pokemon Data {pokemon_id}: {e}")
             return None # Return None or re-raise based on desired error handling
+    
+        
+#===========================================TRADE FUNCTIONS===========================================        
+    async def get_trade_by_id(self, trade_id):
+        cache_key = f"{REDIS_PREFIX}trade_id:{trade_id}"
+        # 1. Try cache
+        trade_data = await self._get_from_cache(cache_key)
+        if trade_data:
+            logger.debug(f"StorageManager: Retrieved Trade for {trade_id} from cache.")
+            return Trade.from_dict(trade_data)
+        # 2. Cache miss, try database
+        logger.debug(f"StorageManager: Cache miss for Trade {trade_id}. Fetching from DB.")
+        try:
+            sql_query = "SELECT * from trades WHERE id = %(trade_id)s"
+            trade_data = self.db.fetch_one(sql_query, {"trade_id": trade_id})
+            if trade_data:
+                logger.debug(f"StorageManager: Retrieved Trade for {trade_id} from DB.")
+                # 3. Cache the result for next time (e.g., cache for 5 minutes)
+                await self._set_to_cache(cache_key, trade_data, ttl=self.cache_ttl)
+                return Trade.from_dict(trade_data)
+            logger.debug(f"StorageManager: Trade for {trade_id} not found in DB.")
+            return None
+        except psycopg2.Error as e:
+            logger.error(f"StorageManager: DB error getting Master Raid Pokemon Data {trade_id}: {e}")
+            return None # Return None or re-raise based on desired error handling
+            
+    async def get_trade_by_user_id(self, user_id: str): # Renamed 'user' to 'user_id' for clarity
+        try:
+            sql_query = f"""
+                SELECT * FROM trades 
+                WHERE (user1->>'user_id')::bigint = %(user_id)s OR (user2->>'user_id')::bigint = %(user_id)s
+            """
+            trade_data = self.db.fetch_one(sql_query, {"user_id": user_id})
+            
+            if trade_data:
+                logger.debug(f"StorageManager: Retrieved Trade for user {user_id} from DB.")
+                return Trade.from_dict(trade_data)
+            
+            logger.debug(f"StorageManager: Trade for user {user_id} not found in DB.")
+            return None
+        except psycopg2.Error as e:
+            logger.error(f"StorageManager: DB error getting Trade Data for user {user_id}: {e}")
+            return None
+
+    async def get_trade_by_user_id_local_id(self, user_id: str, local_id): # Renamed 'user' to 'user_id' for clarity
+        try:
+            sql_query = """
+                SELECT * FROM trades 
+                WHERE (user2->>'user_id')::bigint = %(user_id)s and local_id = %(local_id)s and status = 'started'
+            """
+            trade_data = self.db.fetch_one(sql_query, {"user_id": user_id, "local_id": local_id})
+            
+            if trade_data:
+                logger.debug(f"StorageManager: Retrieved Trade for user {user_id} from DB.")
+                return Trade.from_dict(trade_data)
+            
+            logger.debug(f"StorageManager: Trade for user {user_id} not found in DB.")
+            return None
+        except psycopg2.Error as e:
+            logger.error(f"StorageManager: DB error getting Trade Data for user {user_id}: {e}")
+            return None
+        
+    async def get_trade_by_user_id_active(self, user_id: str): # Renamed 'user' to 'user_id' for clarity
+        try:
+            sql_query = f"""
+                SELECT * FROM trades 
+                WHERE ((user1->>'user_id')::bigint = %(user_id)s OR (user2->>'user_id')::bigint = %(user_id)s ) and status = 'active'
+            """
+            trade_data = self.db.fetch_one(sql_query, {"user_id": user_id})
+            
+            if trade_data:
+                logger.debug(f"StorageManager: Retrieved Trade for user {user_id} from DB.")
+                return Trade.from_dict(trade_data)
+            
+            logger.debug(f"StorageManager: Trade for user {user_id} not found in DB.")
+            return None
+        except psycopg2.Error as e:
+            logger.error(f"StorageManager: DB error getting Trade Data for user {user_id}: {e}")
+            return None
+
+    async def delete_trade_id(self, trade_id):
+        self.db.delete('trades', {'id': str(trade_id)})
+        await self.redis.delete(f"{REDIS_PREFIX}trade_id:{trade_id}")
+
+#==================================================================================================== 
 
     async def delete_duplicates(self, user_id, buddy_id):
         sql_query = f"""

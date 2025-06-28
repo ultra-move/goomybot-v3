@@ -6,6 +6,7 @@ from classes.odds import Odds
 
 default_color = 0xffffff
 event_color = 0xff7b00
+trade_color = 0x5900ff
 class EmbedGenerator():
 
     def get_color(self, pokemon):
@@ -434,4 +435,71 @@ class EmbedGenerator():
         embed.set_author(name=user.name)
         if user.profile_image and user.profile_image != 'None':
             embed.set_thumbnail(url=user.profile_image)
+        return embed
+    
+    ##############Trade embeds###################
+
+    def create_trade_started_embed(self, user, user_mentioned, local_id):
+        embed=discord.Embed(description=f"Trade initiated with {user_mentioned.name}", color=trade_color)
+        embed.add_field(name="local code:", value=local_id)
+        embed.set_author(name=user.name)
+        embed.set_footer(text="use .trade join <local id> to join the trade")
+        return embed
+    
+    def create_trade_invalid_user_embed(self, user):
+        embed=discord.Embed(description=f"Invalid user, please @ a valid user!", color=trade_color)
+        embed.set_author(name=user.name)
+        return embed
+
+    def create_trade_already_active_embed(self, user):
+        embed=discord.Embed(description=f"You are already in a trade!", color=trade_color)
+        embed.set_author(name=user.name)
+        return embed
+    
+    def create_trade_already_mentioned_active_embed(self, user, user_mentioned):
+        embed=discord.Embed(description=f"{user_mentioned.name} is already in a trade!", color=trade_color)
+        embed.set_author(name=user.name)
+        return embed
+    
+    def create_join_trade_success_embed(self, user):
+        embed=discord.Embed(description=f"{user.name} activated the trade!", color=trade_color)
+        embed.set_author(name=user.name)
+        embed.set_footer(text="please use .help trade!")
+        return embed
+    
+    def create_join_trade_failure_embed(self, user):
+        embed=discord.Embed(description=f"Could not join trade, please try again", color=trade_color)
+        embed.set_author(name=user.name)
+        return embed
+    
+    def create_trade_block_embed(self, user, reason):
+        embed=discord.Embed(description=f"{reason}", color=trade_color)
+        embed.set_author(name=user.name)
+        return embed
+    
+    def create_trade_add_failure_embed(self, user, reason):
+        embed=discord.Embed(description=f"{reason}, please try again", color=trade_color)
+        embed.set_author(name=user.name)
+        return embed
+    
+    def create_trade_add_pokemon_embed(self, user, pokemon):
+        embed=discord.Embed(description=f"Added {pokemon.name} to trade!", color=trade_color)
+        embed.set_author(name=user.name)
+        embed.set_image(url=pokemon.sprite_front)
+        return embed
+    
+    def create_trade_display_embed(self, user, content):
+        embed=discord.Embed(description=f"{content}", color=trade_color)
+        embed.set_author(name=user.name)
+        embed.set_footer(text=f"use .trade confirm to finish the trade!")
+        return embed
+    
+    def create_trade_completed_embed(self, active_trade):
+        embed=discord.Embed(description=f"Trade {active_trade.local_id} completed!", color=trade_color)
+        embed.set_author(name="Goomybot")
+        return embed
+    
+    def create_trade_canceled_embed(self, user):
+        embed=discord.Embed(description=f"Trade canceled!", color=trade_color)
+        embed.set_author(name=user.name)
         return embed

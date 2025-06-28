@@ -25,6 +25,7 @@ from classes.pokemon_master import PokemonMaster
 from classes.redis_manager import RedisManager
 from classes.storage_manager import StorageManager
 #from classes.data_loader import DataLoader
+from classes.trade import Trade
 from classes.user import User
 from classes.pokemon import Pokemon
 from classes.generator import Generator
@@ -73,6 +74,7 @@ def get_help():
 * `.help raid`: Displays the raid commands help message.
 * `.help items`: Displays the items commands help message.
 * `.help event`: Displays the event commands help message.
+* `.help trade`: Displays the trade commands help message.
 **__General Commands__**
 * `.register`: Registers you for the game. You'll need to do this before using most other commands!
 * `.odds`: Displays the current odds
@@ -135,6 +137,20 @@ def get_help_raid():
 * `.raidframe`: Shows your shiny raid frame, this is free!
 """
     return embed_generator.create_help_embed(info=help)
+
+def get_help_trade():
+    help = """
+**__Trade Commands__**
+* `.trade`: Displays current trade
+* `.trade @user`: Initiates a trade with @user
+* `.trade join <local_id>`: Starts trade that another user initiated
+* `.trade confirm`: Confirms a trade (both users must confirm)
+* `.trade cancel`: Cancels a trade
+* `.trade add pokemon <local_id>`: Adds a pokemon to the trade from your .list (or .filter)
+
+
+"""
+    return embed_generator.create_help_embed(info=help)    
 
 def get_help_items():
     help = """
@@ -247,6 +263,9 @@ async def view_buddy(user):
     return embed_generator.create_pokemon_view(user, pokemon)    
 
 async def set_buddy_recent(user):
+    active_trade = await storage_manager.get_trade_by_user_id(user_id=user.id)
+    if active_trade:
+        return embed_generator.create_trade_block_embed(user, "Cannot release while in a trade")
     active_battle = await storage_manager.get_battle_by_user(user.id)
     active_raid = await storage_manager.get_raid_by_user(user.id)
     if active_battle or active_raid:
@@ -258,6 +277,9 @@ async def set_buddy_recent(user):
         return embed_generator.create_pokemon_view(user, pokemon)
 
 async def set_buddy(user, local_id):
+    active_trade = await storage_manager.get_trade_by_user_id(user_id=user.id)
+    if active_trade:
+        return embed_generator.create_trade_block_embed(user, "Cannot change buddy while in a trade")
     active_battle = await storage_manager.get_battle_by_user(user.id)
     active_raid = await storage_manager.get_raid_by_user(user.id)
     if active_battle or active_raid:
@@ -292,6 +314,9 @@ async def evolve_buddy(user, name: Optional[str] = None):
     If a 'name' is provided, attempts to evolve to that specific Pokémon.
     If no 'name' is provided, picks a random evolution.
     """
+    active_trade = await storage_manager.get_trade_by_user_id(user_id=user.id)
+    if active_trade:
+        return embed_generator.create_trade_block_embed(user, "Cannot evolve while in a trade!")
     buddy = await storage_manager.get_user_pokemon_by_id(str(user.current_pokemon))
 
     if not buddy:
@@ -437,6 +462,11 @@ def parse_filter_command(message, default_filter, default_order):
             parts = key.split('=', 1)
             key, value_str = parts[0], parts[1]
             i += 1
+        # CORRECT PLACEMENT FOR THE SHINY SHORTCUT
+        elif key == 'shiny':
+            parsed_filter[key] = True  # Set shiny to True if just 'shiny' is present
+            i += 1
+            continue  # Move to the next token immediately
         elif i + 1 < len(tokens):
             value_str = tokens[i + 1]
             i += 2
@@ -451,7 +481,7 @@ def parse_filter_command(message, default_filter, default_order):
                     t_clean = t.strip()
                     if t_clean:
                         parsed_filter['type'].append(t_clean)
-            elif key in ['shiny', 'held_item']:
+            elif key in ['shiny', 'held_item']: # This handles 'shiny=true' or 'shiny=false'
                 if value_str in ['true', 'false']:
                     parsed_filter[key] = (value_str == 'true')
                 else:
@@ -487,6 +517,9 @@ async def see_pokemon(name):
             return embed_generator.create_master_pokemon_view_failure()
 
 async def release_duplicates(user):
+    active_trade = await storage_manager.get_trade_by_user_id(user_id=user.id)
+    if active_trade:
+        return embed_generator.create_trade_block_embed(user, "Cannot release while in a trade!")
     release_count = await storage_manager.delete_duplicates(user.id, user.current_pokemon)
     reward_amount = release_count * 200
     user.wallet += reward_amount
@@ -494,6 +527,9 @@ async def release_duplicates(user):
     return embed_generator.create_release_embed(user, f"Released {release_count} pokemon!\nEarned ${reward_amount:,.0f}")
 
 async def release_single(user, selection):
+    active_trade = await storage_manager.get_trade_by_user_id(user_id=user.id)
+    if active_trade:
+        return embed_generator.create_trade_block_embed(user, "Cannot release while in a trade!")
     try:
         to_delete = user.view_table[str(selection)]['id']
         pokemon = await storage_manager.get_user_pokemon_by_id(to_delete)
@@ -755,6 +791,9 @@ async def skip_raid_frames(user, quantity):
         return embed_generator.create_item_failure_embed(user, 'skipraidframe') 
     
 async def reroll_iv(user, iv):
+    active_trade = await storage_manager.get_trade_by_user_id(user_id=user.id)
+    if active_trade:
+        return embed_generator.create_trade_block_embed(user, "Cannot use rerolliv while in a trade")
     if iv not in ['hp', 'attack', 'defense', 'special_attack', 'special_defense', 'speed']:
         return embed_generator.create_item_failure_embed(user, 'rerolliv') 
     item = await storage_manager.get_user_item_by_name(user, 'rerolliv')
@@ -772,6 +811,9 @@ async def reroll_iv(user, iv):
         return embed_generator.create_item_failure_embed(user, 'rerolliv')  
 
 async def rare_candy(user, quantity):
+    active_trade = await storage_manager.get_trade_by_user_id(user_id=user.id)
+    if active_trade:
+        return embed_generator.create_trade_block_embed(user, "Cannot use rare candy while in a trade")
     item = await storage_manager.get_user_item_by_name(user, 'rarecandy')
     if item.quantity >= quantity:
         buddy = await storage_manager.get_user_pokemon_by_id(str(user.current_pokemon))
@@ -1398,6 +1440,131 @@ async def lottery_monitor_task(interval_seconds: int):
         # 4. Wait for the next interval
         await asyncio.sleep(interval_seconds)
 
+
+#####################trade functions##############################
+
+async def start_trade(user, mention):
+    print(f"Trade starting with: {mention}")
+    active_trade = await storage_manager.get_trade_by_user_id(user_id=user.id)
+    if active_trade:
+        return embed_generator.create_trade_already_active_embed(user)
+    user_mentioned = await storage_manager.get_user(user_id=mention.id)
+    if user_mentioned:
+        active_trade = await storage_manager.get_trade_by_user_id(user_id=user_mentioned.id)
+        if active_trade:
+            return embed_generator.create_trade_already_mentioned_active_embed(user, user_mentioned=user_mentioned)
+        user1={'user_id': user.id, 'pokemon': [], 'items': [{'id': '', 'name': '', 'quantity': 0}], 'money': 0, 'confirmed': False}        
+        user2= {'user_id': user_mentioned.id, 'pokemon': [], 'items': [{'id': '', 'name': '', 'quantity': 0}], 'money': 0, 'confirmed': False}
+        local_id = random.randrange(100,999)
+        trade = Trade(id=uuid.uuid4(), local_id=local_id, user1=user1, user2=user2, status='started')
+        await storage_manager.save_object(obj= trade, cache_key=f"{REDIS_PREFIX}trade_id_{trade.id}", table_name='trades', unique_columns=['id'])
+        #trade = await storage_manager.get_trade_by_user_id(user_id=message.author.id)
+        print(trade)
+        return embed_generator.create_trade_started_embed(user=user, user_mentioned=user_mentioned, local_id=local_id)
+    else:
+        return embed_generator.create_trade_invalid_user_embed(user=user)
+
+async def join_trade(user, local_id):
+    active_trade = await storage_manager.get_trade_by_user_id_local_id(user_id=user.id, local_id=local_id)
+    if active_trade:
+        print(active_trade)
+        active_trade.status = 'active'
+        await storage_manager.save_object(obj= active_trade, cache_key=f"{REDIS_PREFIX}trade_id_{active_trade.id}", table_name='trades', unique_columns=['id'])
+        return embed_generator.create_join_trade_success_embed(user=user)
+    else:
+        return embed_generator.create_join_trade_failure_embed(user)
+    
+async def add_pokemon_to_trade(user, local_id):
+    active_trade = await storage_manager.get_trade_by_user_id_active(user_id=user.id)
+    print(active_trade)
+    if active_trade:
+        pokemon_id = user.view_table[local_id]['id']
+        pokemon = await storage_manager.get_user_pokemon_by_id(pokemon_id)
+        if pokemon.is_shiny:
+            name = "✨" + user.view_table[local_id]['name'] + "✨"
+        else:
+            name = user.view_table[local_id]['name']
+        if str(pokemon_id) != str(user.current_pokemon):
+            print(pokemon_id)
+            if active_trade.user1['user_id'] == user.id:
+                active_trade.user1['pokemon'].append({"id": pokemon_id, 'name': name.capitalize()})
+            else:
+                active_trade.user1['pokemon'].append({"id": pokemon_id, 'name': name.capitalize()})
+            await storage_manager.save_object(obj= active_trade, cache_key=f"{REDIS_PREFIX}trade_id_{active_trade.id}", table_name='trades', unique_columns=['id'])
+            
+            return embed_generator.create_trade_add_pokemon_embed(user, pokemon)
+        else:
+            return embed_generator.create_trade_add_failure_embed(user, reason="Cannot trade buddy pokemon!")
+
+async def display_trade(user):
+    active_trade = await storage_manager.get_trade_by_user_id_active(user_id=user.id)
+    if active_trade:
+        if user.id == active_trade.user1["user_id"]:
+            user1_name = user.name
+            user2 = await storage_manager.get_user(active_trade.user2["user_id"])
+            user2_name = user2.name
+        else:
+            user2_name = user.name
+            user1 = await storage_manager.get_user(active_trade.user1["user_id"])
+            user1_name = user1.name
+        user1_pokemon_string = ""
+        for pokemon in active_trade.user1['pokemon']:
+            user1_pokemon_string = user1_pokemon_string + f"{pokemon['name']}\n"
+        user2_pokemon_string = ""
+        for pokemon in active_trade.user2['pokemon']:
+            user2_pokemon_string = user2_pokemon_string + f"{pokemon['name']}\n"
+        display_string = f"""
+Trade {active_trade.local_id}
+{user1_name} & {user2_name}/n
+{user1_name}:\nConfirmed: ({active_trade.user1['confirmed']})\n
+Pokemon:
+{user1_pokemon_string}
+{user2_name}:\nConfirmed: ({active_trade.user1['confirmed']})\n
+Pokemon:
+{user2_pokemon_string}
+"""
+        return embed_generator.create_trade_display_embed(user, display_string)
+        
+    else:
+        return embed_generator.create_trade_add_failure_embed(user, reason="No active trade!")           
+
+async def confirm_trade(user):
+    active_trade = await storage_manager.get_trade_by_user_id_active(user_id=user.id)
+    if active_trade:
+        if user.id == active_trade.user1["user_id"]:
+            active_trade.user1['confirmed'] = True
+        if user.id == active_trade.user2["user_id"]:
+            active_trade.user2['confirmed'] = True
+        
+        if active_trade.user1['confirmed'] == active_trade.user2['confirmed']:
+            await finish_trade(active_trade)
+            await storage_manager.delete_trade_id(active_trade.id)
+            return embed_generator.create_trade_completed_embed(active_trade=active_trade)
+        else:
+            await storage_manager.save_object(obj= active_trade, cache_key=f"{REDIS_PREFIX}trade_id_{active_trade.id}", table_name='trades', unique_columns=['id'])
+            return await display_trade(user)
+    else:
+        return embed_generator.create_trade_add_failure_embed(user, reason="No active trade!")     
+
+async def finish_trade(active_trade):
+    for pokemon in active_trade.user1['pokemon']:
+        pokemon_data = await storage_manager.get_user_pokemon_by_id(pokemon_id=pokemon['id'])
+        pokemon_data.user_id = active_trade.user2['user_id']
+        pokemon_data.created_at = datetime.now(timezone.utc)
+        pokemon_data.original_user_id = active_trade.user1['user_id']
+        await storage_manager.save_object(obj=pokemon_data, cache_key=f"{REDIS_PREFIX}pokemon_data:{pokemon_data.id}", table_name='user_pokemon', unique_columns=['id'])
+    for pokemon in active_trade.user2['pokemon']:
+        pokemon_data = await storage_manager.get_user_pokemon_by_id(pokemon_id=pokemon['id'])
+        pokemon_data.user_id = active_trade.user1['user_id']
+        pokemon_data.created_at = datetime.now(timezone.utc)
+        pokemon_data.original_user_id = active_trade.user2['user_id']
+        await storage_manager.save_object(obj=pokemon_data, cache_key=f"{REDIS_PREFIX}pokemon_data:{pokemon_data.id}", table_name='user_pokemon', unique_columns=['id'])
+
+async def cancel_trade(user):
+    active_trade = await storage_manager.get_trade_by_user_id(user_id=user.id)
+    await storage_manager.delete_trade_id(active_trade.id)
+    return embed_generator.create_trade_canceled_embed(user)
+
 client = discord.Client(intents=intents)
 
 @client.event
@@ -1424,8 +1591,7 @@ async def on_message(message):
     start_time = time.time()
 
     channel_id = message.channel.id
-    #mentions = message.mentions
-    #print(mentions[0].id)
+
     if message.author == client.user:
         return
     message.content = message.content.lower()
@@ -1452,6 +1618,9 @@ async def on_message(message):
         await message.channel.send(embed=embed)
     elif message.content.startswith('.help event'):
         embed = get_help_event()
+        await message.channel.send(embed=embed)
+    elif message.content.startswith('.help trade'):
+        embed = get_help_trade()
         await message.channel.send(embed=embed)
     elif message.content.startswith('.help admin') and user.id == 701062435678846998:
         embed = get_admin_help()
@@ -1829,6 +1998,36 @@ async def on_message(message):
         embed = await skip_raid_frames(user, quantity)
         await message.channel.send(embed=embed)
 
+#######################trade commands######################
+    #.trade @user
+    mentions = message.mentions
+    #print(mentions[0].id)
+    if message.content.startswith('.trade') and mentions and mentions[0].id != None:
+        embed = await start_trade(user, mentions[0])
+        await message.channel.send(embed=embed)
+    elif message.content == '.trade':
+        embed = await display_trade(user)
+        await message.channel.send(embed=embed)
+
+    if message.content.startswith('.trade join'):
+        local_id = message.content[-3:]
+        embed = await join_trade(user=user, local_id=local_id)
+        await message.channel.send(embed=embed)
+
+    if message.content.startswith('.trade add pokemon'):
+        local_id = message.content.split()
+        if len(local_id) > 3:
+            embed = await add_pokemon_to_trade(user=user, local_id=local_id[3])
+            await message.channel.send(embed=embed)
+
+    if message.content.startswith('.trade confirm'):
+        embed = await confirm_trade(user)
+        await message.channel.send(embed=embed)
+
+    if message.content.startswith('.trade cancel'):
+        embed = await cancel_trade(user)
+        await message.channel.send(embed=embed)
+###########################################################
     end_time = time.time()
     elapsed_time = end_time - start_time
     logger.info(f"Message Response Time: {elapsed_time} seconds")
