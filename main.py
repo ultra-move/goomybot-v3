@@ -1519,7 +1519,7 @@ Trade {active_trade.local_id}
 {user1_name}:\nConfirmed: ({active_trade.user1['confirmed']})\n
 Pokemon:
 {user1_pokemon_string}
-{user2_name}:\nConfirmed: ({active_trade.user1['confirmed']})\n
+{user2_name}:\nConfirmed: ({active_trade.user2['confirmed']})\n
 Pokemon:
 {user2_pokemon_string}
 """
