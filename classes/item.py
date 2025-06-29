@@ -4,7 +4,7 @@ import uuid
 
 
 class Item:
-    def __init__(self, id, user_id, name, quantity):
+    def __init__(self, id, user_id, name, quantity, uses):
         if id:
             self.id = id
         else:
@@ -13,6 +13,7 @@ class Item:
         self.user_id = user_id
         self.name = name
         self.quantity = quantity
+        self.uses = uses
     
     @classmethod    
     def from_dict(cls, data: Dict[str, Any]):
@@ -54,7 +55,7 @@ class Item:
                 processed_data[key] = None
 
         # --- Integer Handling (pokedex_id, tier, level, exp, next_exp) ---
-        int_keys = ['quantity']
+        int_keys = ['quantity', 'uses']
         for key in int_keys:
             if key in processed_data and processed_data[key] is not None:
                 if isinstance(processed_data[key], str):
@@ -64,7 +65,8 @@ class Item:
                         logger.warning(f"Item.from_dict: Could not convert '{key}' value '{processed_data[key]}' to int. Setting to default.")
                 elif not isinstance(processed_data[key], int):
                     logger.warning(f"Item.from_dict: '{key}' has unexpected type {type(processed_data[key])}. Setting to default.")
-       
+            if processed_data[key] == None:
+                processed_data[key] = 0
         return cls(**processed_data)
     
     def to_dict(self) -> Dict[str, Any]:
@@ -84,4 +86,5 @@ class Item:
         return (
             f"Name: {self.name}"
             f"Quantity: {self.quantity}"
+            f"Uses: {self.uses}"
         )

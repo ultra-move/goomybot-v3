@@ -558,3 +558,46 @@ class EmbedGenerator():
         if user.profile_image and user.profile_image != 'None':
             embed.set_thumbnail(url=user.profile_image)
         return embed
+    
+    def create_leaderboard_embed(self, leaderboard_stats):
+        """
+        Creates a discord.Embed object to display leaderboard statistics.
+
+        Args:
+            leaderboard_stats (list of dict): A list of dictionaries, where each dict
+                                            contains 'category', 'user_name', and 'count'
+                                            for the top user in that category.
+        Returns:
+            discord.Embed: The formatted embed for the leaderboard.
+        """
+
+        embed = discord.Embed(
+            title="🏆 Goomybot Leaderboards 🏆",
+            color=default_color
+        )
+
+        # You can set a thumbnail relevant to leaderboards if you have one
+        embed.set_thumbnail(url=r'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/shiny/704.png')
+
+        if not leaderboard_stats:
+            embed.add_field(name="No Data Available", value="Could not fetch any leaderboard statistics at this time.", inline=False)
+            return embed
+
+        for entry in leaderboard_stats:
+            category = entry["category"]
+            user_name = entry["user_name"]
+            count = entry["count"]
+
+            # Format the count. Use currency format for "Total Spent".
+            if category == "Big Spender":
+                formatted_count = f"${count:,.2f}" # Format as currency with 2 decimal places
+            else:
+                formatted_count = f"{count:,}" # Format with comma for thousands
+
+            # Add a field for each category
+            embed.add_field(
+                name=f"{category}",
+                value=f"**{user_name}** with {formatted_count}",
+                inline=False # Set to True if you want them side-by-side, but false is often clearer for leaderboards
+            )
+        return embed

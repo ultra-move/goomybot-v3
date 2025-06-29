@@ -700,6 +700,104 @@ class StorageManager:
 
 #==================================================================================================== 
 
+    async def get_leaderboard_stats(self):
+        sql_query = """
+    WITH ShinyCounts AS (
+        SELECT
+            user_id,
+            COUNT(*) AS shiny_count
+        FROM
+            user_pokemon
+        WHERE
+            is_shiny = TRUE
+        GROUP BY
+            user_id
+    ),
+    PokemonCounts AS (
+        SELECT
+            user_id,
+            COUNT(*) AS pokemon_count
+        FROM
+            user_pokemon
+        GROUP BY
+            user_id
+    ),
+    FlexCounts AS (
+        SELECT
+            user_id,
+            COUNT(*) AS flex_count
+        FROM
+            public.flex_log
+        GROUP BY
+            user_id
+    ),
+    ItemUseCounts AS (
+        SELECT
+            user_id,
+            COUNT(uses) AS use_count
+        FROM
+            public.user_items
+        GROUP BY
+            user_id
+    )
+    SELECT
+        u.name AS user_name,
+        u.total_spent, -- <--- ADDED THIS LINE TO THE SQL QUERY
+        COALESCE(sc.shiny_count, 0) AS total_shiny_pokemon,
+        COALESCE(pc.pokemon_count, 0) AS total_pokemon,
+        COALESCE(fc.flex_count, 0) AS total_flex_entries,
+        COALESCE(ic.use_count, 0) AS total_items_used
+    FROM
+        users u
+    LEFT JOIN
+        ShinyCounts sc ON u.id = sc.user_id
+    LEFT JOIN
+        PokemonCounts pc ON u.id = pc.user_id
+    LEFT JOIN
+        FlexCounts fc ON u.id = fc.user_id
+    LEFT JOIN
+        ItemUseCounts ic ON u.id = ic.user_id
+    """
+        result = await self.db.fetch_all(sql_query)
+
+        # Convert the list of Row objects to a list of dictionaries for easier processing
+        data = [dict(row) for row in result]
+
+        leaderboard_results = []
+
+        # Define the categories and their corresponding keys in the result dictionaries
+        categories = {
+            "Shiny Maniac": "total_shiny_pokemon",
+            "Pokemon Hoarder": "total_pokemon",
+            "Biggest Muscles": "total_flex_entries",
+            "Loot Goblin": "total_items_used",
+            "Big Spender": "total_spent"
+        }
+
+        for category_name, key in categories.items():
+            if not data:
+                # Handle the case where no data is returned
+                leaderboard_results.append({
+                    "category": category_name,
+                    "user_name": "N/A",
+                    "count": 0 # For monetary values, you might want 0.0 or a specific default
+                })
+                continue
+
+            # Find the user with the maximum count for the current category
+            # For 'total_spent', make sure it's treated as a numeric type (e.g., float or int)
+            # Assuming total_spent is numeric (e.g., float or integer)
+            top_user = max(data, key=lambda x: x[key] if x[key] is not None else 0)
+
+            leaderboard_results.append({
+                "category": category_name,
+                "user_name": top_user["user_name"],
+                "count": top_user[key]
+            })
+
+        return leaderboard_results
+    
+
     async def delete_duplicates(self, user_id, buddy_id):
         sql_query = f"""
 DELETE FROM public.user_pokemon

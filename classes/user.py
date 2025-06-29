@@ -33,7 +33,8 @@ class User:
                  shiny_frame = -1,
                  raid_frame = 0,
                  event = False,
-                 full_frame = False
+                 full_frame = False,
+                 total_spent = 0
                  ):
         
         self.id: int = id
@@ -63,6 +64,7 @@ class User:
         self.last_modified: datetime.datetime = last_modified or datetime.datetime.now(datetime.timezone.utc)
         self.event = event
         self.full_frame = full_frame
+        self.total_spent = total_spent
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]):
@@ -168,7 +170,7 @@ class User:
                 logger.warning(f"Pokemon.from_dict: 'full_frame' has unexpected type {type(processed_data['full_frame'])}. Defaulting to False.")
                 processed_data['full_frame'] = False             
         # --- Integer Handling (pokedex_id, tier, level, exp, next_exp) ---
-        int_keys = ['wallet', 'shiny_frame']
+        int_keys = ['wallet', 'shiny_frame', 'total_spent']
         for key in int_keys:
             if key in processed_data and processed_data[key] is not None:
                 if isinstance(processed_data[key], str):
@@ -179,6 +181,8 @@ class User:
                         logger.warning(f"User.from_dict: Could not convert '{key}' value '{processed_data[key]}' to int. Setting to default.")
                 elif not isinstance(processed_data[key], int):
                     logger.warning(f"User.from_dict: '{key}' has unexpected type {type(processed_data[key])}. Setting to default.")
+            if processed_data[key] == None:
+                processed_data[key] = 0
         return cls(**processed_data)
 
     def to_dict(self) -> Dict[str, Any]:

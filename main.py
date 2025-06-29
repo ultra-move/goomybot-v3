@@ -673,8 +673,9 @@ async def buy_item(user, item_name, quantity):
                 final_item = item
                 item.quantity += quantity
         if not found:
-            final_item = Item(id=uuid.uuid4(), user_id=user.id, name=item_name, quantity=quantity)
+            final_item = Item(id=uuid.uuid4(), user_id=user.id, name=item_name, quantity=quantity, uses=0)
         user.wallet -= price
+        user.total_spent += price
         await storage_manager.save_object(obj=final_item, cache_key=f"{REDIS_PREFIX}item_id:{final_item.id}", table_name='user_items', unique_columns=['id'])
         await storage_manager.save_object(obj=user, cache_key=f"{REDIS_PREFIX}user_id:{user.id}", table_name="users", unique_columns=["id"]) 
         return embed_generator.create_item_bought_embed(user, item_name, quantity) 
@@ -727,6 +728,7 @@ async def reset_seeds(user):
         user.frame = 1
         user.raid_frame = 1
         item.quantity = item.quantity - 1
+        item.uses = item.uses + 1
         await storage_manager.save_object(obj=item, cache_key=f"{REDIS_PREFIX}item_id:{item.id}", table_name='user_items', unique_columns=['id'])
         await storage_manager.save_object(obj=user, cache_key=f"{REDIS_PREFIX}user_id:{user.id}", table_name="users", unique_columns=["id"])
         return embed_generator.create_reset_seeds_embed(user)
@@ -753,7 +755,7 @@ async def skip_frames(user, quantity):
                 frames_skipped += num_skip_frames
                 quantity_used += 1
         item.quantity = item.quantity - quantity_used
-        
+        item.uses = item.uses + quantity_used
         await storage_manager.save_object(obj=item, cache_key=f"{REDIS_PREFIX}item_id:{item.id}", table_name='user_items', unique_columns=['id'])
         await storage_manager.save_object(obj=user, cache_key=f"{REDIS_PREFIX}user_id:{user.id}", table_name="users", unique_columns=["id"])
         if skipped_to_shiny:
@@ -783,7 +785,7 @@ async def skip_raid_frames(user, quantity):
                 frames_skipped += num_skip_frames
                 quantity_used += 1
         item.quantity = item.quantity - quantity_used
-        
+        item.uses = item.uses + quantity_used
         await storage_manager.save_object(obj=item, cache_key=f"{REDIS_PREFIX}item_id:{item.id}", table_name='user_items', unique_columns=['id'])
         await storage_manager.save_object(obj=user, cache_key=f"{REDIS_PREFIX}user_id:{user.id}", table_name="users", unique_columns=["id"])
         if skipped_to_shiny:
@@ -805,6 +807,7 @@ async def reroll_iv(user, iv):
         try:
             buddy.iv[iv] = random.randrange(0,32)
             item.quantity = item.quantity - 1
+            item.uses = item.uses + 1
             await storage_manager.save_object(obj=item, cache_key=f"{REDIS_PREFIX}item_id:{item.id}", table_name='user_items', unique_columns=['id'])
             await storage_manager.save_object(obj=buddy, cache_key=f"{REDIS_PREFIX}pokemon_data:{buddy.id}", table_name="user_pokemon", unique_columns=["id"])
         except:
@@ -818,6 +821,7 @@ async def rare_candy(user, quantity):
     if active_trade:
         return embed_generator.create_trade_block_embed(user, "Cannot use rare candy while in a trade")
     item = await storage_manager.get_user_item_by_name(user, 'rarecandy')
+    print(item)
     if item.quantity >= quantity:
         buddy = await storage_manager.get_user_pokemon_by_id(str(user.current_pokemon))
         try:
@@ -826,6 +830,7 @@ async def rare_candy(user, quantity):
                     buddy.exp += buddy.next_exp
                     buddy.level_up()
                     item.quantity = item.quantity - 1
+                    item.uses = item.uses + 1
                 else:
                     return embed_generator.create_rare_candy_fail_view(user, buddy)
             await storage_manager.save_object(obj=item, cache_key=f"{REDIS_PREFIX}item_id:{item.id}", table_name='user_items', unique_columns=['id'])
@@ -1572,8 +1577,7 @@ Offered:
         return embed_generator.create_trade_display_embed(user, display_string, user1_name, user2_name)
     else:
         return embed_generator.create_trade_add_failure_embed(user, reason="No active trade!")
-
-        
+       
 
 async def confirm_trade(user):
     active_trade = await storage_manager.get_trade_by_user_id_active(user_id=user.id)
@@ -1613,13 +1617,29 @@ async def finish_trade(active_trade):
         await storage_manager.save_object(obj=user2, cache_key=f"{REDIS_PREFIX}user_id:{user2.id}", table_name="users", unique_columns=["id"])
     if active_trade.user2['money'] > 0:
         user1 = await storage_manager.get_user(user_id=active_trade.user1['user_id'])
-        user1.wallet += active_trade.user1['money']
+        user1.wallet += active_trade.user2['money']
         await storage_manager.save_object(obj=user1, cache_key=f"{REDIS_PREFIX}user_id:{user1.id}", table_name="users", unique_columns=["id"])
 
 async def cancel_trade(user):
     active_trade = await storage_manager.get_trade_by_user_id(user_id=user.id)
+    if active_trade.user1['money'] > 0:
+        user1 = await storage_manager.get_user(user_id=active_trade.user1['user_id'])
+        user1.wallet += active_trade.user1['money']
+        await storage_manager.save_object(obj=user1, cache_key=f"{REDIS_PREFIX}user_id:{user1.id}", table_name="users", unique_columns=["id"])
+    if active_trade.user2['money'] > 0:
+        user2 = await storage_manager.get_user(user_id=active_trade.user2['user_id'])
+        user2.wallet += active_trade.user2['money']
+        await storage_manager.save_object(obj=user2, cache_key=f"{REDIS_PREFIX}user_id:{user2.id}", table_name="users", unique_columns=["id"])
+
     await storage_manager.delete_trade_id(active_trade.id)
     return embed_generator.create_trade_canceled_embed(user)
+
+
+########################Global stats#########################
+async def get_leaderboard():
+    leaderboard_results = await storage_manager.get_leaderboard_stats()
+    return embed_generator.create_leaderboard_embed(leaderboard_results)
+
 
 client = discord.Client(intents=intents)
 
@@ -2090,6 +2110,10 @@ async def on_message(message):
         embed = await cancel_trade(user)
         await message.channel.send(embed=embed)
 ###########################################################
+    if message.content.startswith('.leaderboard'):
+        embed = await get_leaderboard()
+        await message.channel.send(embed=embed)
+
     end_time = time.time()
     elapsed_time = end_time - start_time
     logger.info(f"Message Response Time: {elapsed_time} seconds")
