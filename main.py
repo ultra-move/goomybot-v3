@@ -75,6 +75,7 @@ def get_help():
 * `.register`: Registers you for the game. You'll need to do this before using most other commands!
 * `.odds`: Displays the current odds
 * `.lottery`: Enters the lottery, or if already entered, displays information about the lottery
+* `.leaderboard`: Shows the leaderboard
 * `.bug <bug report>`: Submits a bug to the bug channel
 * `.git`: provides a link to the git repository
 """
