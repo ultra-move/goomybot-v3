@@ -22,7 +22,11 @@ class EmbedGenerator():
             return 0xff0000
 
     def create_raid_finish_embed(self, pokemon_name, url, color, rewards):
-        embed=discord.Embed(title=f"Caught {pokemon_name.capitalize()}!", color=color)
+        if color == 0xf5a8ff:
+            pokemon_name = f"✨{pokemon_name.capitalize()}✨"
+        else:
+            pokemon_name = pokemon_name.capitalize()
+        embed=discord.Embed(title=f"Caught {pokemon_name}!", color=color)
         embed.set_author(name="goomybot")
         embed.add_field(name="base xp", value=rewards['exp'], inline=True)
         embed.add_field(name="money", value=rewards['money'], inline=True)
@@ -35,7 +39,11 @@ class EmbedGenerator():
         return embed
 
     def create_raid_embed(self, user_name, pokemon_name, join_code, duration, url, color):
-        embed=discord.Embed(title=f"Raid!\n{pokemon_name.capitalize()}", color=color)
+        if color == 0xf5a8ff:
+            pokemon_name = f"✨{pokemon_name.capitalize()}✨"
+        else:
+            pokemon_name = pokemon_name.capitalize()
+        embed=discord.Embed(title=f"Raid!\n{pokemon_name}", color=color)
         embed.set_author(name=user_name)
         embed.set_image(url=url)
         embed.add_field(name="local code:", value=f"{join_code}")
@@ -70,7 +78,11 @@ class EmbedGenerator():
         return embed
 
     def create_battle_embed(self, user_name, pokemon_name, join_code, duration, url, color):
-        embed=discord.Embed(title=f"{pokemon_name.capitalize()} Spawned!", color=color)
+        if color == 0xf5a8ff:
+            pokemon_name = f"✨{pokemon_name.capitalize()}✨"
+        else:
+            pokemon_name = pokemon_name.capitalize()
+        embed=discord.Embed(title=f"{pokemon_name} Spawned!", color=color)
         embed.set_author(name=user_name)
         embed.set_image(url=url)
         embed.add_field(name="local code:", value=f"{join_code}")
@@ -78,6 +90,10 @@ class EmbedGenerator():
         return embed
     
     def create_battle_finish_embed(self, pokemon_name, url, color, rewards):
+        if color == 0xf5a8ff:
+            pokemon_name = f"✨{pokemon_name.capitalize()}✨"
+        else:
+            pokemon_name = pokemon_name.capitalize()
         embed=discord.Embed(title=f"Caught {pokemon_name.capitalize()}!", color=color)
         embed.set_author(name="goomybot")
         embed.add_field(name="base xp", value=rewards['exp'], inline=True)
@@ -185,13 +201,13 @@ class EmbedGenerator():
         return embed
     
     def create_full_shiny_frame(self, user, shiny_frame, pokemon_name, pokemon_url):
-        embed=discord.Embed(title=pokemon_name.capitalize(), description=f"Current Frame: {user.frame}\nShiny Frame: {shiny_frame}", color=0xf5a8ff)
+        embed=discord.Embed(title=f"✨{pokemon_name.capitalize()}✨", description=f"Current Frame: {user.frame}\nShiny Frame: {shiny_frame}", color=0xf5a8ff)
         embed.set_author(name=user.name)
         embed.set_image(url=pokemon_url)
         return embed
     
     def create_full_raid_shiny_frame(self, user, shiny_frame, pokemon_name, pokemon_url):
-        embed=discord.Embed(title=pokemon_name.capitalize(), description=f"Current Frame: {user.raid_frame}\nShiny Frame: {shiny_frame}", color=0xf5a8ff)
+        embed=discord.Embed(title=f"✨{pokemon_name.capitalize()}✨", description=f"Current Frame: {user.raid_frame}\nShiny Frame: {shiny_frame}", color=0xf5a8ff)
         embed.set_author(name=user.name)
         embed.set_image(url=pokemon_url)
         return embed
@@ -341,7 +357,11 @@ class EmbedGenerator():
         return embed
     
     def create_flex_embed(self, user, pokemon):
-        embed=discord.Embed(title=f"{pokemon.name.capitalize()}", color=0xf5a8ff)
+        if pokemon.is_shiny:
+            pokemon_name = f"✨{pokemon.name.capitalize()}✨"
+        else:
+            pokemon_name = pokemon_name.capitalize()
+        embed=discord.Embed(title=f"{pokemon_name}", color=0xf5a8ff)
         embed.set_image(url=pokemon.sprite_front)
         embed.set_footer(text=f'Spawned by {user.name}')
         return embed
