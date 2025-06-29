@@ -1481,15 +1481,15 @@ async def add_pokemon_to_trade(user, local_id):
         pokemon_id = user.view_table[local_id]['id']
         pokemon = await storage_manager.get_user_pokemon_by_id(pokemon_id)
         if pokemon.is_shiny:
-            name = "✨" + user.view_table[local_id]['name'] + "✨"
+            name = "✨ " + user.view_table[local_id]['name'].capitalize() + " ✨"
         else:
-            name = user.view_table[local_id]['name']
+            name = user.view_table[local_id]['name'].capitalize()
         if str(pokemon_id) != str(user.current_pokemon):
             print(pokemon_id)
             if active_trade.user1['user_id'] == user.id:
-                active_trade.user1['pokemon'].append({"id": pokemon_id, 'name': name.capitalize()})
+                active_trade.user1['pokemon'].append({"id": pokemon_id, 'name': name})
             else:
-                active_trade.user1['pokemon'].append({"id": pokemon_id, 'name': name.capitalize()})
+                active_trade.user2['pokemon'].append({"id": pokemon_id, 'name': name})
             await storage_manager.save_object(obj= active_trade, cache_key=f"{REDIS_PREFIX}trade_id_{active_trade.id}", table_name='trades', unique_columns=['id'])
             
             return embed_generator.create_trade_add_pokemon_embed(user, pokemon)
@@ -1515,7 +1515,7 @@ async def display_trade(user):
             user2_pokemon_string = user2_pokemon_string + f"{pokemon['name']}\n"
         display_string = f"""
 Trade {active_trade.local_id}
-{user1_name} & {user2_name}/n
+{user1_name} & {user2_name}\n
 {user1_name}:\nConfirmed: ({active_trade.user1['confirmed']})\n
 Pokemon:
 {user1_pokemon_string}
