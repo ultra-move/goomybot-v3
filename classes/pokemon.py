@@ -383,10 +383,13 @@ class Pokemon:
         """
         Returns a human-readable string representation of the Pokemon object.
         """
+        if self.is_shiny:
+            name = f"✨{self.name.capitalize()}✨"
+        else:
+            name = f"{self.name.capitalize()}"
         return (
             f"Pokédex ID: {self.pokedex_id}\n"
-            f"Name: {self.name.capitalize()}\n"
-            f"Shiny: {'Yes' if self.is_shiny else 'No'}\n"
+            f"Name: {name}\n"
             f"Tier: {self.tier}\n"
             f"Types: {', '.join(self.types)}\n"
             f"Level: {self.level}\n"

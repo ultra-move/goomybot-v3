@@ -443,43 +443,59 @@ class EmbedGenerator():
         embed=discord.Embed(description=f"Trade initiated with {user_mentioned.name}", color=trade_color)
         embed.add_field(name="local code:", value=local_id)
         embed.set_author(name=user.name)
+        if user.profile_image and user.profile_image != 'None':
+            embed.set_thumbnail(url=user.profile_image)
         embed.set_footer(text="use .trade join <local id> to join the trade")
         return embed
     
     def create_trade_invalid_user_embed(self, user):
         embed=discord.Embed(description=f"Invalid user, please @ a valid user!", color=trade_color)
         embed.set_author(name=user.name)
+        if user.profile_image and user.profile_image != 'None':
+            embed.set_thumbnail(url=user.profile_image)
         return embed
 
     def create_trade_already_active_embed(self, user):
         embed=discord.Embed(description=f"You are already in a trade!", color=trade_color)
         embed.set_author(name=user.name)
+        if user.profile_image and user.profile_image != 'None':
+            embed.set_thumbnail(url=user.profile_image)
         return embed
     
     def create_trade_already_mentioned_active_embed(self, user, user_mentioned):
         embed=discord.Embed(description=f"{user_mentioned.name} is already in a trade!", color=trade_color)
         embed.set_author(name=user.name)
+        if user.profile_image and user.profile_image != 'None':
+            embed.set_thumbnail(url=user.profile_image)
         return embed
     
     def create_join_trade_success_embed(self, user):
         embed=discord.Embed(description=f"{user.name} activated the trade!", color=trade_color)
         embed.set_author(name=user.name)
+        if user.profile_image and user.profile_image != 'None':
+            embed.set_thumbnail(url=user.profile_image)
         embed.set_footer(text="please use .help trade!")
         return embed
     
     def create_join_trade_failure_embed(self, user):
         embed=discord.Embed(description=f"Could not join trade, please try again", color=trade_color)
         embed.set_author(name=user.name)
+        if user.profile_image and user.profile_image != 'None':
+            embed.set_thumbnail(url=user.profile_image)
         return embed
     
     def create_trade_block_embed(self, user, reason):
         embed=discord.Embed(description=f"{reason}", color=trade_color)
         embed.set_author(name=user.name)
+        if user.profile_image and user.profile_image != 'None':
+            embed.set_thumbnail(url=user.profile_image)
         return embed
     
     def create_trade_add_failure_embed(self, user, reason):
-        embed=discord.Embed(description=f"{reason}, please try again", color=trade_color)
+        embed=discord.Embed(description=f"{reason} Please try again", color=trade_color)
         embed.set_author(name=user.name)
+        if user.profile_image and user.profile_image != 'None':
+            embed.set_thumbnail(url=user.profile_image)        
         return embed
     
     def create_trade_add_pokemon_embed(self, user, pokemon):
@@ -488,10 +504,27 @@ class EmbedGenerator():
         embed.set_image(url=pokemon.sprite_front)
         return embed
     
-    def create_trade_display_embed(self, user, content):
-        embed=discord.Embed(description=f"{content}", color=trade_color)
+    def create_trade_add_money_embed(self, user, amount):
+        embed=discord.Embed(description=f"Added ${amount:,.0f} to trade!", color=trade_color)
         embed.set_author(name=user.name)
-        embed.set_footer(text=f"use .trade confirm to finish the trade!")
+        if user.profile_image and user.profile_image != 'None':
+            embed.set_thumbnail(url=user.profile_image)
+        return embed
+    
+    def create_trade_add_money_failure_embed(self, user, amount):
+        embed=discord.Embed(description=f"Could not add ${amount:,.0f} to trade!\nCurrent wallet: {user.wallet}", color=trade_color)
+        embed.set_author(name=user.name)
+        if user.profile_image and user.profile_image != 'None':
+            embed.set_thumbnail(url=user.profile_image)
+        return embed
+    
+    def create_trade_display_embed(self, user, content, user1_name, user2_name):
+        embed = discord.Embed(
+            title=f"Trade between {user1_name} and {user2_name}",
+            description=content,
+            color=trade_color
+        )
+        embed.set_footer(text="Use .trade confirm to finalize the trade!")
         return embed
     
     def create_trade_completed_embed(self, active_trade):
@@ -502,4 +535,6 @@ class EmbedGenerator():
     def create_trade_canceled_embed(self, user):
         embed=discord.Embed(description=f"Trade canceled!", color=trade_color)
         embed.set_author(name=user.name)
+        if user.profile_image and user.profile_image != 'None':
+            embed.set_thumbnail(url=user.profile_image)
         return embed
