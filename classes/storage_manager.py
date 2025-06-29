@@ -702,61 +702,61 @@ class StorageManager:
 
     async def get_leaderboard_stats(self):
         sql_query = """
-    WITH ShinyCounts AS (
-        SELECT
-            user_id,
-            COUNT(*) AS shiny_count
-        FROM
-            user_pokemon
-        WHERE
-            is_shiny = TRUE
-        GROUP BY
-            user_id
-    ),
-    PokemonCounts AS (
-        SELECT
-            user_id,
-            COUNT(*) AS pokemon_count
-        FROM
-            user_pokemon
-        GROUP BY
-            user_id
-    ),
-    FlexCounts AS (
-        SELECT
-            user_id,
-            COUNT(*) AS flex_count
-        FROM
-            public.flex_log
-        GROUP BY
-            user_id
-    ),
-    ItemUseCounts AS (
-        SELECT
-            user_id,
-            COUNT(uses) AS use_count
-        FROM
-            public.user_items
-        GROUP BY
-            user_id
-    )
+WITH ShinyCounts AS (
     SELECT
-        u.name AS user_name,
-        u.total_spent, -- <--- ADDED THIS LINE TO THE SQL QUERY
-        COALESCE(sc.shiny_count, 0) AS total_shiny_pokemon,
-        COALESCE(pc.pokemon_count, 0) AS total_pokemon,
-        COALESCE(fc.flex_count, 0) AS total_flex_entries,
-        COALESCE(ic.use_count, 0) AS total_items_used
+        user_id,
+        COUNT(*) AS shiny_count
     FROM
-        users u
-    LEFT JOIN
-        ShinyCounts sc ON u.id = sc.user_id
-    LEFT JOIN
-        PokemonCounts pc ON u.id = pc.user_id
-    LEFT JOIN
-        FlexCounts fc ON u.id = fc.user_id
-    LEFT JOIN
-        ItemUseCounts ic ON u.id = ic.user_id
+        user_pokemon
+    WHERE
+        is_shiny = TRUE
+    GROUP BY
+        user_id
+),
+PokemonCounts AS (
+    SELECT
+        user_id,
+        COUNT(*) AS pokemon_count
+    FROM
+        user_pokemon
+    GROUP BY
+        user_id
+),
+FlexCounts AS (
+    SELECT
+        user_id,
+        COUNT(*) AS flex_count
+    FROM
+        public.flex_log
+    GROUP BY
+        user_id
+),
+ItemUseCounts AS (
+    SELECT
+        user_id,
+        SUM(uses) AS use_count
+    FROM
+        public.user_items
+    GROUP BY
+        user_id
+)
+SELECT
+    u.name AS user_name,
+    u.total_spent, 
+    COALESCE(sc.shiny_count, 0) AS total_shiny_pokemon,
+    COALESCE(pc.pokemon_count, 0) AS total_pokemon,
+    COALESCE(fc.flex_count, 0) AS total_flex_entries,
+    COALESCE(ic.use_count, 0) AS total_items_used
+FROM
+    users u
+LEFT JOIN
+    ShinyCounts sc ON u.id = sc.user_id
+LEFT JOIN
+    PokemonCounts pc ON u.id = pc.user_id
+LEFT JOIN
+    FlexCounts fc ON u.id = fc.user_id
+LEFT JOIN
+    ItemUseCounts ic ON u.id = ic.user_id;
     """
         result = await self.db.fetch_all(sql_query)
 
