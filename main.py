@@ -1,17 +1,14 @@
 import asyncio
 import asyncio.log
-from datetime import datetime, timezone, timedelta # <-- Add timezone here
-import logging # Correct import for logging
-# from asyncio.log import logger # This is generally not how you get a logger. Use logging.getLogger()
+from datetime import datetime, timezone, timedelta
+import logging
 import math
 import random
 import time
 from typing import Any, Dict, List, Optional, Tuple
 
-# Correct imports for redis-py
-# from aioredis import RedisError # This is deprecated
 from discord.abc import PrivateChannel
-from redis.exceptions import RedisError # Import RedisError from the correct package
+from redis.exceptions import RedisError
 import discord
 
 from classes.battle import Battle
@@ -21,6 +18,7 @@ from classes.embed_generator import EmbedGenerator
 from classes.flex_log import FlexLog
 from classes.item import Item
 from classes.lottery import Lottery
+from classes.quest import Quest
 from classes.pokemon_master import PokemonMaster
 from classes.redis_manager import RedisManager
 from classes.storage_manager import StorageManager
@@ -76,6 +74,7 @@ def get_help():
 * `.odds`: Displays the current odds
 * `.lottery`: Enters the lottery, or if already entered, displays information about the lottery
 * `.leaderboard`: Shows the leaderboard
+* `.quest`: Shows the daily quest, or completes it if condition met
 * `.bug <bug report>`: Submits a bug to the bug channel
 * `.git`: provides a link to the git repository
 """
@@ -1641,6 +1640,57 @@ async def get_leaderboard():
     leaderboard_results = await storage_manager.get_leaderboard_stats()
     return embed_generator.create_leaderboard_embed(leaderboard_results)
 
+########################Quests#########################
+async def quest(user):
+    active_quest = await storage_manager.get_active_quest(user.id)
+    if active_quest:
+        if active_quest.status == 'active':
+            complete = await storage_manager.get_quest_complete(user.id, active_quest)
+            pokemon = await storage_manager.get_pokemon_master_by_id(active_quest.condition['pokedex_id'])
+            print(complete)
+            if complete:
+                await quest_reward(user, active_quest)
+                active_quest.status = 'complete'
+                await storage_manager.save_object(obj=active_quest, cache_key=f"{REDIS_PREFIX}quest_id:{active_quest.id}", table_name='quests', unique_columns=['id'])
+                #quest complete embed!
+                return embed_generator.create_quest_complete(user, pokemon, active_quest)
+            else:
+                return embed_generator.create_quest_embed(user, pokemon, active_quest)
+        else:
+            #quest already completed!
+            pokemon = await storage_manager.get_pokemon_master_by_id(active_quest.condition['pokedex_id'])
+            return embed_generator.create_quest_already_complete(user, pokemon, active_quest)
+    else:
+        pokemon, quest = await quest_start(user)
+        await storage_manager.save_object(obj=quest, cache_key=f"{REDIS_PREFIX}quest_id:{quest.id}", table_name='quests', unique_columns=['id'])
+        return embed_generator.create_quest_embed(user, pokemon, quest)
+
+
+async def quest_start(user):
+    quest = Quest(id=uuid.uuid4(), user_id = user.id)
+    quest.random_condition()
+    quest.random_reward()
+    pokemon = await storage_manager.get_pokemon_master_by_id(quest.condition['pokedex_id'])
+    quest.name = f'{pokemon.name.capitalize()}'
+    return pokemon, quest
+
+async def quest_reward(user, quest):
+    item_name = quest.reward['item']['name']
+    user_items = await storage_manager.get_user_items(user)
+    final_item = {}
+    found = False
+    for item in user_items:
+        if item.name == item_name:
+            found = True
+            final_item = item
+            item.quantity += quest.reward['item']['quantity']
+    if not found:
+        final_item = Item(id=uuid.uuid4(), user_id=user.id, name=item_name, quantity=quest.reward['item']['quantity'], uses=0)
+    
+    if quest.reward['money'] != 0:
+        user.wallet += quest.reward['money']
+    await storage_manager.save_object(obj=final_item, cache_key=f"{REDIS_PREFIX}item_id:{final_item.id}", table_name='user_items', unique_columns=['id'])
+    await storage_manager.save_object(obj=user, cache_key=f"{REDIS_PREFIX}user_id:{user.id}", table_name="users", unique_columns=["id"])     
 
 client = discord.Client(intents=intents)
 
@@ -2114,10 +2164,13 @@ async def on_message(message):
     if message.content.startswith('.leaderboard'):
         embed = await get_leaderboard()
         await message.channel.send(embed=embed)
+    
+    if message.content.startswith('.quest'):
+        embed = await quest(user)
+        await message.channel.send(embed=embed)
 
     end_time = time.time()
     elapsed_time = end_time - start_time
     logger.info(f"Message Response Time: {elapsed_time} seconds")
 
 client.run(os.getenv('DISCORD_BOT_TOKEN'))
-

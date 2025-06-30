@@ -9,6 +9,7 @@ from classes.item import Item
 from classes.lottery import Lottery
 from classes.pokemon import Pokemon
 from classes.pokemon_master import PokemonMaster
+from classes.quest import Quest
 from classes.redis_manager import RedisManager
 from classes.database_manager import DatabaseManager
 from classes.trade import Trade
@@ -448,7 +449,9 @@ class StorageManager:
         self.db.delete('user_pokemon', {'id': str(pokemon_id)})
         await self.redis.delete(f"{REDIS_PREFIX}pokemon_id:{pokemon_id}")
     
-
+    async def delete_quest_by_id(self, quest_id):
+        self.db.delete('quests', {'id': str(quest_id)})
+        await self.redis.delete(f"{REDIS_PREFIX}quest_id:{quest_id}")
 
     async def get_battle_pokemon_by_id(self, pokemon_id):
         cache_key = f"{REDIS_PREFIX}pokemon_data:{pokemon_id}"
@@ -699,7 +702,66 @@ class StorageManager:
         await self.redis.delete(f"{REDIS_PREFIX}trade_id:{trade_id}")
 
 #==================================================================================================== 
+    async def get_active_quest(self, user_id):
+        try:
+            sql_query = f"""
+                Select * from quests where user_id = %(user_id)s and end_time >= now()
+            """
+            quest_data = self.db.fetch_one(sql_query, {"user_id": user_id})
+            
+            if quest_data:
+                logger.debug(f"StorageManager: Retrieved Quest for user {user_id} from DB.")
+                return Quest.from_dict(quest_data)
+            
+            logger.debug(f"StorageManager: Quest for user {user_id} not found in DB.")
+            return None
+        except psycopg2.Error as e:
+            logger.error(f"StorageManager: DB error getting Quest Data for user {user_id}: {e}")
+            return None        
 
+    async def get_quest_complete(self, user_id, quest): # Changed to sync if fetch_one is sync
+        try:
+            pokedex_id = quest.condition.get('pokedex_id')
+            if pokedex_id is None:
+                logger.error("StorageManager: Quest condition missing 'pokedex_id'.")
+                return False
+
+            start_time = quest.start_time
+            end_time = quest.end_time
+
+            sql_query = """
+                SELECT COUNT(*)
+                FROM user_pokemon
+                WHERE user_id = %s
+                  AND pokedex_id = %s
+                  AND created_at >= %s
+                  AND created_at <= %s
+                  AND original_user_id = %s;
+            """
+            params = (user_id, pokedex_id, start_time, end_time, user_id)
+            
+            logger.debug(f"Executing query with params: {params}") # More detailed logging
+            result = self.db.fetch_one(sql_query, params)
+            logger.debug(f"DB fetch_one result: {result}") # Log the exact result
+
+            actual_count = result.get('count', 0) if isinstance(result, dict) else 0
+
+            if actual_count > 0:
+                logger.debug(f"StorageManager: Quest completed by user {user_id} for Pokedex ID {pokedex_id}. Pokemon found: {actual_count}.")
+                return True
+            
+            logger.debug(f"StorageManager: Quest not yet completed by user {user_id} for Pokedex ID {pokedex_id}. No matching Pokemon found.")
+            return False
+
+        except psycopg2.Error as e:
+            logger.error(f"StorageManager: DB error checking quest completion for user {user_id}: {e}")
+            return False
+        except Exception as e:
+            # Be more specific with this catch, or remove it after debugging
+            # If you still get this, it means something else entirely is going wrong
+            logger.error(f"StorageManager: An unexpected error occurred in get_quest_complete for user {user_id}: {e}", exc_info=True) # exc_info to print traceback
+            return False
+#==================================================================================================== 
     async def get_leaderboard_stats(self):
         sql_query = """
 WITH ShinyCounts AS (

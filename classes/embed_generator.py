@@ -94,7 +94,7 @@ class EmbedGenerator():
             pokemon_name = f"✨{pokemon_name.capitalize()}✨"
         else:
             pokemon_name = pokemon_name.capitalize()
-        embed=discord.Embed(title=f"Caught {pokemon_name.capitalize()}!", color=color)
+        embed=discord.Embed(title=f"Caught {pokemon_name}!", color=color)
         embed.set_author(name="goomybot")
         embed.add_field(name="base xp", value=rewards['exp'], inline=True)
         embed.add_field(name="money", value=rewards['money'], inline=True)
@@ -600,4 +600,26 @@ class EmbedGenerator():
                 value=f"**{user_name}** with {formatted_count}",
                 inline=False # Set to True if you want them side-by-side, but false is often clearer for leaderboards
             )
+        return embed
+    
+    def create_quest_embed(self, user, pokemon, quest):
+        pokemon.is_shiny = False
+        embed=discord.Embed(title=f"Daily Quest:\n{quest.name}", description=quest.__str__(), color=self.get_color(pokemon))
+        embed.set_image(url=pokemon.front_default_sprite)
+        embed.set_author(name=user.name)
+        embed.set_footer(text=f"Remaining Time: \n{quest.get_time_remaining()}")
+        return embed
+    
+    def create_quest_complete(self, user, pokemon, quest):
+        pokemon.is_shiny = False
+        embed=discord.Embed(title=f"Quest: {quest.name} Complete!", description=quest.__str__(), color=self.get_color(pokemon))
+        embed.set_thumbnail(url=pokemon.front_default_sprite)
+        embed.set_author(name=user.name)
+        return embed
+
+    def create_quest_already_complete(self, user, pokemon, quest):
+        pokemon.is_shiny = False
+        embed=discord.Embed(title=f"Quest Already Complete!", description=f"Next quest can be started in:\n{quest.get_time_remaining()}", color=self.get_color(pokemon))
+        embed.set_thumbnail(url=pokemon.front_default_sprite)
+        embed.set_author(name=user.name)
         return embed
