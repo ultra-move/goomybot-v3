@@ -7,6 +7,20 @@ from classes.odds import Odds
 default_color = 0xffffff
 event_color = 0xff7b00
 trade_color = 0x5900ff
+
+region_sprite_map = {
+    "kanto": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/shiny/1.png",
+    "johto": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/shiny/152.png",
+    "hoenn": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/shiny/252.png",
+    "sinnoh": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/shiny/387.png",
+    "unova": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/shiny/494.png",
+    "kalos": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/shiny/650.png",
+    "alola": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/shiny/722.png",
+    "galar": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/shiny/810.png",
+    "paldea": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/shiny/906.png",
+    "no region": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/shiny/704.png"
+}
+
 class EmbedGenerator():
 
     def get_color(self, pokemon):
@@ -186,6 +200,17 @@ class EmbedGenerator():
         embed.set_thumbnail(url=pokemon.sprite_front)
         return embed
 
+    def create_region_view(self, user, region):
+        embed=discord.Embed(description=f"Set region to: {region.capitalize()}", color=default_color)
+        embed.set_thumbnail(url=region_sprite_map[region.lower()])
+        embed.set_author(name=user.name)
+        return embed
+    
+    def create_region_failure_view(self, user, reason):
+        embed=discord.Embed(description=f"Could not change region, {reason}", color=default_color)
+        embed.set_author(name=user.name)
+        return embed
+    
     def create_shiny_frame(self, user, shiny_frame):
         embed=discord.Embed(description=f"Current Frame: {user.frame}\nShiny Frame: {shiny_frame}", color=0xf5a8ff)
         embed.set_author(name=user.name)

@@ -22,20 +22,18 @@ class Generator:
         self.pokemon_rng = random.Random(self.original_pokemon_int_seed)
         self.shiny_rng = random.Random(self.original_shiny_int_seed)
         self.item_rng = random.Random(self.original_item_int_seed)
-        id = Id()
-        self.tier_1_ids = id.tier_1_ids
-        self.tier_2_ids = id.tier_2_ids
-        self.tier_3_ids = id.tier_3_ids
-        self.tier_4_ids = id.tier_4_ids
+        self.id = Id()
+        self.tier_1_ids = self.id.tier_1_ids
+        self.tier_2_ids = self.id.tier_2_ids
+        self.tier_3_ids = self.id.tier_3_ids
+        self.tier_4_ids = self.id.tier_4_ids
 
-        self.event_ids = id.event_ids
+        self.event_ids = self.id.event_ids
 
-        self.raid_tier_1_ids = id.raid_tier_1_ids
-        self.raid_tier_2_ids = id.raid_tier_2_ids
-        self.raid_tier_3_ids = id.raid_tier_3_ids
-        self.raid_tier_4_ids = id.raid_tier_4_ids
-
-
+        self.raid_tier_1_ids = self.id.raid_tier_1_ids
+        self.raid_tier_2_ids = self.id.raid_tier_2_ids
+        self.raid_tier_3_ids = self.id.raid_tier_3_ids
+        self.raid_tier_4_ids = self.id.raid_tier_4_ids
 
     def get_outcome_for_frame(self, frame: int, user):
         # === Reseed RNGs deterministically per frame ===
@@ -69,18 +67,28 @@ class Generator:
             chosen_tier = 4
             pool_size = self.odds.tier4_pool_size
             tier_pool = self.tier_4_ids
-
-        # === 2) Pick Pokémon using fixed pool size ===
-        pokemon_index_roll = self.pokemon_rng.random()
-        pokemon_index = math.floor(pokemon_index_roll * pool_size)
-        pokemon_index = max(0, min(pokemon_index, pool_size - 1))
-        # Map index to actual list with modulus to avoid index errors if list is smaller than pool_size
-        pokemon_id = tier_pool[pokemon_index % len(tier_pool)]
+        
+        # attempt override for region
+        if user.region != '':
+            tier_pool = self.id.get_tier_region_pool(tier = chosen_tier, region=user.region)
+            pool_size = len(tier_pool)
+            pokemon_index_roll = self.pokemon_rng.random()
+            pokemon_index = math.floor(pokemon_index_roll * pool_size)
+            pokemon_index = max(0, min(pokemon_index, pool_size - 1))
+            pokemon_id = tier_pool[pokemon_index % len(tier_pool)]
+        else:
+            # === 2) Pick Pokémon using fixed pool size ===
+            pokemon_index_roll = self.pokemon_rng.random()
+            pokemon_index = math.floor(pokemon_index_roll * pool_size)
+            pokemon_index = max(0, min(pokemon_index, pool_size - 1))
+            pokemon_id = tier_pool[pokemon_index % len(tier_pool)]
 
         # === 3) Determine Shininess ===
         shiny_rate = self.odds.shiny_rate
         shiny_roll = self.shiny_rng.random()
         is_shiny = (shiny_roll < shiny_rate)
+
+        
 
         event = False
         # === 4) Attempt event override if NOT shiny ===
@@ -90,6 +98,9 @@ class Generator:
                 shiny_rate = self.odds.event_shiny_rate
                 is_shiny = (shiny_roll < shiny_rate)
                 pokemon_id = self.tier_rng.choice(self.event_ids)
+
+        
+            
 
         # === 5) Pack result ===
         result = {

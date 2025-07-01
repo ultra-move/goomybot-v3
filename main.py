@@ -99,6 +99,7 @@ def get_help_user():
 * `.filter <filter_message>`: Filters your Pokémon list based on your criteria.
 * `.frame`: Views current frame & raid frame
 * `.fullframe`: Toggles whether shinyframe commands show the pokemon or not
+* `.displayname <name>`: Changes your display name
 """
     return embed_generator.create_help_embed(info=help)
 
@@ -160,6 +161,7 @@ def get_help_items():
 * `.skipraidframe <quantity>`: Uses a Skip Raid Frame (quantity * 15 frames or to shiny frame).
 * `.rerolliv <iv_name>`: Rerolls selected buddy iv.
 * `.rarecandy <quantity>`: Levels up your buddy
+* `.regionpass <region> or none`: Sets region to selected region, or freely remove region
 """
     return embed_generator.create_help_embed(info=help)
 
@@ -191,7 +193,7 @@ def get_help_filter():
 def get_admin_help():
     admin_help = """
     ---
-## **__Admin Commands__**
+**__Admin Commands__**
     * `.addframe <user_id> <amount>`: Adds a specified amount of frames to a user.
     * `.removeframe <user_id> <amount>`: Removes a specified amount of frames from a user.
     * `.flush`: Clears all entires in the cache.
@@ -584,6 +586,12 @@ async def toggle_full_frame(user):
         await storage_manager.save_object(obj=user, cache_key=f"{REDIS_PREFIX}user_id:{user.id}", table_name="users", unique_columns=["id"])
         return embed_generator.create_full_frame_embed(user)
 
+async def display_name(user, display_name):
+    user.name = display_name
+    await storage_manager.save_object(obj=user, cache_key=f"{REDIS_PREFIX}user_id:{user.id}", table_name="users", unique_columns=["id"])
+    return embed_generator.create_user_profile_embed(user)
+
+
 #######################Admin methods##########################
 async def add_frame(user_id, frames):
     user = await storage_manager.get_user(user_id=user_id)
@@ -638,6 +646,11 @@ async def remove_money(user_id, amount):
     await storage_manager.save_object(obj=user, cache_key=f"{REDIS_PREFIX}user_id:{user.id}", table_name="users", unique_columns=["id"])
     return embed_generator.create_admin_embed("removemoney")
 
+async def admin_reset_quest(user_id):
+    active_quest = await storage_manager.get_active_quest(user_id)
+    await storage_manager.delete_quest_by_id(active_quest.id)
+    return embed_generator.create_admin_embed(f"Reset Quest for {user_id}")
+
 #######################Item methods#######################
 async def get_shop(user):
     items = {
@@ -646,7 +659,8 @@ async def get_shop(user):
         'resetseed': 5000,
         'raidpass': 5000,
         'skipframe': 10000,
-        'skipraidframe': 50000
+        'skipraidframe': 50000,
+        'regionpass': 100000
     }
     return embed_generator.create_shop_view_table(user, items)
 
@@ -657,7 +671,8 @@ async def buy_item(user, item_name, quantity):
         'resetseed': 5000,
         'raidpass': 5000,
         'skipframe': 10000,
-        'skipraidframe': 50000
+        'skipraidframe': 50000,
+        'regionpass': 100000
     }
     active_trade = await storage_manager.get_trade_by_user_id(user_id=user.id)
     if active_trade:
@@ -851,6 +866,33 @@ async def raid_shiny_frame(user):
         else:
             return embed_generator.create_raid_shiny_frame(user=user, shiny_frame="No shiny found")  
 
+async def region_pass(user, region):
+    regions = ["kanto", "johto","hoenn","sinnoh", "unova", "kalos", "alola", "galar", "paldea"]
+    
+    if not region or region.lower() == 'none':
+        user.region = ''
+        await storage_manager.save_object(obj=user, cache_key=f"{REDIS_PREFIX}user_id:{user.id}", table_name="users", unique_columns=["id"])
+        return embed_generator.create_region_view(user, "no region")
+    if not (region.lower() in regions):
+        return embed_generator.create_region_failure_view(user, "no valid region found!")
+
+    active_battle = await storage_manager.get_battle_by_user(user.id)
+    if active_battle:
+        return embed_generator.create_region_failure_view(user, "you are currently in a battle!")
+    item = await storage_manager.get_user_item_by_name(user, 'regionpass')
+    if item.quantity >= 1:
+        try:
+            item.quantity -= 1
+            user.region = region
+            await storage_manager.save_object(obj=item, cache_key=f"{REDIS_PREFIX}item_id:{item.id}", table_name='user_items', unique_columns=['id'])
+            await storage_manager.save_object(obj=user, cache_key=f"{REDIS_PREFIX}user_id:{user.id}", table_name="users", unique_columns=["id"])
+        except:
+            return embed_generator.create_item_failure_embed(user, 'regionpass')  
+        return embed_generator.create_region_view(user, region)
+    else:
+        return embed_generator.create_item_failure_embed(user, 'regionpass')     
+     
+   
 async def get_items(user):
     user_items = await storage_manager.get_user_items(user)
     return embed_generator.create_items_view_table(user, user_items)
@@ -1442,7 +1484,7 @@ async def lottery_monitor_task(interval_seconds: int):
             start_time = datetime.now(timezone.utc)
             delta = timedelta(hours=duration)
             end_time = start_time + delta
-            new_lottery = Lottery(id=uuid.uuid4(), user_ids=[], start_time=start_time,end_time=end_time, amount=30000)
+            new_lottery = Lottery(id=uuid.uuid4(), user_ids=[], start_time=start_time,end_time=end_time, amount=60000)
             await storage_manager.save_object(obj=new_lottery, cache_key=f"{REDIS_PREFIX}lottery_id:{new_lottery.id}", table_name="lottery", unique_columns=["id"]) 
 
         # 4. Wait for the next interval
@@ -1846,6 +1888,11 @@ async def on_message(message):
         embed = await remove_money(user_id=user_id, amount=amount)
         await message.channel.send(embed=embed)
 
+    if message.content.startswith('.resetquest') and user.id == 701062435678846998:
+        split = message.content.split()
+        user_id = split[1]
+        embed = await admin_reset_quest(user_id=user_id)
+        await message.channel.send(embed=embed)
 #######################Battle commands#######################
     if message.content.startswith('.spawn'):
         pokemon, embed = await start_battle(user=user, channel_id=channel_id)
@@ -1900,6 +1947,11 @@ async def on_message(message):
         await message.channel.send(embed=embed)
     elif message.content.startswith('.profile'):
         embed = embed_generator.create_user_profile_embed(user)
+        await message.channel.send(embed=embed)
+
+    if message.content.startswith('.displayname'):
+        name = message.content.split()[1]
+        embed = await display_name(user,name)
         await message.channel.send(embed=embed)
 
     if message.content.startswith('.list'):
@@ -2060,6 +2112,8 @@ async def on_message(message):
                     embed = await buy_item(user, 'skipraidframe', int(quantity))
                 elif name == 'rarecandy':
                     embed = await buy_item(user, 'rarecandy', int(quantity))
+                elif name == 'regionpass':
+                    embed = await buy_item(user, 'regionpass', int(quantity))
                 else:
                     embed = embed_generator.create_invalid_syntax_embed(user)
         except:
@@ -2124,6 +2178,14 @@ async def on_message(message):
             quantity = 1
         embed = await skip_raid_frames(user, quantity)
         await message.channel.send(embed=embed)
+
+    if message.content.startswith('.regionpass'):
+        try:
+            region = message.content.split()[1]
+        except:
+            region = None
+        embed = await region_pass(user, region)
+        await message.channel.send(embed=embed)        
 
 #######################trade commands######################
     #.trade @user
