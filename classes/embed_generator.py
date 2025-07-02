@@ -460,9 +460,9 @@ class EmbedGenerator():
         return embed
 
     def create_event_embed(self, user):
-        embed=discord.Embed(title="Shiny Beldum, Metang & Metagross!", description= "This event ends on 7/2!\n", color=event_color)
+        embed=discord.Embed(title="Red, White & Blue!", description= "This event ends on 7/9!\n", color=event_color)
         embed.set_author(name="Goomybot")
-        embed.set_image(url=r'https://github.com/ultra-move/goomybot-v3/blob/prod/sprites/Luke_event.png?raw=true')
+        embed.set_image(url=r'https://raw.githubusercontent.com/ultra-move/goomybot-v3/refs/heads/prod/sprites/july_4th.png')
         embed.set_footer(text="use .event toggle to join/leave the event")
         return embed
     

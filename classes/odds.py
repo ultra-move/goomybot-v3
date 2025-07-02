@@ -4,8 +4,8 @@ class Odds:
         self.shiny_rate = 1/2048
         self.random_shiny_rate = 1/4096
         
-        self.event_shiny_rate = 1/16
-        self.event_rate = 1/6
+        self.event_shiny_rate = 1/64
+        self.event_rate = 1/8
 
         self.tier1_rate = 1
         self.tier2_rate = 1/2

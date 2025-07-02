@@ -60,7 +60,13 @@ class Quest:
         tier = id.lookup_tier(pokedex_id=pokedex_id)
         self.condition = {'pokedex_id': pokedex_id, 'tier': tier, "quantity": quantity}
 
-
+    def region_condition(self, user):
+        id = Id()
+        tier = random.randrange(1, 5)
+        pokedex_id = id.get_tier_region_pool(tier, user.region)
+        quantity = 1   
+        self.condition = {'pokedex_id': pokedex_id, 'tier': tier, "quantity": quantity}
+        
     def __str__(self):
         reward_string = ""
         if self.reward['item']['name'] != 'Nothing':

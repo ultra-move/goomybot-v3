@@ -198,21 +198,20 @@ class ImageCombiner:
 # --- Example Usage ---
 if __name__ == "__main__":
     pokemon_urls = [
-        "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/shiny/374.png", # Beldum
-        "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/shiny/375.png", # Metang
-        "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/shiny/376.png", # Metagross
+        "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/shiny/130.png",
+        "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/shiny/38.png",
+        "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/shiny/186.png"        
     ]
 
     # Define a relative directory to save the image
     output_dir = r"sprites"
-    output_filename = "Luke_event.png"
+    output_filename = "july_4th.png"
 
     # Create the 'sprites' directory if it doesn't exist
     os.makedirs(output_dir, exist_ok=True)
     
 # Example 3: Center Alignment
-    output_filename_center = "Luke_event.png"
-    full_output_path_center = os.path.join(output_dir, output_filename_center)
+    full_output_path_center = os.path.join(output_dir, output_filename)
     print(f"\n--- Combining images with 10px spacing (Center Aligned) ---")
     combiner_center = ImageCombiner(pokemon_urls)
     combined_img_center = combiner_center.combine_images(full_output_path_center, horizontal_spacing=10, vertical_align='center')

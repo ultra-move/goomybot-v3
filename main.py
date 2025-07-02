@@ -1710,7 +1710,10 @@ async def quest(user):
 
 async def quest_start(user):
     quest = Quest(id=uuid.uuid4(), user_id = user.id)
-    quest.random_condition()
+    if user.region != '':
+        quest.region_condition(user)
+    else:
+        quest.random_condition()
     quest.random_reward()
     pokemon = await storage_manager.get_pokemon_master_by_id(quest.condition['pokedex_id'])
     quest.name = f'{pokemon.name.capitalize()}'
@@ -1900,7 +1903,7 @@ async def on_message(message):
         if pokemon and pokemon.is_shiny:
             flex_log = await storage_manager.get_flex_log(user.id, channel_id, pokemon.name)
             if not flex_log:
-                log = FlexLog(id= uuid.uuid4(), user_id=user.id, channel_id=channel_id, name=pokemon.name, status='active', timestamp=datetime.now(timezone.utc), expiration_date= datetime.now(timezone.utc) + timedelta(hours=4))
+                log = FlexLog(id= uuid.uuid4(), user_id=user.id, channel_id=channel_id, name=pokemon.name, status='active', timestamp=datetime.now(timezone.utc), expiration_date= datetime.now(timezone.utc) + timedelta(hours=24))
                 await storage_manager.save_object(obj=log, cache_key=f"{REDIS_PREFIX}flexlog_id:{log.id}", table_name='flex_log', unique_columns=['id'])
                 channel = await client.fetch_channel(FLEX_ID)
                 embed = embed_generator.create_flex_embed(user, pokemon)
@@ -1923,7 +1926,7 @@ async def on_message(message):
             if pokemon and pokemon.is_shiny:
                 flex_log = await storage_manager.get_flex_log(user.id, channel_id, pokemon.name)
                 if not flex_log:
-                    log = FlexLog(id= uuid.uuid4(), user_id=user.id, channel_id=channel_id, name=pokemon.name, status='active', timestamp=datetime.now(timezone.utc), expiration_date= datetime.now(timezone.utc) + timedelta(hours=4))
+                    log = FlexLog(id= uuid.uuid4(), user_id=user.id, channel_id=channel_id, name=pokemon.name, status='active', timestamp=datetime.now(timezone.utc), expiration_date= datetime.now(timezone.utc) + timedelta(hours=24))
                     await storage_manager.save_object(obj=log, cache_key=f"{REDIS_PREFIX}flexlog_id:{log.id}", table_name='flex_log', unique_columns=['id'])
                     channel = await client.fetch_channel(FLEX_ID)
                     embed = embed_generator.create_flex_embed(user, pokemon)
