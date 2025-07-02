@@ -35,6 +35,7 @@ class PokemonMaster:
             f"ID: {self.id}\n"
             f"Name: {self.name}\n"
             f"Tier: {self.tier}\n"
+            f"Region: {self.region}\n"
             f"Growth Rate: {self.growth_rate_name}\n"
         )
 
