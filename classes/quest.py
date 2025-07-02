@@ -63,7 +63,7 @@ class Quest:
     def region_condition(self, user):
         id = Id()
         tier = random.randrange(1, 5)
-        pokedex_id = id.get_tier_region_pool(tier, user.region)
+        pokedex_id = random.choice(id.get_tier_region_pool(tier, user.region))
         quantity = 1   
         self.condition = {'pokedex_id': pokedex_id, 'tier': tier, "quantity": quantity}
         
