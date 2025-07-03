@@ -1853,7 +1853,7 @@ async def on_ready():
         client.battle_monitor_task_instance = asyncio.create_task(battle_monitor_task(interval_seconds=10))
         client.raid_monitor_task_instance = asyncio.create_task(raid_monitor_task(interval_seconds=10))
         client.lottery_monitor_task_instance = asyncio.create_task(lottery_monitor_task(interval_seconds=600))
-        client.professor_monitor_task_instance = asyncio.create_task(professor_monitor_task(interval_seconds=10))
+        client.professor_monitor_task_instance = asyncio.create_task(professor_monitor_task(interval_seconds=180))
         # Set the flag to True so tasks aren't started again
         client._monitor_tasks_started = True
     else:
