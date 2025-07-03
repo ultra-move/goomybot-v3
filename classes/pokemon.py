@@ -395,6 +395,7 @@ class Pokemon:
             f"Level: {self.level}\n"
             f"Exp Needed: {int(self.next_exp - self.exp)}\n"
             f"Stats: {self.stats}\n"
+            f"Nature: {self.nature}\n"
             f"IVs: {self.iv}\n"
             f"IVs percentage: {self.calculate_total_iv_percentage()}%\n"
             f"Safe: {self.safe}"

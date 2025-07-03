@@ -9,6 +9,7 @@ from classes.item import Item
 from classes.lottery import Lottery
 from classes.pokemon import Pokemon
 from classes.pokemon_master import PokemonMaster
+from classes.professor import Professor
 from classes.quest import Quest
 from classes.redis_manager import RedisManager
 from classes.database_manager import DatabaseManager
@@ -453,6 +454,10 @@ class StorageManager:
         self.db.delete('quests', {'id': str(quest_id)})
         await self.redis.delete(f"{REDIS_PREFIX}quest_id:{quest_id}")
 
+    async def delete_challenge_by_id(self, challenge_id):
+        self.db.delete('professor_challenges', {'id': str(challenge_id)})
+        await self.redis.delete(f"{REDIS_PREFIX}challenge_id:{challenge_id}")
+    
     async def get_battle_pokemon_by_id(self, pokemon_id):
         cache_key = f"{REDIS_PREFIX}pokemon_data:{pokemon_id}"
         # 1. Try cache
@@ -700,6 +705,37 @@ class StorageManager:
     async def delete_trade_id(self, trade_id):
         self.db.delete('trades', {'id': str(trade_id)})
         await self.redis.delete(f"{REDIS_PREFIX}trade_id:{trade_id}")
+
+
+#===================================================================================================
+    async def get_active_professor(self, professor_id):
+        try:
+            sql_query = f"""
+                Select * from professor_challenges where completed_by = 0
+            """
+            professor_data = self.db.fetch_one(sql_query)
+            
+            if professor_data:
+                logger.debug(f"StorageManager: Retrieved professor for user {professor_id} from DB.")
+                return Professor.from_dict(professor_data)
+            
+            logger.debug(f"StorageManager: professor for user {professor_id} not found in DB.")
+            return None
+        except psycopg2.Error as e:
+            logger.error(f"StorageManager: DB error getting professor Data for user {professor_id}: {e}")
+            return None
+
+    async def get_inactive_professor(self, user_id, timestamp):
+        try:
+            sql_query = f"""
+                Select * from professor_challenges where completed_by = {user_id} and completed_time >= '{timestamp}'
+            """
+            professor_data = self.db.fetch_one(sql_query)
+            if professor_data:
+                return Professor.from_dict(professor_data)
+            return None
+        except psycopg2.Error as e:
+            return None              
 
 #==================================================================================================== 
     async def get_active_quest(self, user_id):

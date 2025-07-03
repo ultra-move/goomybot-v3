@@ -18,6 +18,7 @@ from classes.embed_generator import EmbedGenerator
 from classes.flex_log import FlexLog
 from classes.item import Item
 from classes.lottery import Lottery
+from classes.professor import Professor
 from classes.quest import Quest
 from classes.pokemon_master import PokemonMaster
 from classes.redis_manager import RedisManager
@@ -45,6 +46,7 @@ REDIS_PREFIX = os.getenv("REDIS_PREFIX")
 FLEX_ID: str | None = os.getenv("FLEX_ID")
 BUG_ID: str | None = os.getenv("BUG_ID")
 LOTTERY_ID= os.getenv("LOTTERY_ID")
+PROFESSOR_ID= os.getenv("PROFESSOR_ID")
 ###################################################################
 
 redis_manager = RedisManager(REDIS_URL)
@@ -149,6 +151,12 @@ def get_help_trade():
 """
     return embed_generator.create_help_embed(info=help)    
 
+def get_help_challenge():
+    help = """
+**__Challenge Commands__**
+* `.challenge <local_id>`: Attempts to solve the professor challenge (using pokemon from .list)
+"""
+    return embed_generator.create_help_embed(info=help)
 def get_help_items():
     help = """
 **__Item Commands__**
@@ -170,7 +178,7 @@ def get_help_filter():
 **__Filter Commands__**
 * `.filter`: Resets filter to default order.
 * `.filter <filter_key> <value>`: Sets a filter. For example:
-    * `.filter shiny true`: Shows only shiny Pokémon.
+    * `.filter shiny`: Shows only shiny Pokémon.
     * `.filter type fire`: Shows only Fire-type Pokémon.
     * `.filter type water,flying`: Shows Water or Flying-type Pokémon.
     * `.filter tier 3`: Shows only Tier 3 Pokémon.
@@ -185,7 +193,7 @@ def get_help_filter():
     * `.filter order level asc`: Orders Pokémon by Level in ascending order.
     * `.filter order recent`: Orders Pokémon by most recently caught
 * You can combine multiple filters and orders in one command:
-    * `.filter shiny true tier 1 order level desc`
+    * `.filter shiny tier 1 order level desc`
 """
 
     return embed_generator.create_help_embed(info=help)
@@ -654,6 +662,7 @@ async def admin_reset_quest(user_id):
 #######################Item methods#######################
 async def get_shop(user):
     items = {
+        'rerollnature': 2000,
         'rerolliv': 2000,
         'rarecandy': 3000,
         'resetseed': 5000,
@@ -666,6 +675,7 @@ async def get_shop(user):
 
 async def buy_item(user, item_name, quantity):
     items = {
+        'rerollnature': 2000,
         'rerolliv': 2000,
         'rarecandy': 3000,
         'resetseed': 5000,
@@ -830,6 +840,25 @@ async def reroll_iv(user, iv):
         return embed_generator.create_rerolliv_view(user, buddy)
     else:
         return embed_generator.create_item_failure_embed(user, 'rerolliv')  
+
+async def reroll_nature(user):
+    active_trade = await storage_manager.get_trade_by_user_id(user_id=user.id)
+    if active_trade:
+        return embed_generator.create_trade_block_embed(user, "Cannot use rerollnature while in a trade")
+    item = await storage_manager.get_user_item_by_name(user, 'rerollnature')
+    if item.quantity >= 1:
+        buddy = await storage_manager.get_user_pokemon_by_id(str(user.current_pokemon))
+        try:
+            buddy.nature  = random.choice(["Hardy","Docile","Serious","Bashful","Quirky" ,"Lonely","Brave","Adamant","Naughty" ,"Bold","Relaxed","Impish","Lax" ,"Modest","Mild","Quiet","Rash" ,"Calm","Gentle","Sassy","Careful" ,"Timid","Hasty","Jolly","Naive"])
+            item.quantity = item.quantity - 1
+            item.uses = item.uses + 1
+            await storage_manager.save_object(obj=item, cache_key=f"{REDIS_PREFIX}item_id:{item.id}", table_name='user_items', unique_columns=['id'])
+            await storage_manager.save_object(obj=buddy, cache_key=f"{REDIS_PREFIX}pokemon_data:{buddy.id}", table_name="user_pokemon", unique_columns=["id"])
+        except:
+            return embed_generator.create_item_failure_embed(user, 'rerollnature')  
+        return embed_generator.create_rerollnature_view(user, buddy)
+    else:
+        return embed_generator.create_item_failure_embed(user, 'rerollnature')  
 
 async def rare_candy(user, quantity):
     active_trade = await storage_manager.get_trade_by_user_id(user_id=user.id)
@@ -1145,6 +1174,8 @@ async def battle_monitor_task(interval_seconds: int):
 
         # 4. Wait for the next interval
         await asyncio.sleep(interval_seconds)
+
+
 
 async def join_battle(user, local_id, channel_id):
     active_battle = await storage_manager.get_battle_by_user(user.id)
@@ -1531,10 +1562,7 @@ async def add_pokemon_to_trade(user, local_id):
         pokemon = await storage_manager.get_user_pokemon_by_id(pokemon_id)
 
         # Determine if the Pokémon is shiny for naming
-        if pokemon.is_shiny:
-            name = "✨ " + user.view_table[local_id]['name'].capitalize() + " ✨"
-        else:
-            name = user.view_table[local_id]['name'].capitalize()
+        name = user.view_table[local_id]['name'].capitalize()
 
         # Check if the Pokémon is the user's current buddy
         if str(pokemon_id) == str(user.current_pokemon):
@@ -1737,6 +1765,79 @@ async def quest_reward(user, quest):
     await storage_manager.save_object(obj=final_item, cache_key=f"{REDIS_PREFIX}item_id:{final_item.id}", table_name='user_items', unique_columns=['id'])
     await storage_manager.save_object(obj=user, cache_key=f"{REDIS_PREFIX}user_id:{user.id}", table_name="users", unique_columns=["id"])     
 
+#Professor functions
+async def professor_monitor_task(interval_seconds: int):
+    """
+    Background task to periodically check and send a new professor challenge
+
+    Args:
+        interval_seconds (int): How often to poll the database in seconds.
+    """
+    logger.info(f"Professor task started. Polling every {interval_seconds} seconds.")
+    while True:
+        active_challenge = await storage_manager.get_active_professor(1)
+        if not active_challenge:
+            new_challenge = Professor(id=None, tier=None, conditions=None, reward=None, local_id=None, completed_by=None)
+            new_challenge.start()
+            embed = embed_generator.create_professor_view(new_challenge)
+            await storage_manager.save_object(obj=new_challenge, cache_key=f"{REDIS_PREFIX}professor_id:{new_challenge.id}", table_name="professor_challenges", unique_columns=["id"])  
+            channel: discord.VoiceChannel | discord.StageChannel | discord.ForumChannel | discord.TextChannel | discord.CategoryChannel | discord.Thread | PrivateChannel | None = await client.fetch_channel(PROFESSOR_ID)
+            await channel.send(embed=embed)
+
+        # 4. Wait for the next interval
+        await asyncio.sleep(interval_seconds)
+
+async def challenge_reward(user, challenge, bonus):
+    item_name = challenge.reward['item']['name']
+    user_items = await storage_manager.get_user_items(user)
+    final_item = {}
+    found = False
+    for item in user_items:
+        if item.name == item_name:
+            found = True
+            final_item = item
+            if bonus:
+                item.quantity += challenge.reward['item']['quantity'] * 2
+            else:
+                item.quantity += challenge.reward['item']['quantity']
+    if not found:
+        if bonus:
+            final_item = Item(id=uuid.uuid4(), user_id=user.id, name=item_name, quantity=challenge.reward['item']['quantity']*2, uses=0)
+        else:
+            final_item = Item(id=uuid.uuid4(), user_id=user.id, name=item_name, quantity=challenge.reward['item']['quantity'], uses=0)
+    
+    if challenge.reward['money'] != 0:
+        if bonus:
+            user.wallet += challenge.reward['money'] * 2
+        else:
+            user.wallet += challenge.reward['money']
+    await storage_manager.save_object(obj=final_item, cache_key=f"{REDIS_PREFIX}item_id:{final_item.id}", table_name='user_items', unique_columns=['id'])
+    await storage_manager.save_object(obj=user, cache_key=f"{REDIS_PREFIX}user_id:{user.id}", table_name="users", unique_columns=["id"])     
+
+
+async def challenge_professor(user, local_id):
+    pokemon = await storage_manager.get_user_pokemon_by_id(user.view_table[str(local_id)]['id'])
+    active_challenge = await storage_manager.get_active_professor(1)
+    hours_4 = datetime.now(timezone.utc) - timedelta(hours=4)
+    completed_challenge = await storage_manager.get_inactive_professor(user_id=user.id, timestamp=hours_4)
+    if completed_challenge:
+        return embed_generator.create_challenge_time_view(user, completed_challenge)
+
+    if active_challenge:
+        requirements_met, bonus_met, fail_display = active_challenge.check_condition(pokemon)
+        print(requirements_met)
+        print(bonus_met)
+        print(fail_display)
+        if requirements_met:
+            await challenge_reward(user=user, challenge=active_challenge, bonus=bonus_met)
+            active_challenge.completed_by = user.id
+            active_challenge.completed_time = datetime.now(timezone.utc)
+            await storage_manager.save_object(obj=active_challenge, cache_key=f"{REDIS_PREFIX}professor_id:{active_challenge.id}", table_name="professor_challenges", unique_columns=["id"])  
+            return embed_generator.create_challenge_complete_view(user, pokemon, active_challenge, bonus_met)
+        else:
+            return embed_generator.create_challenge_failure_view(user, pokemon, active_challenge, fail_display)
+
+            
 client = discord.Client(intents=intents)
 
 @client.event
@@ -1752,7 +1853,7 @@ async def on_ready():
         client.battle_monitor_task_instance = asyncio.create_task(battle_monitor_task(interval_seconds=10))
         client.raid_monitor_task_instance = asyncio.create_task(raid_monitor_task(interval_seconds=10))
         client.lottery_monitor_task_instance = asyncio.create_task(lottery_monitor_task(interval_seconds=600))
-        
+        client.professor_monitor_task_instance = asyncio.create_task(professor_monitor_task(interval_seconds=10))
         # Set the flag to True so tasks aren't started again
         client._monitor_tasks_started = True
     else:
@@ -1793,6 +1894,9 @@ async def on_message(message):
         await message.channel.send(embed=embed)
     elif message.content.startswith('.help trade'):
         embed = get_help_trade()
+        await message.channel.send(embed=embed)
+    elif message.content.startswith('.help challenge'):
+        embed = get_help_challenge()
         await message.channel.send(embed=embed)
     elif message.content.startswith('.help admin') and user.id == 701062435678846998:
         embed = get_admin_help()
@@ -2107,6 +2211,8 @@ async def on_message(message):
                     embed = await buy_item(user, 'resetseed', int(quantity))
                 elif name == 'skipframe':
                     embed = await buy_item(user, 'skipframe', int(quantity))
+                elif name == 'rerollnature':
+                    embed = await buy_item(user, 'rerollnature', int(quantity))
                 elif name == 'rerolliv':
                     embed = await buy_item(user, 'rerolliv', int(quantity))
                 elif name == 'raidpass':
@@ -2137,6 +2243,10 @@ async def on_message(message):
             embed = await reroll_iv(user=user, iv=str(iv[1]))
         else:
             embed = embed_generator.create_item_failure_embed(user=user, item_name='rerolliv')
+        await message.channel.send(embed=embed)
+
+    if message.content.startswith('.rerollnature'):
+        embed = await reroll_nature(user=user)
         await message.channel.send(embed=embed)
 
     if message.content.startswith('.rarecandy'):
@@ -2233,6 +2343,15 @@ async def on_message(message):
     if message.content.startswith('.quest'):
         embed = await quest(user)
         await message.channel.send(embed=embed)
+
+    if message.content.startswith('.challenge') and str(message.channel.id) == PROFESSOR_ID:
+        local_id = message.content.split()
+        if len(local_id) > 1:
+            embed = await challenge_professor(user, local_id=str(local_id[1]))
+        else:
+            embed = await challenge_professor(user, local_id=str(1))
+        await message.channel.send(embed=embed)
+        
 
     end_time = time.time()
     elapsed_time = end_time - start_time
