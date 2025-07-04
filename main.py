@@ -155,6 +155,10 @@ def get_help_challenge():
     help = """
 **__Challenge Commands__**
 * `.challenge <local_id>`: Attempts to solve the professor challenge (using pokemon from .list)
+
+Full rewards timer: 4 hours from last completed challenge
+Reduced Rewards are earned from 10 minutes to 4 hours
+Reduced Rewards are 1/10 of normal rewards
 """
     return embed_generator.create_help_embed(info=help)
 def get_help_items():
@@ -1775,19 +1779,22 @@ async def professor_monitor_task(interval_seconds: int):
     """
     logger.info(f"Professor task started. Polling every {interval_seconds} seconds.")
     while True:
-        active_challenge = await storage_manager.get_active_professor(1)
-        if not active_challenge:
-            new_challenge = Professor(id=None, tier=None, conditions=None, reward=None, local_id=None, completed_by=None)
-            new_challenge.start()
-            embed = embed_generator.create_professor_view(new_challenge)
-            await storage_manager.save_object(obj=new_challenge, cache_key=f"{REDIS_PREFIX}professor_id:{new_challenge.id}", table_name="professor_challenges", unique_columns=["id"])  
-            channel: discord.VoiceChannel | discord.StageChannel | discord.ForumChannel | discord.TextChannel | discord.CategoryChannel | discord.Thread | PrivateChannel | None = await client.fetch_channel(PROFESSOR_ID)
-            await channel.send(embed=embed)
+        await start_challenge()
 
         # 4. Wait for the next interval
         await asyncio.sleep(interval_seconds)
 
-async def challenge_reward(user, challenge, bonus):
+async def start_challenge():
+    active_challenge = await storage_manager.get_active_professor(1)
+    if not active_challenge:
+        new_challenge = Professor(id=None, tier=None, conditions=None, reward=None, local_id=None, completed_by=None)
+        new_challenge.start()
+        embed = embed_generator.create_professor_view(new_challenge)
+        await storage_manager.save_object(obj=new_challenge, cache_key=f"{REDIS_PREFIX}professor_id:{new_challenge.id}", table_name="professor_challenges", unique_columns=["id"])  
+        channel: discord.VoiceChannel | discord.StageChannel | discord.ForumChannel | discord.TextChannel | discord.CategoryChannel | discord.Thread | PrivateChannel | None = await client.fetch_channel(PROFESSOR_ID)
+        await channel.send(embed=embed)
+
+async def challenge_reward(user, challenge, bonus, reduced_rewards):
     item_name = challenge.reward['item']['name']
     user_items = await storage_manager.get_user_items(user)
     final_item = {}
@@ -1796,8 +1803,10 @@ async def challenge_reward(user, challenge, bonus):
         if item.name == item_name:
             found = True
             final_item = item
-            if bonus:
-                item.quantity += challenge.reward['item']['quantity'] * 2
+            if reduced_rewards:
+                item.quantity += math.ceil(challenge.reward['item']['quantity'] / 10)
+            elif bonus:
+               item.quantity += challenge.reward['item']['quantity'] * 2
             else:
                 item.quantity += challenge.reward['item']['quantity']
     if not found:
@@ -1807,7 +1816,9 @@ async def challenge_reward(user, challenge, bonus):
             final_item = Item(id=uuid.uuid4(), user_id=user.id, name=item_name, quantity=challenge.reward['item']['quantity'], uses=0)
     
     if challenge.reward['money'] != 0:
-        if bonus:
+        if reduced_rewards:
+            user.wallet += math.ceil(challenge.reward['money'] / 10)
+        elif bonus:
             user.wallet += challenge.reward['money'] * 2
         else:
             user.wallet += challenge.reward['money']
@@ -1820,8 +1831,11 @@ async def challenge_professor(user, local_id):
     active_challenge = await storage_manager.get_active_professor(1)
     hours_4 = datetime.now(timezone.utc) - timedelta(hours=4)
     completed_challenge = await storage_manager.get_inactive_professor(user_id=user.id, timestamp=hours_4)
+    reduced_rewards = False
     if completed_challenge:
-        return embed_generator.create_challenge_time_view(user, completed_challenge)
+        reduced_rewards = True
+        if completed_challenge.completed_time >= (datetime.now(timezone.utc) - timedelta(minutes=10)) and REDIS_PREFIX == 'prod_':
+            return embed_generator.create_challenge_time_view(user, completed_challenge)
 
     if active_challenge:
         requirements_met, bonus_met, fail_display = active_challenge.check_condition(pokemon)
@@ -1829,14 +1843,18 @@ async def challenge_professor(user, local_id):
         print(bonus_met)
         print(fail_display)
         if requirements_met:
-            await challenge_reward(user=user, challenge=active_challenge, bonus=bonus_met)
+            await challenge_reward(user=user, challenge=active_challenge, bonus=bonus_met, reduced_rewards=reduced_rewards)
             active_challenge.completed_by = user.id
             active_challenge.completed_time = datetime.now(timezone.utc)
             await storage_manager.save_object(obj=active_challenge, cache_key=f"{REDIS_PREFIX}professor_id:{active_challenge.id}", table_name="professor_challenges", unique_columns=["id"])  
-            return embed_generator.create_challenge_complete_view(user, pokemon, active_challenge, bonus_met)
+            return embed_generator.create_challenge_complete_view(user, pokemon, active_challenge, bonus_met, reduced_rewards)
         else:
             return embed_generator.create_challenge_failure_view(user, pokemon, active_challenge, fail_display)
 
+async def admin_reset_challenge(user):
+    active_challenge = await storage_manager.get_active_professor(1)
+    await storage_manager.delete_challenge_by_id(active_challenge.id)
+    return embed_generator.create_admin_embed("Reset challenge")
             
 client = discord.Client(intents=intents)
 
@@ -2000,6 +2018,14 @@ async def on_message(message):
         user_id = split[1]
         embed = await admin_reset_quest(user_id=user_id)
         await message.channel.send(embed=embed)
+
+    if message.content.startswith('.resetchallenge') and user.id == 701062435678846998:
+        embed = await admin_reset_challenge(user)
+        await message.channel.send(embed=embed)
+
+    if message.content.startswith('.startchallenge') and user.id == 701062435678846998:
+        await start_challenge()
+
 #######################Battle commands#######################
     if message.content.startswith('.spawn'):
         pokemon, embed = await start_battle(user=user, channel_id=channel_id)

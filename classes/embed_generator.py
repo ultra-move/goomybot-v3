@@ -672,8 +672,8 @@ class EmbedGenerator():
         embed.set_footer(text="Complete a bonus condition to earn 2x rewards!")
         return embed
     
-    def create_challenge_complete_view(self, user, pokemon, challenge, bonus_met):
-        embed=discord.Embed(title=f"Challenge Complete!", description=f"{user.name.capitalize()} Completed the challenge with {pokemon.name.capitalize()}\n{challenge.get_reward_string(bonus_met)}", color=self.get_color(pokemon))
+    def create_challenge_complete_view(self, user, pokemon, challenge, bonus_met, reduced_rewards):
+        embed=discord.Embed(title=f"Challenge Complete!", description=f"{user.name.capitalize()} Completed the challenge with {pokemon.name.capitalize()}\n{challenge.get_reward_string(bonus_met, reduced_rewards)}", color=self.get_color(pokemon))
         embed.set_thumbnail(url=r"https://play.pokemonshowdown.com/sprites/trainers/oak.png")
         embed.set_image(url=pokemon.sprite_front)
         embed.set_author(name=user.name)
@@ -686,7 +686,7 @@ class EmbedGenerator():
         return embed
     
     def create_challenge_time_view(self, user, challenge):
-        embed=discord.Embed(title=f"This isn't the time to use that!", description=f"{user.name.capitalize()}, you have completed a challenge within the last 4 hours! Try again later", color=self.get_color_by_tier(challenge.tier))
+        embed=discord.Embed(title=f"This isn't the time to use that!", description=f"{user.name.capitalize()}, you have completed a challenge within the last 10 minutes! Try again later", color=self.get_color_by_tier(challenge.tier))
         embed.set_thumbnail(url=r"https://play.pokemonshowdown.com/sprites/trainers/oak.png")
         embed.set_author(name="Professor Oak")
         return embed

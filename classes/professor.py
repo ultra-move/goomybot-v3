@@ -1,6 +1,7 @@
 from asyncio.log import logger
 from datetime import datetime, timezone, timedelta
 import json
+import math
 import random
 from typing import Any, Dict
 import uuid
@@ -187,21 +188,28 @@ class Professor():
 
         return result
      
-    def get_reward_string(self, bonus_met):
+    def get_reward_string(self, bonus_met, reduced_rewards):
         reward_string = ""
         if self.reward['item']['name'] != 'Nothing':
-            if bonus_met:
+            if reduced_rewards:
+                reward_string = reward_string + f"{self.reward['item']['name']} x{math.ceil(self.reward['item']['quantity']/10)}\n"
+            elif bonus_met:
                 reward_string = reward_string + f"{self.reward['item']['name']} x{self.reward['item']['quantity']*2}\n"
             else:
                 reward_string = reward_string + f"{self.reward['item']['name']} x{self.reward['item']['quantity']}\n"
         if self.reward['money'] != 0:
-            if bonus_met:
+            if reduced_rewards:
+                reward_string = reward_string + f"${math.ceil(self.reward['money']/10):,.0f}\n"
+            elif bonus_met:
                 reward_string =  reward_string + f"${self.reward['money']*2:,.0f}"
             else:
                 reward_string =  reward_string + f"${self.reward['money']:,.0f}"
-        return (
-            f"Rewards:\n{reward_string}"
-        )
+        if reduced_rewards:
+            return f"Reduced Rewards:\n{reward_string}"
+        elif bonus_met:
+            return f"Bonus Rewards:\n{reward_string}"
+        else:
+            return f"Rewards:\n{reward_string}"
     @classmethod
     def from_dict(cls, data: Dict[str, Any]):
         """
