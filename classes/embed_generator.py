@@ -59,7 +59,7 @@ class EmbedGenerator():
 
     def create_already_in_raid_embed(self,user_name):
         embed=discord.Embed(title=f"Already in raid!", color=default_color)
-        embed.set_author(name=user_name)
+        embed.set_author(name=user_name.capitalize())
         return embed
 
     def create_raid_embed(self, user_name, pokemon_name, join_code, duration, url, color):
@@ -68,7 +68,7 @@ class EmbedGenerator():
         else:
             pokemon_name = pokemon_name.capitalize()
         embed=discord.Embed(title=f"Raid!\n{pokemon_name}", color=color)
-        embed.set_author(name=user_name)
+        embed.set_author(name=user_name.capitalize())
         embed.set_image(url=url)
         embed.add_field(name="local code:", value=f"{join_code}")
         if duration > 60:
@@ -98,7 +98,7 @@ class EmbedGenerator():
 
     def create_raid_failure_embed(self, user_name):
         embed=discord.Embed(title=f"Could not start raid, please check that you have a raidpass!", color=default_color)
-        embed.set_author(name=user_name)
+        embed.set_author(name=user_name.capitalize())
         return embed
 
     def create_battle_embed(self, user_name, pokemon_name, join_code, duration, url, color):
@@ -107,7 +107,7 @@ class EmbedGenerator():
         else:
             pokemon_name = pokemon_name.capitalize()
         embed=discord.Embed(title=f"{pokemon_name} Spawned!", color=color)
-        embed.set_author(name=user_name)
+        embed.set_author(name=user_name.capitalize())
         embed.set_image(url=url)
         embed.add_field(name="local code:", value=f"{join_code}")
         embed.set_footer(text=f"duration: ~ {duration} seconds")
@@ -156,7 +156,7 @@ class EmbedGenerator():
     
     def create_evolved_fail_embed(self, user_name, message):
         embed=discord.Embed(description=message, color=default_color)
-        embed.set_author(name=user_name)
+        embed.set_author(name=user_name.capitalize())
         return embed
     
     def create_user_view_table(self, user, page, total_pages):
@@ -638,7 +638,7 @@ class EmbedGenerator():
             # Add a field for each category
             embed.add_field(
                 name=f"{category}",
-                value=f"**{user_name}** with {formatted_count}",
+                value=f"**{user_name.capitalize()}** with {formatted_count}",
                 inline=False # Set to True if you want them side-by-side, but false is often clearer for leaderboards
             )
         return embed
