@@ -155,10 +155,12 @@ def get_help_challenge():
     help = """
 **__Challenge Commands__**
 * `.challenge <local_id>`: Attempts to solve the professor challenge (using pokemon from .list)
+* `.challenge info`: Shows when full rewards can be earned again
 
 Full rewards timer: 4 hours from last completed challenge
 Reduced Rewards are earned from 10 minutes to 4 hours
 Reduced Rewards are 1/10 of normal rewards
+Reduced Rewards do not provide a bonus
 """
     return embed_generator.create_help_embed(info=help)
 def get_help_items():
@@ -1834,7 +1836,9 @@ async def challenge_professor(user, local_id):
     reduced_rewards = False
     if completed_challenge:
         reduced_rewards = True
-        if completed_challenge.completed_time >= (datetime.now(timezone.utc) - timedelta(minutes=10)) and REDIS_PREFIX == 'prod_':
+        print(completed_challenge.completed_time)
+        print(datetime.now(timezone.utc) - timedelta(minutes=10))
+        if completed_challenge.completed_time >= (datetime.now(timezone.utc) - timedelta(minutes=10)):
             return embed_generator.create_challenge_time_view(user, completed_challenge)
 
     if active_challenge:
@@ -1850,6 +1854,30 @@ async def challenge_professor(user, local_id):
             return embed_generator.create_challenge_complete_view(user, pokemon, active_challenge, bonus_met, reduced_rewards)
         else:
             return embed_generator.create_challenge_failure_view(user, pokemon, active_challenge, fail_display)
+
+async def challenge_info(user):
+    hours_4 = datetime.now(timezone.utc) - timedelta(hours=4)
+    completed_challenge = await storage_manager.get_inactive_professor(user_id=user.id, timestamp=hours_4)
+    
+    if completed_challenge:
+        full_rewards_time = completed_challenge.completed_time
+
+        # Calculate 4 hours *from* the completed time
+        four_hours_from_completion = full_rewards_time + timedelta(hours=4)
+
+        # Get the current time in UTC
+        current_time_utc = datetime.now(timezone.utc)
+
+        # Calculate the time remaining until the 4-hour mark
+        time_left = four_hours_from_completion - current_time_utc
+
+        hours = time_left.seconds // 3600
+        minutes = (time_left.seconds % 3600) // 60
+        seconds = time_left.seconds % 60
+        return embed_generator.create_challenge_time_left_view(user, f"{hours} hours, {minutes} minutes, {seconds} seconds.")
+    else:
+        return embed_generator.create_challenge_full_rewards_view(user)
+
 
 async def admin_reset_challenge(user):
     active_challenge = await storage_manager.get_active_professor(1)
@@ -2019,11 +2047,11 @@ async def on_message(message):
         embed = await admin_reset_quest(user_id=user_id)
         await message.channel.send(embed=embed)
 
-    if message.content.startswith('.resetchallenge') and user.id == 701062435678846998:
+    if '.resetchallenge' in message.content and user.id == 701062435678846998:
         embed = await admin_reset_challenge(user)
         await message.channel.send(embed=embed)
 
-    if message.content.startswith('.startchallenge') and user.id == 701062435678846998:
+    if '.startchallenge' in message.content and user.id == 701062435678846998:
         await start_challenge()
 
 #######################Battle commands#######################
@@ -2370,7 +2398,10 @@ async def on_message(message):
         embed = await quest(user)
         await message.channel.send(embed=embed)
 
-    if message.content.startswith('.challenge') and str(message.channel.id) == PROFESSOR_ID:
+    if message.content.startswith('.challenge info'):
+        embed = await challenge_info(user)
+        await message.channel.send(embed=embed)
+    elif message.content.startswith('.challenge') and str(message.channel.id) == PROFESSOR_ID:
         local_id = message.content.split()
         if len(local_id) > 1:
             embed = await challenge_professor(user, local_id=str(local_id[1]))

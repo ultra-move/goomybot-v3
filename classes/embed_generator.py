@@ -75,9 +75,9 @@ class EmbedGenerator():
             minutes = math.floor(duration / 60)
             seconds = duration % 60
             # Use f-string for formatting, adding a leading zero to seconds if less than 10
-            formatted_duration = f"duration: ~ {minutes}m {seconds:02d}s"
+            formatted_duration = f"Duration: ~ {minutes}m {seconds:02d}s"
         else:
-            formatted_duration = f"duration: ~ {duration} seconds"
+            formatted_duration = f"Duration: ~ {duration} seconds"
         embed.set_footer(text=formatted_duration)
         return embed
     
@@ -96,9 +96,9 @@ class EmbedGenerator():
         embed.set_author(name=user.name.capitalize())
         return embed
 
-    def create_raid_failure_embed(self, user_name):
-        embed=discord.Embed(title=f"Could not start raid, please check that you have a raidpass!", color=default_color)
-        embed.set_author(name=user_name.capitalize())
+    def create_raid_failure_embed(self, user):
+        embed=discord.Embed(title = "Failure!",description=f"Could not start raid, please check that you have a raidpass!", color=default_color)
+        embed.set_author(name=user.name.capitalize())
         return embed
 
     def create_battle_embed(self, user_name, pokemon_name, join_code, duration, url, color):
@@ -110,7 +110,7 @@ class EmbedGenerator():
         embed.set_author(name=user_name.capitalize())
         embed.set_image(url=url)
         embed.add_field(name="local code:", value=f"{join_code}")
-        embed.set_footer(text=f"duration: ~ {duration} seconds")
+        embed.set_footer(text=f"Duration: ~ {duration} seconds")
         return embed
     
     def create_battle_finish_embed(self, pokemon_name, url, color, rewards):
@@ -687,6 +687,18 @@ class EmbedGenerator():
     
     def create_challenge_time_view(self, user, challenge):
         embed=discord.Embed(title=f"This isn't the time to use that!", description=f"{user.name.capitalize()}, you have completed a challenge within the last 10 minutes! Try again later", color=self.get_color_by_tier(challenge.tier))
+        embed.set_thumbnail(url=r"https://play.pokemonshowdown.com/sprites/trainers/oak.png")
+        embed.set_author(name="Professor Oak")
+        return embed
+    
+    def create_challenge_time_left_view(self, user, time_left):
+        embed=discord.Embed(title=f"{user.name.capitalize()}", description=f"Full rewards can be earned in\n{time_left}", color=default_color)
+        embed.set_thumbnail(url=r"https://play.pokemonshowdown.com/sprites/trainers/oak.png")
+        embed.set_author(name="Professor Oak")
+        return embed
+    
+    def create_challenge_full_rewards_view(self, user):
+        embed=discord.Embed(title=f"{user.name.capitalize()}", description=f"Full rewards can be earned now", color=default_color)
         embed.set_thumbnail(url=r"https://play.pokemonshowdown.com/sprites/trainers/oak.png")
         embed.set_author(name="Professor Oak")
         return embed

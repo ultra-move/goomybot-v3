@@ -728,9 +728,9 @@ class StorageManager:
     async def get_inactive_professor(self, user_id, timestamp):
         try:
             sql_query = f"""
-                Select * from professor_challenges where completed_by = {user_id} and completed_time >= '{timestamp}'
+                Select * from professor_challenges where completed_by = {user_id} and completed_time >= %(completed_time)s order by completed_time desc
             """
-            professor_data = self.db.fetch_one(sql_query)
+            professor_data = self.db.fetch_one(sql_query, {"completed_time": timestamp})
             if professor_data:
                 return Professor.from_dict(professor_data)
             return None

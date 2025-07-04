@@ -63,10 +63,10 @@ class Professor():
             elif item_name == 'skipframe':
                 quantity = random.randrange(1,3)
             else:
-                quantity = random.randrange(5,10)
+                quantity = random.randrange(3,8)
             
         if reward_type == 'money' or reward_type == 'both':
-            money = random.randrange(10000, 25000)
+            money = random.randrange(5000, 15000)
             money = round(money / 100) * 100
         self.tier = tier
         self.reward = {'item': {'name': item_name, 'quantity': quantity*tier}, 'money': money*tier}
