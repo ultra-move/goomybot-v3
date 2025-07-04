@@ -666,7 +666,7 @@ async def admin_reset_quest(user_id):
 #######################Item methods#######################
 async def get_shop(user):
     items = {
-        'rerollnature': 2000,
+        'rerollnature': 1000,
         'rerolliv': 2000,
         'rarecandy': 3000,
         'resetseed': 5000,
@@ -679,7 +679,7 @@ async def get_shop(user):
 
 async def buy_item(user, item_name, quantity):
     items = {
-        'rerollnature': 2000,
+        'rerollnature': 1000,
         'rerolliv': 2000,
         'rarecandy': 3000,
         'resetseed': 5000,

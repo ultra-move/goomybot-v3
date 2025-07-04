@@ -40,7 +40,7 @@ class Professor():
     def random_rewards(self):
         tier = self.tier
         items = {
-            'rerollnature': 2000,
+            'rerollnature': 1000,
             'rerolliv': 2000,
             'rarecandy': 3000,
             'resetseed': 5000,

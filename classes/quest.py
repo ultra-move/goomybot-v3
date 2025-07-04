@@ -22,7 +22,7 @@ class Quest:
 
     def random_reward(self):
         items = {
-            'rerollnature': 2000,
+            'rerollnature': 1000,
             'rerolliv': 2000,
             'rarecandy': 3000,
             'resetseed': 5000,
