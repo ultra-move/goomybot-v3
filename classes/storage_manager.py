@@ -730,9 +730,12 @@ class StorageManager:
             sql_query = f"""
                 Select * from professor_challenges where completed_by = {user_id} and completed_time >= %(completed_time)s order by completed_time desc
             """
-            professor_data = self.db.fetch_one(sql_query, {"completed_time": timestamp})
+            professor_data = await self.db.fetch_all(sql_query, {"completed_time": timestamp})
+            result = []
             if professor_data:
-                return Professor.from_dict(professor_data)
+                for p in professor_data:
+                    result.append(Professor.from_dict(p))
+                return result
             return None
         except psycopg2.Error as e:
             return None              

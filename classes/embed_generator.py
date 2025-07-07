@@ -669,7 +669,7 @@ class EmbedGenerator():
         embed=discord.Embed(title=f"Professor Challenge!", description=f"{professor.get_condition_string()}", color=self.get_color_by_tier(professor.tier))
         embed.set_thumbnail(url=r"https://play.pokemonshowdown.com/sprites/trainers/oak.png")
         embed.set_author(name="Professor Oak")
-        embed.set_footer(text="Complete a bonus condition to earn 2x rewards!\nThis challenge expires in 15 minutes")
+        embed.set_footer(text="Complete a bonus condition to earn 2x rewards!\nThis challenge expires in 30 minutes")
         return embed
     
     def create_challenge_complete_view(self, user, pokemon, challenge, bonus_met, reduced_rewards):
