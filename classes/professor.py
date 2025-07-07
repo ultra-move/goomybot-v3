@@ -185,7 +185,7 @@ class Professor():
         if self.reward['money'] != 0:
             reward_string =  reward_string + f"${self.reward['money']:,.0f}"
         
-        result= result + f"\nRewards:\n{reward_string}"
+        result= result + f"\nFull Rewards:\n{reward_string}"
         
 
         return result

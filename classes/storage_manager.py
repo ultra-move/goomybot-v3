@@ -898,6 +898,13 @@ LEFT JOIN
 
         return leaderboard_results
     
+    async def delete_old_challenges(self):
+        sql_query = f"""
+DELETE FROM professor_challenges
+WHERE completed_time < (NOW() - INTERVAL '4 hours');
+        """
+        rows = await self.db.execute_delete_query(sql_query)
+        return rows
 
     async def delete_duplicates(self, user_id, buddy_id):
         sql_query = f"""

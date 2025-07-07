@@ -379,27 +379,64 @@ class Pokemon:
         return (f"<Pokemon id={self.id} name='{self.name}' "
                 f"level={self.level} user_id={self.user_id}>")
 
+    def _format_dict_to_lines(self, data_dict, items_per_line=2, key_formatter=str.capitalize):
+        """
+        Helper method to format a dictionary into lines, with a specified number of items per line.
+        """
+        formatted_items = []
+        for k, v in data_dict.items():
+            formatted_items.append(f"{key_formatter(k)}: {v}")
+
+        lines = []
+        # Increase leading spaces for a more indented "block" look
+        indent_prefix = "* " # 4 spaces for indentation
+        for i in range(0, len(formatted_items), items_per_line):
+            lines.append(indent_prefix + " | ".join(formatted_items[i : i + items_per_line]))
+        return "\n".join(lines)
+
+
     def __str__(self):
         """
         Returns a human-readable string representation of the Pokemon object.
         """
-        if self.is_shiny:
-            name = f"✨{self.name.capitalize()}✨"
-        else:
-            name = f"{self.name.capitalize()}"
-        return (
+        display_name = f"✨{self.name.capitalize()}✨" if self.is_shiny else self.name.capitalize()
+
+        string = (
             f"Pokédex ID: {self.pokedex_id}\n"
-            f"Name: {name}\n"
+            f"Name: {display_name}\n"
             f"Tier: {self.tier}\n"
             f"Types: {', '.join(self.types)}\n"
             f"Level: {self.level}\n"
             f"Exp Needed: {int(self.next_exp - self.exp)}\n"
-            f"Stats: {self.stats}\n"
             f"Nature: {self.nature}\n"
-            f"IVs: {self.iv}\n"
             f"IVs percentage: {self.calculate_total_iv_percentage()}%\n"
             f"Safe: {self.safe}"
         )
+        return string
+    
+    def stats_str(self):
+        """
+        Returns a human-readable string representation of the Pokemon object.
+        """
+        display_name = f"✨{self.name.capitalize()}✨" if self.is_shiny else self.name.capitalize()
+
+        # Format stats to two per line
+        # Note: Special-attack and Special-defense should ideally be consistent keys in your dict (e.g., 'sp_atk', 'sp_def')
+        # If they are currently 'Special-attack', 'Special-defense', the capitalize will work, but for consistency 'sp_atk' is common.
+        formatted_stats = self._format_dict_to_lines(self.stats, items_per_line=1, key_formatter=str.capitalize)
+
+        # Format IVs to two per line
+        formatted_ivs = self._format_dict_to_lines(self.iv, items_per_line=1, key_formatter=str.capitalize)
+
+        string = (
+            f"Name: {display_name}\n"
+            f"Nature: {self.nature}\n"
+            f"Stats:\n{formatted_stats}\n"
+            f"IVs:\n{formatted_ivs}\n\n"
+            f"IVs percentage: {self.calculate_total_iv_percentage()}%\n"
+        )
+        return string
+
     def to_readable_dict(self) -> Dict[str, Any]:
         """
         Converts the Pokemon object into a dictionary, suitable for database storage

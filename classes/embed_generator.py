@@ -185,6 +185,12 @@ class EmbedGenerator():
         embed.set_thumbnail(url=pokemon.sprite_front)
         return embed
     
+    def create_pokemon_stats_view(self, user, pokemon):
+        embed=discord.Embed(description=pokemon.stats_str(), color=self.get_color(pokemon=pokemon))
+        embed.set_author(name=user.name.capitalize())
+        embed.set_thumbnail(url=pokemon.sprite_front)
+        return embed
+
     def create_master_pokemon_view(self, pokemon_master):
         pokemon_master.is_shiny = False
         embed=discord.Embed(description=pokemon_master.__str__(), color=self.get_color(pokemon_master))
