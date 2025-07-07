@@ -98,6 +98,7 @@ def get_help_user():
 * `.profileimage <URL>`: Sets your profile image to the provided URL (must be from showdown sprites).
 * `.list [page_number]`: Displays a list of your Pokémon. You can specify a page number to view more.
 * `.view [local_id] or [recent]`: If a `local_id` is provided, views details of that specific Pokémon. If no `local_id` is given, it shows details of your current buddy Pokémon.
+* `.stats [local_id] or [recent]`: Like view but for stats
 * `.filter <filter_message>`: Filters your Pokémon list based on your criteria.
 * `.frame`: Views current frame & raid frame
 * `.fullframe`: Toggles whether shinyframe commands show the pokemon or not
@@ -157,13 +158,14 @@ def get_help_challenge():
 * `.challenge <local_id>`: Attempts to solve the professor challenge (using pokemon from .list)
 * `.challenge info`: Shows when full rewards can be earned again
 
+Bonus applies a 2x to all rewards
 Lockout time is 10 minutes from last completed challenge
-The below applies from your oldest completed challenge
-10 minutes - 1 hour: 10x reduced rewards
-1 - 2 hours: 8x reduced rewards
-2 - 3 hours: 6x reduced rewards
-3 - 4 hours: 4x reduced rewards 
-4 hours: Full rewards
+The below applies from your oldest completed challenge:
+    10 minutes - 1 hour: basic rewards
+    1 - 2 hours: 2x basic rewards
+    2 - 3 hours: 4x basic rewards
+    3 - 4 hours: 6x basic rewards
+    4 hours: 10x basic rewards
 """
     return embed_generator.create_help_embed(info=help)
 def get_help_items():
@@ -271,15 +273,30 @@ async def view_pokemon(user, local_id):
     logger.debug(pokemon)
     return embed_generator.create_pokemon_view(user, pokemon)
 
+async def view_pokemon_stats(user, local_id):
+    pokemon = await storage_manager.get_user_pokemon_by_id(user.view_table[str(local_id)]['id'])
+    logger.debug(pokemon)
+    return embed_generator.create_pokemon_stats_view(user, pokemon)
+
 async def view_recent_pokemon(user):
     pokemon = await storage_manager.get_user_pokemon_by_recent(user)
     logger.debug(pokemon)
     return embed_generator.create_pokemon_view(user, pokemon)
 
+async def view_recent_pokemon_stats(user):
+    pokemon = await storage_manager.get_user_pokemon_by_recent(user)
+    logger.debug(pokemon)
+    return embed_generator.create_pokemon_stats_view(user, pokemon)
+
 async def view_buddy(user):
     pokemon = await storage_manager.get_user_pokemon_by_id(str(user.current_pokemon))
     logger.debug(pokemon)
     return embed_generator.create_pokemon_view(user, pokemon)    
+
+async def view_buddy_stats(user):
+    pokemon = await storage_manager.get_user_pokemon_by_id(str(user.current_pokemon))
+    logger.debug(pokemon)
+    return embed_generator.create_pokemon_stats_view(user, pokemon) 
 
 async def set_buddy_recent(user):
     active_trade = await storage_manager.get_trade_by_user_id(user_id=user.id)
@@ -1783,10 +1800,11 @@ async def professor_monitor_task(interval_seconds: int):
     """
     logger.info(f"Professor task started. Polling every {interval_seconds} seconds.")
     while True:
+        await storage_manager.delete_old_challenges()
         await start_challenge()
 
         # 4. Wait for the next interval
-        await asyncio.sleep(interval_seconds)
+        await asyncio.sleep(interval_seconds) 
 
 async def start_challenge():
     active_challenge = await storage_manager.get_active_professor(1)
@@ -2199,6 +2217,20 @@ async def on_message(message):
             embed = await view_pokemon(user=user, local_id=str(local_id[1]))
         else:
             embed = await view_buddy(user=user)
+        await message.channel.send(embed=embed)
+
+    if message.content.startswith('.stats recent'):
+        embed = await view_recent_pokemon_stats(user)
+        await message.channel.send(embed=embed)
+    elif message.content.startswith('.stats buddy'):
+        embed = await view_buddy_stats(user)
+        await message.channel.send(embed=embed)
+    elif message.content.startswith('.stats'):
+        local_id = message.content.split()
+        if len(local_id) > 1:
+            embed = await view_pokemon_stats(user=user, local_id=str(local_id[1]))
+        else:
+            embed = await view_buddy_stats(user=user)
         await message.channel.send(embed=embed)
 
     if message.content.startswith('.filter'):
