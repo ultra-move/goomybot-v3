@@ -1182,7 +1182,6 @@ async def battle_monitor_task(interval_seconds: int):
         await asyncio.sleep(interval_seconds)
 
 
-
 async def join_battle(user, local_id, channel_id):
     active_battle = await storage_manager.get_battle_by_user(user.id)
     if active_battle:
@@ -1788,13 +1787,19 @@ async def professor_monitor_task(interval_seconds: int):
 
 async def start_challenge():
     active_challenge = await storage_manager.get_active_professor(1)
+    if active_challenge and active_challenge.start_time >= datetime.now(timezone.utc) - timedelta(minutes=15):
+        await reset_challenge(None)
+        await create_challenge()
     if not active_challenge:
-        new_challenge = Professor(id=None, tier=None, conditions=None, reward=None, local_id=None, completed_by=None)
-        new_challenge.start()
-        embed = embed_generator.create_professor_view(new_challenge)
-        await storage_manager.save_object(obj=new_challenge, cache_key=f"{REDIS_PREFIX}professor_id:{new_challenge.id}", table_name="professor_challenges", unique_columns=["id"])  
-        channel: discord.VoiceChannel | discord.StageChannel | discord.ForumChannel | discord.TextChannel | discord.CategoryChannel | discord.Thread | PrivateChannel | None = await client.fetch_channel(PROFESSOR_ID)
-        await channel.send(embed=embed)
+        await create_challenge()
+
+async def create_challenge():
+    new_challenge = Professor(id=None, tier=None, conditions=None, reward=None, local_id=None, completed_by=None, start_time=None)
+    new_challenge.start()
+    embed = embed_generator.create_professor_view(new_challenge)
+    await storage_manager.save_object(obj=new_challenge, cache_key=f"{REDIS_PREFIX}professor_id:{new_challenge.id}", table_name="professor_challenges", unique_columns=["id"])  
+    channel: discord.VoiceChannel | discord.StageChannel | discord.ForumChannel | discord.TextChannel | discord.CategoryChannel | discord.Thread | PrivateChannel | None = await client.fetch_channel(PROFESSOR_ID)
+    await channel.send(embed=embed)
 
 async def challenge_reward(user, challenge, bonus, reduced_rewards):
     item_name = challenge.reward['item']['name']
@@ -1805,25 +1810,32 @@ async def challenge_reward(user, challenge, bonus, reduced_rewards):
         if item.name == item_name:
             found = True
             final_item = item
+            final_quantity = challenge.reward['item']['quantity']
             if reduced_rewards:
-                item.quantity += math.ceil(challenge.reward['item']['quantity'] / 10)
-            elif bonus:
-               item.quantity += challenge.reward['item']['quantity'] * 2
-            else:
-                item.quantity += challenge.reward['item']['quantity']
+                final_quantity = math.ceil(final_quantity / 10)
+            if bonus:
+               final_quantity = final_quantity * 2
+            item.quantity += final_quantity
     if not found:
+        final_quantity = challenge.reward['item']['quantity']
+        if reduced_rewards:
+            final_quantity = math.ceil(final_quantity / 10)
         if bonus:
-            final_item = Item(id=uuid.uuid4(), user_id=user.id, name=item_name, quantity=challenge.reward['item']['quantity']*2, uses=0)
+            final_quantity = final_quantity * 2
+        if bonus:
+            final_item = Item(id=uuid.uuid4(), user_id=user.id, name=item_name, quantity=final_quantity, uses=0)
         else:
-            final_item = Item(id=uuid.uuid4(), user_id=user.id, name=item_name, quantity=challenge.reward['item']['quantity'], uses=0)
+            final_item = Item(id=uuid.uuid4(), user_id=user.id, name=item_name, quantity=final_quantity, uses=0)
+    
     
     if challenge.reward['money'] != 0:
+        final_money = challenge.reward['money']
         if reduced_rewards:
-            user.wallet += math.ceil(challenge.reward['money'] / 10)
-        elif bonus:
-            user.wallet += challenge.reward['money'] * 2
-        else:
-            user.wallet += challenge.reward['money']
+            final_money = math.ceil(final_money / 10)
+        if bonus:
+            final_money= final_money * 2
+        user.wallet += final_money
+
     await storage_manager.save_object(obj=final_item, cache_key=f"{REDIS_PREFIX}item_id:{final_item.id}", table_name='user_items', unique_columns=['id'])
     await storage_manager.save_object(obj=user, cache_key=f"{REDIS_PREFIX}user_id:{user.id}", table_name="users", unique_columns=["id"])     
 
@@ -1879,7 +1891,7 @@ async def challenge_info(user):
         return embed_generator.create_challenge_full_rewards_view(user)
 
 
-async def admin_reset_challenge(user):
+async def reset_challenge(user):
     active_challenge = await storage_manager.get_active_professor(1)
     await storage_manager.delete_challenge_by_id(active_challenge.id)
     return embed_generator.create_admin_embed("Reset challenge")
@@ -2048,7 +2060,7 @@ async def on_message(message):
         await message.channel.send(embed=embed)
 
     if '.resetchallenge' in message.content and user.id == 701062435678846998:
-        embed = await admin_reset_challenge(user)
+        embed = await reset_challenge(user)
         await message.channel.send(embed=embed)
 
     if '.startchallenge' in message.content and user.id == 701062435678846998:

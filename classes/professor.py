@@ -11,7 +11,7 @@ natures = ["Hardy","Docile","Serious","Bashful","Quirky" ,"Lonely","Brave","Adam
 stats = ["hp", "attack", "defense", "special_attack", "special_defense", "speed"]
 class Professor():
 
-    def __init__(self, id=None, tier=None, conditions=None, reward=None, local_id=None, completed_by=None, completed_time=None):
+    def __init__(self, id=None, tier=None, conditions=None, reward=None, local_id=None, completed_by=None, completed_time=None, start_time=None):
         self.id = id
         self.tier = tier 
         self.conditions = conditions
@@ -19,12 +19,14 @@ class Professor():
         self.local_id = local_id
         self.completed_by = completed_by
         self.completed_time = completed_time
+        self.start_time = start_time
 
     def start(self):
         self.id = uuid.uuid4()
         self.tier = random.randrange(1,5)
         self.local_id = random.randrange(1,1000)
         self.completed_by = 0
+        self.start_time = datetime.now(timezone.utc)
         self.random_conditions()
         self.random_rewards()
 
@@ -257,7 +259,7 @@ class Professor():
                 processed_data[key] = {} # Default to empty dict if missing or None
 
         # Datetime Handling (as previously defined, it's robust)
-        for key in ['completed_time']:
+        for key in ['completed_time', 'start_time']:
             if key in processed_data and processed_data[key] is not None: # Check for None explicitly
                 if isinstance(processed_data[key], str):
                     try:
@@ -284,7 +286,7 @@ class Professor():
         if data.get('id'):
             data['id'] = str(data['id'])
 
-        for key in ['completed_time']:
+        for key in ['completed_time', 'start_time']:
             if isinstance(data.get(key), datetime):
                 data[key] = data[key].isoformat()
 

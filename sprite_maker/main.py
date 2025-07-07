@@ -197,7 +197,7 @@ class ImageCombiner:
 
 # --- Example Usage ---
 if __name__ == "__main__":
-    pokemon_urls = [
+    """pokemon_urls = [
         "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/shiny/130.png",
         "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/shiny/38.png",
         "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/shiny/186.png"        
@@ -217,3 +217,5 @@ if __name__ == "__main__":
     combined_img_center = combiner_center.combine_images(full_output_path_center, horizontal_spacing=10, vertical_align='center')
     if combined_img_center:
         print(f"Images combined with 10px spacing, center aligned. Process complete.")
+"""
+    whois_directory = ""
