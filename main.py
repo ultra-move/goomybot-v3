@@ -157,10 +157,13 @@ def get_help_challenge():
 * `.challenge <local_id>`: Attempts to solve the professor challenge (using pokemon from .list)
 * `.challenge info`: Shows when full rewards can be earned again
 
-Full rewards timer: 4 hours from last completed challenge
-Reduced Rewards are earned from 10 minutes to 4 hours
-Reduced Rewards are 1/10 of normal rewards
-Reduced Rewards do not provide a bonus
+Lockout time is 10 minutes from last completed challenge
+The below applies from your oldest completed challenge
+10 minutes - 1 hour: 10x reduced rewards
+1 - 2 hours: 8x reduced rewards
+2 - 3 hours: 6x reduced rewards
+3 - 4 hours: 4x reduced rewards 
+4 hours: Full rewards
 """
     return embed_generator.create_help_embed(info=help)
 def get_help_items():
@@ -1787,7 +1790,7 @@ async def professor_monitor_task(interval_seconds: int):
 
 async def start_challenge():
     active_challenge = await storage_manager.get_active_professor(1)
-    if active_challenge and active_challenge.start_time <= datetime.now(timezone.utc) - timedelta(minutes=15):
+    if active_challenge and active_challenge.start_time >= datetime.now(timezone.utc) - timedelta(minutes=30):
         await reset_challenge(None)
         await create_challenge()
     if not active_challenge:
@@ -1801,7 +1804,7 @@ async def create_challenge():
     channel: discord.VoiceChannel | discord.StageChannel | discord.ForumChannel | discord.TextChannel | discord.CategoryChannel | discord.Thread | PrivateChannel | None = await client.fetch_channel(PROFESSOR_ID)
     await channel.send(embed=embed)
 
-async def challenge_reward(user, challenge, bonus, reduced_rewards):
+async def challenge_reward(user, challenge, bonus, reduced_rewards, reduced_mult):
     item_name = challenge.reward['item']['name']
     user_items = await storage_manager.get_user_items(user)
     final_item = {}
@@ -1812,14 +1815,14 @@ async def challenge_reward(user, challenge, bonus, reduced_rewards):
             final_item = item
             final_quantity = challenge.reward['item']['quantity']
             if reduced_rewards:
-                final_quantity = math.ceil(final_quantity / 10)
+                final_quantity = math.ceil(final_quantity / reduced_mult)
             if bonus:
                final_quantity = final_quantity * 2
             item.quantity += final_quantity
     if not found:
         final_quantity = challenge.reward['item']['quantity']
         if reduced_rewards:
-            final_quantity = math.ceil(final_quantity / 10)
+            final_quantity = math.ceil(final_quantity / reduced_mult)
         if bonus:
             final_quantity = final_quantity * 2
         if bonus:
@@ -1831,7 +1834,7 @@ async def challenge_reward(user, challenge, bonus, reduced_rewards):
     if challenge.reward['money'] != 0:
         final_money = challenge.reward['money']
         if reduced_rewards:
-            final_money = math.ceil(final_money / 10)
+            final_money = math.ceil(final_money / reduced_mult)
         if bonus:
             final_money= final_money * 2
         user.wallet += final_money
@@ -1846,12 +1849,24 @@ async def challenge_professor(user, local_id):
     hours_4 = datetime.now(timezone.utc) - timedelta(hours=4)
     completed_challenge = await storage_manager.get_inactive_professor(user_id=user.id, timestamp=hours_4)
     reduced_rewards = False
+    reduced_mult = 10
     if completed_challenge:
         reduced_rewards = True
-        print(completed_challenge.completed_time)
+        print(completed_challenge[0].completed_time)
         print(datetime.now(timezone.utc) - timedelta(minutes=10))
-        if completed_challenge.completed_time >= (datetime.now(timezone.utc) - timedelta(minutes=10)):
-            return embed_generator.create_challenge_time_view(user, completed_challenge)
+        lockout_time = datetime.now(timezone.utc) - timedelta(minutes=10)
+        if completed_challenge[0].completed_time >= lockout_time:
+            return embed_generator.create_challenge_time_view(user, completed_challenge[0])
+        oldest_challenge = completed_challenge[-1]
+        hours_1 = datetime.now(timezone.utc) - timedelta(hours=1)
+        hours_2 = datetime.now(timezone.utc) - timedelta(hours=2)
+        hours_3 = datetime.now(timezone.utc) - timedelta(hours=3)
+        if oldest_challenge.completed_time >=  hours_1 and oldest_challenge.completed_time <= hours_2:
+            reduced_mult = 8
+        elif oldest_challenge.completed_time >= hours_2 and oldest_challenge.completed_time  <= hours_3:
+            reduced_mult = 6  
+        elif oldest_challenge.completed_time >= hours_3 and oldest_challenge.completed_time  <= hours_4:
+            reduced_mult = 4  
 
     if active_challenge:
         requirements_met, bonus_met, fail_display = active_challenge.check_condition(pokemon)
@@ -1859,7 +1874,7 @@ async def challenge_professor(user, local_id):
         print(bonus_met)
         print(fail_display)
         if requirements_met:
-            await challenge_reward(user=user, challenge=active_challenge, bonus=bonus_met, reduced_rewards=reduced_rewards)
+            await challenge_reward(user=user, challenge=active_challenge, bonus=bonus_met, reduced_rewards=reduced_rewards, reduced_mult=reduced_mult)
             active_challenge.completed_by = user.id
             active_challenge.completed_time = datetime.now(timezone.utc)
             await storage_manager.save_object(obj=active_challenge, cache_key=f"{REDIS_PREFIX}professor_id:{active_challenge.id}", table_name="professor_challenges", unique_columns=["id"])  
@@ -1872,7 +1887,7 @@ async def challenge_info(user):
     completed_challenge = await storage_manager.get_inactive_professor(user_id=user.id, timestamp=hours_4)
     
     if completed_challenge:
-        full_rewards_time = completed_challenge.completed_time
+        full_rewards_time = completed_challenge[-1].completed_time
 
         # Calculate 4 hours *from* the completed time
         four_hours_from_completion = full_rewards_time + timedelta(hours=4)
