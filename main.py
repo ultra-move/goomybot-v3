@@ -1790,7 +1790,7 @@ async def professor_monitor_task(interval_seconds: int):
 
 async def start_challenge():
     active_challenge = await storage_manager.get_active_professor(1)
-    if active_challenge and active_challenge.start_time >= datetime.now(timezone.utc) - timedelta(minutes=30):
+    if active_challenge and active_challenge.start_time <= datetime.now(timezone.utc) - timedelta(minutes=30):
         await reset_challenge(None)
         await create_challenge()
     if not active_challenge:
