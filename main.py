@@ -1913,7 +1913,7 @@ async def challenge_info(user):
     hours_4 = datetime.now(timezone.utc) - timedelta(hours=4)
     completed_challenge = await storage_manager.get_recent_challenge_full_reward(user_id=user.id)
     print(completed_challenge)
-    if completed_challenge.completed_time >= hours_4:
+    if completed_challenge and completed_challenge.completed_time >= hours_4:
         full_rewards_time = completed_challenge.completed_time
 
         # Calculate 4 hours *from* the completed time
