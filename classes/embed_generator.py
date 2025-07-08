@@ -697,8 +697,8 @@ class EmbedGenerator():
         embed.set_footer(text="Complete a bonus condition to earn 2x rewards!\nThis challenge expires in 30 minutes")
         return embed
     
-    def create_challenge_complete_view(self, user, pokemon, challenge, bonus_met, reduced_rewards):
-        embed=discord.Embed(title=f"Challenge Complete!", description=f"{user.name.capitalize()} Completed the challenge with {pokemon.name.capitalize()}\n{challenge.get_reward_string(bonus_met, reduced_rewards)}", color=self.get_color(pokemon))
+    def create_challenge_complete_view(self, user, pokemon, challenge, bonus_met, reduced_rewards, reduced_mult):
+        embed=discord.Embed(title=f"Challenge Complete!", description=f"{user.name.capitalize()} Completed the challenge with {pokemon.name.capitalize()}\n{challenge.get_reward_string(bonus_met, reduced_rewards, reduced_mult)}", color=self.get_color(pokemon))
         embed.set_thumbnail(url=r"https://play.pokemonshowdown.com/sprites/trainers/oak.png")
         embed.set_image(url=pokemon.sprite_front)
         embed.set_author(name=user.name.capitalize())
