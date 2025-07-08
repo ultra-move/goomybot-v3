@@ -76,6 +76,7 @@ class Pokemon:
                  iv: Dict[str, int] = {},
                  safe= False,
                  held_item_id: Optional[uuid.UUID] = None,
+                 moves = [],
                  created_at: Optional[datetime.datetime] = None,
                  last_modified: Optional[datetime.datetime] = None):
 
@@ -120,7 +121,7 @@ class Pokemon:
         self.sprite_back: str = sprite_back
 
         self.safe = safe
-
+        self.moves = moves
         # Timestamps
         self.created_at: datetime.datetime = created_at or datetime.datetime.now(datetime.timezone.utc)
         self.last_modified: datetime.datetime = last_modified or datetime.datetime.now(datetime.timezone.utc)
@@ -237,7 +238,27 @@ class Pokemon:
                 processed_data['types'] = []
         else:
             processed_data['types'] = [] # Default to empty list if missing or None
-
+        # --- List of Strings Handling (types) ---
+        if 'moves' in processed_data and processed_data['moves'] is not None:
+            if isinstance(processed_data['moves'], str):
+                try:
+                    # Attempt to parse as JSON array string, fallback to comma-separated
+                    parsed_types = json.loads(processed_data['moves'])
+                    if isinstance(parsed_types, list) and all(isinstance(t, str) for t in parsed_types):
+                        processed_data['moves'] = parsed_types
+                    else:
+                        logger.warning(f"Pokemon.from_dict: 'moves' string is not a valid JSON list. Splitting by comma.")
+                        processed_data['moves'] = [t.strip() for t in processed_data['moves'].split(',') if t.strip()]
+                except json.JSONDecodeError:
+                    logger.warning(f"Pokemon.from_dict: 'moves' string is not a valid JSON. Splitting by comma.")
+                    processed_data['moves'] = [t.strip() for t in processed_data['moves'].split(',') if t.strip()]
+            elif isinstance(processed_data['moves'], list):
+                processed_data['moves'] = [str(t) for t in processed_data['moves'] if t is not None] # Ensure all elements are strings
+            else:
+                logger.warning(f"Pokemon.from_dict: 'moves' has unexpected type {type(processed_data['moves'])}. Defaulting to empty list.")
+                processed_data['moves'] = []
+        else:
+            processed_data['types'] = [] # Default to empty list if missing or None
         # --- JSONB (Dictionary) Handling (ev, iv) ---
         jsonb_keys = ['base_stats','stats','ev', 'iv']
         for key in jsonb_keys:
@@ -315,7 +336,11 @@ class Pokemon:
         else:
             # Ensure all elements in the list are strings
             data['types'] = [str(item) for item in data['types']]
-
+        if not isinstance(data.get('moves'), list):
+            data['moves'] = [] # Default to empty list if not a list
+        else:
+            # Ensure all elements in the list are strings
+            data['moves'] = [str(item) for item in data['moves']]
         return data
     
     def calculate_stats(self) -> Dict[str, int]:

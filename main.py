@@ -65,6 +65,7 @@ def get_help():
 * `.help`: Displays this help message.
 * `.help user`: Displays the user commands help message.
 * `.help pokemon`: Displays the pokemon commands help message.
+* `.help moves`: Displays the moves commands help message.
 * `.help filter`: Displays the filter commands help message.
 * `.help battle`: Displays the battle commands help message.
 * `.help raid`: Displays the raid commands help message.
@@ -88,6 +89,15 @@ def get_help_event():
 * `.event`: displays information about the current event
 * `.event toggle`: joins/leaves the current event
 * `.eventframe`: Shows the shinyframe of the event pokemon
+"""
+    return embed_generator.create_help_embed(info=help)
+
+def get_help_event():
+    help = """
+**__Move Commands__**
+* `.moves`: Displays moves that your pokemon currently knows
+* `.learnset <page_number>`: Shows all moves that your pokemon can learn 
+* `.learn <slot> <move_name>: Teaches your pokemon the selected move
 """
     return embed_generator.create_help_embed(info=help)
 
@@ -1928,7 +1938,49 @@ async def reset_challenge(user):
     active_challenge = await storage_manager.get_active_professor(1)
     await storage_manager.delete_challenge_by_id(active_challenge.id)
     return embed_generator.create_admin_embed("Reset challenge")
-            
+
+############################move functions############################
+async def load_moves():
+    for i in range(917):
+        print(f"Move ID: {i+1}")
+        move, learned_by = DataLoader.load_moves(i+1)
+        await storage_manager.save_object(obj=move, cache_key=None, table_name="moves", unique_columns=["id"])
+        await storage_manager.save_objects(objects=learned_by, cache_key_prefix=None, table_name="move_learned_by", unique_columns=["id"])
+
+async def get_learnset(user, page):
+    pokemon = await storage_manager.get_user_pokemon_by_id(str(user.current_pokemon))
+    total_records, result = await storage_manager.get_learnset(pokemon_id= pokemon.pokedex_id, page=page, page_size=10)
+    move_string = ""
+    for record in result:
+        #print(record)
+        move_string = move_string + record['name'].capitalize() +"\n"
+    return embed_generator.create_learnset_table(user, pokemon, move_string, page+1, total_records)
+
+async def learn_move(user, slot, move_name):
+    if slot < 5 and slot > 0:
+        pokemon = await storage_manager.get_user_pokemon_by_id(str(user.current_pokemon))
+        total_records, result = await storage_manager.get_learnset(pokemon_id= pokemon.pokedex_id, page=0, page_size=10000)
+        
+        check_list = []
+        for r in result:
+            check_list.append(r['name'])
+        if move_name.lower() in check_list:
+            pokemon.moves[slot-1] = move_name.lower()
+        await storage_manager.save_object(obj=pokemon, cache_key=f"{REDIS_PREFIX}pokemon_data:{pokemon.id}", table_name='user_pokemon', unique_columns=['id'])
+        move_string = ""
+        for i, m in enumerate(pokemon.moves):
+            move_string = move_string + f"{i+1}: {m.capitalize()}\n"
+        return embed_generator.create_move_table(user, pokemon, move_string)
+     
+async def see_moves(user):
+    pokemon = await storage_manager.get_user_pokemon_by_id(str(user.current_pokemon))
+    move_string = ""
+    if len(pokemon.moves) > 0:
+        for i, m in enumerate(pokemon.moves):
+            move_string = move_string + f"{i+1}: {m.capitalize()}\n"
+    return embed_generator.create_move_table(user, pokemon, move_string) 
+
+######################################################################
 client = discord.Client(intents=intents)
 
 @client.event
@@ -2174,6 +2226,35 @@ async def on_message(message):
         except:
             embed = await list_pokemon(user=user, page=0, page_size=10)
 
+        await message.channel.send(embed=embed)
+    
+    if message.content.startswith('.learnset'):
+        page = message.content.split()
+        try:
+            if len(page) > 1:
+                if int(page[1]) > 0: # Ensure user doesn't ask for page 0 or negative
+                    requested_page = int(page[1]) - 1
+                    embed: discord.Embed = await get_learnset(user=user, page=requested_page)
+                else:
+                    embed = await get_learnset(user=user, page=0)
+            else:
+                embed = await get_learnset(user=user, page=0)
+        except:
+            embed = await get_learnset(user=user, page=0)
+
+        await message.channel.send(embed=embed)
+    elif message.content.startswith('.learn'):
+        split = message.content.split()
+        try:
+            slot = int(split[1])
+        except:
+            slot = 5
+        move_name = split[2]
+        embed = await learn_move(user, slot, move_name)
+        await message.channel.send(embed=embed)
+
+    if message.content.startswith('.moves'):
+        embed = await see_moves(user)
         await message.channel.send(embed=embed)
 
     if message.content.startswith('.pokedex'):
@@ -2466,11 +2547,14 @@ async def on_message(message):
             embed = await challenge_professor(user, local_id=str(local_id[1]))
         else:
             embed = await challenge_professor(user, local_id=str(1))
-        await message.channel.send(embed=embed)
-        
+        await message.channel.send(embed=embed)    
 
     end_time = time.time()
     elapsed_time = end_time - start_time
     logger.info(f"Message Response Time: {elapsed_time} seconds")
 
 client.run(os.getenv('DISCORD_BOT_TOKEN'))
+
+
+        
+
