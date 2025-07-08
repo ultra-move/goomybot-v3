@@ -1807,7 +1807,7 @@ async def professor_monitor_task(interval_seconds: int):
     """
     logger.info(f"Professor task started. Polling every {interval_seconds} seconds.")
     while True:
-        await storage_manager.delete_old_challenges()
+        #await storage_manager.delete_old_challenges()
         await start_challenge()
 
         # 4. Wait for the next interval
@@ -1872,27 +1872,27 @@ async def challenge_professor(user, local_id):
     pokemon = await storage_manager.get_user_pokemon_by_id(user.view_table[str(local_id)]['id'])
     active_challenge = await storage_manager.get_active_professor(1)
     hours_4 = datetime.now(timezone.utc) - timedelta(hours=4)
-    completed_challenge = await storage_manager.get_inactive_professor(user_id=user.id, timestamp=hours_4)
+    oldest_challenge = await storage_manager.get_recent_challenge_full_reward(user_id=user.id)
+    print(oldest_challenge.completed_time)
+    recent_challenge = await storage_manager.get_recent_challenge(user_id=user.id, timestamp=hours_4)
+    lockout_time = datetime.now(timezone.utc) - timedelta(minutes=10)
+    if recent_challenge and recent_challenge.completed_time >= lockout_time:
+        return embed_generator.create_challenge_time_view(user, recent_challenge)
+    
     reduced_rewards = False
     reduced_mult = 10
-    if completed_challenge:
+    if oldest_challenge and oldest_challenge.completed_time >= hours_4:
         reduced_rewards = True
-        print(completed_challenge[0].completed_time)
-        print(datetime.now(timezone.utc) - timedelta(minutes=10))
-        lockout_time = datetime.now(timezone.utc) - timedelta(minutes=10)
-        if completed_challenge[0].completed_time >= lockout_time:
-            return embed_generator.create_challenge_time_view(user, completed_challenge[0])
-        oldest_challenge = completed_challenge[-1]
         hours_1 = datetime.now(timezone.utc) - timedelta(hours=1)
         hours_2 = datetime.now(timezone.utc) - timedelta(hours=2)
         hours_3 = datetime.now(timezone.utc) - timedelta(hours=3)
-        if oldest_challenge.completed_time >=  hours_1 and oldest_challenge.completed_time <= hours_2:
+        if oldest_challenge.completed_time <=  hours_1 and oldest_challenge.completed_time >= hours_2:
             reduced_mult = 8
-        elif oldest_challenge.completed_time >= hours_2 and oldest_challenge.completed_time  <= hours_3:
+        elif oldest_challenge.completed_time <= hours_2 and oldest_challenge.completed_time  >= hours_3:
             reduced_mult = 6  
-        elif oldest_challenge.completed_time >= hours_3 and oldest_challenge.completed_time  <= hours_4:
+        elif oldest_challenge.completed_time <= hours_3 and oldest_challenge.completed_time  >= hours_4:
             reduced_mult = 4  
-
+    print(reduced_mult)
     if active_challenge:
         requirements_met, bonus_met, fail_display = active_challenge.check_condition(pokemon)
         print(requirements_met)
@@ -1902,17 +1902,19 @@ async def challenge_professor(user, local_id):
             await challenge_reward(user=user, challenge=active_challenge, bonus=bonus_met, reduced_rewards=reduced_rewards, reduced_mult=reduced_mult)
             active_challenge.completed_by = user.id
             active_challenge.completed_time = datetime.now(timezone.utc)
+            if not reduced_rewards:
+                active_challenge.full_reward = True
             await storage_manager.save_object(obj=active_challenge, cache_key=f"{REDIS_PREFIX}professor_id:{active_challenge.id}", table_name="professor_challenges", unique_columns=["id"])  
-            return embed_generator.create_challenge_complete_view(user, pokemon, active_challenge, bonus_met, reduced_rewards)
+            return embed_generator.create_challenge_complete_view(user, pokemon, active_challenge, bonus_met, reduced_rewards, reduced_mult)
         else:
             return embed_generator.create_challenge_failure_view(user, pokemon, active_challenge, fail_display)
 
 async def challenge_info(user):
     hours_4 = datetime.now(timezone.utc) - timedelta(hours=4)
-    completed_challenge = await storage_manager.get_inactive_professor(user_id=user.id, timestamp=hours_4)
-    
-    if completed_challenge:
-        full_rewards_time = completed_challenge[-1].completed_time
+    completed_challenge = await storage_manager.get_recent_challenge_full_reward(user_id=user.id)
+    print(completed_challenge)
+    if completed_challenge.completed_time >= hours_4:
+        full_rewards_time = completed_challenge.completed_time
 
         # Calculate 4 hours *from* the completed time
         four_hours_from_completion = full_rewards_time + timedelta(hours=4)

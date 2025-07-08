@@ -786,21 +786,32 @@ class StorageManager:
             logger.error(f"StorageManager: DB error getting professor Data for user {professor_id}: {e}")
             return None
 
-    async def get_inactive_professor(self, user_id, timestamp):
+    async def get_recent_challenge_full_reward(self, user_id):
+        try:
+            sql_query = f"""
+                Select * from professor_challenges where completed_by = {user_id} and full_reward = true order by completed_time desc
+            """
+            professor_data = self.db.fetch_one(sql_query)
+            if professor_data:
+                logger.debug(f"StorageManager: Retrieved professor for user from DB.")
+                return Professor.from_dict(professor_data)
+            return None
+        except psycopg2.Error as e:
+            return None
+                      
+    async def get_recent_challenge(self, user_id, timestamp):
         try:
             sql_query = f"""
                 Select * from professor_challenges where completed_by = {user_id} and completed_time >= %(completed_time)s order by completed_time desc
             """
-            professor_data = await self.db.fetch_all(sql_query, {"completed_time": timestamp})
+            professor_data = self.db.fetch_one(sql_query, {"completed_time": timestamp})
             result = []
             if professor_data:
-                for p in professor_data:
-                    result.append(Professor.from_dict(p))
-                return result
+                logger.debug(f"StorageManager: Retrieved professor for user from DB.")
+                return Professor.from_dict(professor_data)
             return None
         except psycopg2.Error as e:
-            return None              
-
+            return None   
 #==================================================================================================== 
     async def get_active_quest(self, user_id):
         try:

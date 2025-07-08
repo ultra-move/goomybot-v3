@@ -11,7 +11,7 @@ natures = ["Hardy","Docile","Serious","Bashful","Quirky" ,"Lonely","Brave","Adam
 stats = ["hp", "attack", "defense", "special_attack", "special_defense", "speed"]
 class Professor():
 
-    def __init__(self, id=None, tier=None, conditions=None, reward=None, local_id=None, completed_by=None, completed_time=None, start_time=None):
+    def __init__(self, id=None, tier=None, conditions=None, reward=None, local_id=None, completed_by=None, completed_time=None, start_time=None, full_reward=False):
         self.id = id
         self.tier = tier 
         self.conditions = conditions
@@ -20,6 +20,7 @@ class Professor():
         self.completed_by = completed_by
         self.completed_time = completed_time
         self.start_time = start_time
+        self.full_reward = full_reward
 
     def start(self):
         self.id = uuid.uuid4()
@@ -190,28 +191,36 @@ class Professor():
 
         return result
      
-    def get_reward_string(self, bonus_met, reduced_rewards):
+    def get_reward_string(self, bonus_met, reduced_rewards, reduced_mult):
         reward_string = ""
         if self.reward['item']['name'] != 'Nothing':
+            quantity = self.reward['item']['quantity']
             if reduced_rewards:
-                reward_string = reward_string + f"{self.reward['item']['name']} x{math.ceil(self.reward['item']['quantity']/10)}\n"
-            elif bonus_met:
-                reward_string = reward_string + f"{self.reward['item']['name']} x{self.reward['item']['quantity']*2}\n"
-            else:
-                reward_string = reward_string + f"{self.reward['item']['name']} x{self.reward['item']['quantity']}\n"
+                quantity = math.ceil(quantity/reduced_mult)
+            if bonus_met:
+                quantity = quantity * 2
+            reward_string = reward_string + f"{self.reward['item']['name']} x{quantity}\n"
         if self.reward['money'] != 0:
+            quantity = self.reward['money']
             if reduced_rewards:
-                reward_string = reward_string + f"${math.ceil(self.reward['money']/10):,.0f}\n"
-            elif bonus_met:
-                reward_string =  reward_string + f"${self.reward['money']*2:,.0f}"
+                quantity = math.ceil(quantity/reduced_mult)
+            if bonus_met:
+                quantity = quantity*2
+            reward_string =  reward_string + f"${quantity:,.0f}"
+        if reduced_rewards and reduced_mult == 10:
+            if bonus_met:
+                return f"2x Basic Rewards:\n{reward_string}"
             else:
-                reward_string =  reward_string + f"${self.reward['money']:,.0f}"
-        if reduced_rewards:
-            return f"Reduced Rewards:\n{reward_string}"
+                return f"Basic Rewards:\n{reward_string}"
+        elif reduced_rewards:
+            if bonus_met:
+                return f"{2*(10 - reduced_mult)}x Basic Rewards:\n{reward_string}"
+            else:
+                return f"{10 - reduced_mult}x Basic Rewards:\n{reward_string}"
         elif bonus_met:
-            return f"Bonus Rewards:\n{reward_string}"
+            return f"20x Basic Rewards:\n{reward_string}"
         else:
-            return f"Rewards:\n{reward_string}"
+            return f"10x Basic Rewards:\n{reward_string}"
     @classmethod
     def from_dict(cls, data: Dict[str, Any]):
         """
@@ -242,6 +251,17 @@ class Professor():
         else:
             processed_data['id'] = None
 
+        # --- Boolean Handling (full_reward) ---
+        if 'full_reward' in processed_data and processed_data['full_reward'] is not None:
+            if isinstance(processed_data['full_reward'], str):
+                processed_data['full_reward'] = processed_data['full_reward'].lower() == 'true'
+            elif isinstance(processed_data['full_reward'], int):
+                processed_data['full_reward'] = bool(processed_data['full_reward'])
+            elif not isinstance(processed_data['full_reward'], bool):
+                logger.warning(f"Professor.from_dict: 'full_reward' has unexpected type {type(processed_data['full_reward'])}. Defaulting to False.")
+                processed_data['full_reward'] = False
+        else:
+            processed_data['full_reward'] = False # Default to False if missing or None
         # --- JSONB (Dictionary) Handling (ev, iv) ---
         jsonb_keys = ['reward', 'conditions']
         for key in jsonb_keys:
