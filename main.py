@@ -92,12 +92,12 @@ def get_help_event():
 """
     return embed_generator.create_help_embed(info=help)
 
-def get_help_event():
+def get_help_moves():
     help = """
 **__Move Commands__**
 * `.moves`: Displays moves that your pokemon currently knows
 * `.learnset <page_number>`: Shows all moves that your pokemon can learn 
-* `.learn <slot> <move_name>: Teaches your pokemon the selected move
+* `.learn <slot> <move_name>`: Teaches your pokemon the selected move
 """
     return embed_generator.create_help_embed(info=help)
 
@@ -1123,10 +1123,7 @@ async def process_expired_battle(battle: List[Battle]):
         # 1. Add pokemon to user_pokemon table (using battle.battle_pokemon_id and battle.wild_pokemon_details)
         # 2. Grant rewards to user (using battle.rewards)
         # 3. Notify user on Discord
-
-        logger.debug(battle)
         pokemon = await storage_manager.get_battle_pokemon_by_id(str(battle.battle_pokemon_id))
-        logger.debug(pokemon)
         for user_id in battle.user_ids:
             pokemon.id = str(uuid.uuid4())
             pokemon.user_id = user_id
@@ -2016,6 +2013,9 @@ async def on_message(message):
 #######################General commands#######################
     if message.content.startswith('.help filter'):
         embed = get_help_filter()
+        await message.channel.send(embed=embed)
+    if message.content.startswith('.help moves'):
+        embed = get_help_moves()
         await message.channel.send(embed=embed)
     elif message.content.startswith('.help user'):
         embed = get_help_user()
