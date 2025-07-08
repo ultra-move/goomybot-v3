@@ -159,6 +159,25 @@ class EmbedGenerator():
         embed.set_author(name=user_name.capitalize())
         return embed
     
+    def format_pokemon_name(self, pokemon):
+        if pokemon.is_shiny:
+            return f"✨{pokemon.name.capitalize()}✨"
+        else:
+            return f"{pokemon.name.capitalize()}"
+
+    def create_learnset_table(self, user, pokemon, moves, page, total_pages):
+        embed=discord.Embed(title=f"{self.format_pokemon_name(pokemon)} Learnset",description=f"{moves}", color=self.get_color(pokemon=pokemon))
+        embed.set_author(name=user.name.capitalize())
+        embed.set_thumbnail(url=pokemon.sprite_front)
+        embed.set_footer(text=f"Page {page}/{total_pages}")
+        return embed
+    
+    def create_move_table(self, user, pokemon, moves):
+        embed=discord.Embed(title=f"{self.format_pokemon_name(pokemon)} Moves",description=f"{moves}", color=self.get_color(pokemon=pokemon))
+        embed.set_author(name=user.name.capitalize())
+        embed.set_thumbnail(url=pokemon.sprite_front)
+        return embed
+    
     def create_user_view_table(self, user, page, total_pages):
         embed=discord.Embed(color=default_color)
         embed.set_author(name=user.name.capitalize())

@@ -1,6 +1,7 @@
 import psycopg2
 from psycopg2 import pool
 from psycopg2 import sql
+from psycopg2 import extras
 from psycopg2.extras import DictCursor # Useful for getting dicts instead of tuples
 import logging
 from typing import Optional, List, Dict, Any, Union, Tuple
@@ -208,6 +209,79 @@ class DatabaseManager:
             logger.error(f"DatabaseManager: Error upserting data: {e} | Table: {table_name} | Data: {data}")
             self._release_connection(conn, rollback=True)
             raise
+        finally:
+            self._release_connection(conn)
+    
+    def batch_upsert_data(self, table_name: str, unique_columns: List[str], data: List[Dict[str, Any]]) -> int:
+        """
+        Performs a batch UPSERT (INSERT or UPDATE) operation using PostgreSQL's ON CONFLICT
+        and psycopg2.extras.execute_values for efficiency.
+
+        Args:
+            table_name (str): The name of the table to upsert into.
+            unique_columns (List[str]): A list of column names that define uniqueness
+                                        (e.g., ['id'] for primary key, or ['user_id', 'item_id']).
+            data (List[Dict[str, Any]]): A list of dictionaries, where each dictionary
+                                         represents a row to insert/update. All dictionaries
+                                         are assumed to have the same keys.
+
+        Returns:
+            int: The total number of rows affected by the batch operation.
+
+        Raises:
+            ValueError: If the data list is empty or malformed.
+            psycopg2.Error: If a database error occurs during the operation.
+        """
+        if not data:
+            logger.info(f"DatabaseManager: No data provided for batch upsert into {table_name}.")
+            return 0
+        
+        # Ensure all items in data are dictionaries
+        if not all(isinstance(item, dict) for item in data):
+            raise ValueError("DatabaseManager: All items in 'data' must be dictionaries.")
+
+        # Get all column names from the first dictionary (assuming all dicts have same keys)
+        all_columns = list(data[0].keys())
+        columns_sql = sql.SQL(', ').join(map(sql.Identifier, all_columns))
+
+        # Prepare update clause for ON CONFLICT
+        update_set_parts = []
+        for col in all_columns:
+            if col not in unique_columns:
+                update_set_parts.append(sql.SQL('{} = EXCLUDED.{}').format(sql.Identifier(col), sql.Identifier(col)))
+
+        # If no non-unique columns to update, use a dummy update to ensure rowcount is returned
+        if not update_set_parts:
+            if not unique_columns:
+                raise ValueError("DatabaseManager: Cannot perform upsert without unique columns defined.")
+            update_set_parts.append(sql.SQL('{} = EXCLUDED.{}').format(sql.Identifier(unique_columns[0]), sql.Identifier(unique_columns[0])))
+
+        # Construct the SQL UPSERT statement using psycopg2.sql components
+        upsert_query = sql.SQL(
+            "INSERT INTO {} ({}) VALUES %s ON CONFLICT ({}) DO UPDATE SET {}"
+        ).format(
+            sql.Identifier(table_name),
+            columns_sql,
+            sql.SQL(', ').join(map(sql.Identifier, unique_columns)),
+            sql.SQL(', ').join(update_set_parts)
+        )
+        
+        # Prepare the values as a list of tuples, matching the order of 'all_columns'
+        # This is the format required by execute_values
+        values_to_insert = [[item[col] for col in all_columns] for item in data]
+
+        conn = None
+        try:
+            conn = self._get_connection()
+            with conn.cursor() as cur:
+                # Use execute_values for efficient batch insertion/upsertion
+                # The 'page_size' parameter can be adjusted for performance
+                extras.execute_values(cur, upsert_query, values_to_insert, page_size=1000)
+                return cur.rowcount # Returns the number of rows actually inserted/updated
+        except psycopg2.Error as e:
+            logger.error(f"DatabaseManager: Error batch upserting data: {e} | Table: {table_name} | First Data Item: {data[0] if data else 'N/A'}")
+            self._release_connection(conn, rollback=True)
+            raise # Re-raise the exception after rollback
         finally:
             self._release_connection(conn)
 

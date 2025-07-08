@@ -178,6 +178,67 @@ class StorageManager:
         except psycopg2.Error as e:
             logger.error(f"Storage Manager: Obj Data ({table_name}) for {obj_id} failed to save")
 
+    async def save_objects(self, objects: List[Any], cache_key_prefix: Optional[str], table_name: str, unique_columns: List[str]) -> bool:
+        """
+        Saves a list of objects to the database using a batch upsert operation.
+        Optionally caches each object individually if a cache_key_prefix is provided.
+
+        Args:
+            objects (List[Any]): A list of objects (e.g., Move, Pokemon, LearnedBy instances)
+                                 each having a 'to_dict()' method and an 'id' attribute.
+            cache_key_prefix (Optional[str]): A prefix for the cache key. If provided,
+                                               each object will be cached using
+                                               f"{cache_key_prefix}:{obj.id}".
+                                               If None, no caching is performed.
+            table_name (str): The name of the database table to save the objects to.
+            unique_columns (List[str]): A list of column names used to identify unique
+                                        records for the upsert operation.
+
+        Returns:
+            bool: True if all objects were successfully processed, False otherwise.
+        """
+        if not objects:
+            logger.info(f"Storage Manager: No objects provided for table '{table_name}'.")
+            return True # Nothing to save, so consider it successful
+
+        objects_data_for_db = []
+        object_ids = []
+        for obj in objects:
+            try:
+                obj_id = getattr(obj, 'id')
+                obj_data = obj.to_dict()
+                objects_data_for_db.append(obj_data)
+                object_ids.append(obj_id)
+            except AttributeError as e:
+                logger.error(f"Storage Manager: Object in list is missing 'id' attribute or 'to_dict()' method: {e}")
+                return False # Indicate failure if any object is malformed
+
+        try:
+            # Perform a single batch upsert operation
+            rows_affected = self.db.batch_upsert_data(
+                table_name=table_name,
+                unique_columns=unique_columns,
+                data=objects_data_for_db
+            )
+
+            if rows_affected > 0:
+                logger.debug(f"Storage Manager: {rows_affected} records for table '{table_name}' upserted. IDs: {object_ids}")
+                
+                # Cache each object individually if cache_key_prefix is provided
+                if cache_key_prefix:
+                    for obj, obj_data in zip(objects, objects_data_for_db):
+                        individual_cache_key = f"{cache_key_prefix}:{getattr(obj, 'id')}"
+                        await self.cache._set_to_cache(individual_cache_key, obj_data, self.cache_ttl)
+                    logger.debug(f"Storage Manager: {len(objects)} objects cached for table '{table_name}'.")
+                return True
+            else:
+                logger.warning(f"Storage Manager: No records affected for table '{table_name}' during batch upsert. IDs: {object_ids}")
+                return False
+        except Exception as e: # Catch a more general Exception for database errors
+            logger.error(f"Storage Manager: Batch upsert for table '{table_name}' failed for IDs {object_ids}: {e}", exc_info=True)
+            return False
+
+
     async def get_user_items(self, user):
         try:
             sql_query = "SELECT * from user_items WHERE user_id = %(user_id)s "
@@ -800,6 +861,25 @@ class StorageManager:
             # If you still get this, it means something else entirely is going wrong
             logger.error(f"StorageManager: An unexpected error occurred in get_quest_complete for user {user_id}: {e}", exc_info=True) # exc_info to print traceback
             return False
+        
+    async def get_learnset(self, pokemon_id, page, page_size):
+        offset = (page) * page_size
+        sql_query = f"""
+        select * from moves as m 
+        inner join move_learned_by as l 
+        on m.id = l.move_id 
+        where l.pokemon_id = {pokemon_id} order by m.name
+        LIMIT {page_size} OFFSET {offset};
+        """
+        count_query = f"SELECT COUNT(*) as total FROM move_learned_by where pokemon_id = {pokemon_id}"
+        total_records = int(self.db.fetch_one(count_query)['total'])
+        total_pages = math.ceil(total_records / page_size) if page_size > 0 else 0
+        result = await self.db.fetch_all(sql_query)
+        if result:
+            return total_pages, result 
+        else:
+            return None
+        
 #==================================================================================================== 
     async def get_leaderboard_stats(self):
         sql_query = """

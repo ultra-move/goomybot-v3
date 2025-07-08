@@ -1,5 +1,8 @@
+import uuid
 import requests
 import json
+from classes.learned_by import LearnedBy
+from classes.move import Move
 from classes.pokemon_master import PokemonMaster
 import time
 
@@ -202,3 +205,31 @@ class DataLoader:
        await storage_manager.save_object(obj=entry, cache_key=f"pokemon_master:{entry.id}", table_name="pokemon_master", unique_columns=['id'])
 
     """
+    @staticmethod
+    def load_moves(move_id):
+        move_full_url = r"https://pokeapi.co/api/v2/move/"        
+        move_response = json.loads(requests.get(move_full_url + str(move_id)).text)
+        id = move_response['id']
+        accuracy = move_response['accuracy']
+        damage_class = move_response['damage_class']['name'] 
+        name = move_response['name']
+        power = move_response['power']
+        pp = move_response['pp']
+        priority = move_response['priority']
+        type_name = move_response['type']['name']
+        contest_type = None
+        if move_response['contest_type']:
+            contest_type = move_response['contest_type']['name']
+        stat_changes = []
+        for change in move_response['stat_changes']:
+            change_name = change['stat']['name']
+            change_value = change['change']
+            stat_changes.append({"name": change_name, "value": change_value})
+
+        learned_by_ids = []
+        for learned_by in move_response['learned_by_pokemon']:
+            parts = learned_by['url'].split('/')
+            pokemon_id = parts[-2]
+            learned_by_ids.append(LearnedBy(id= uuid.uuid4(), pokemon_id=pokemon_id, move_id=id))
+        move = Move(id=id, name=name, accuracy=accuracy, damage_class=damage_class, power=power, pp=pp, priority=priority, type_name=type_name, stat_changes=stat_changes, contest_type=contest_type)
+        return move, learned_by_ids
