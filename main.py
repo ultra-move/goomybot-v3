@@ -1873,7 +1873,6 @@ async def challenge_professor(user, local_id):
     active_challenge = await storage_manager.get_active_professor(1)
     hours_4 = datetime.now(timezone.utc) - timedelta(hours=4)
     oldest_challenge = await storage_manager.get_recent_challenge_full_reward(user_id=user.id)
-    print(oldest_challenge.completed_time)
     recent_challenge = await storage_manager.get_recent_challenge(user_id=user.id, timestamp=hours_4)
     lockout_time = datetime.now(timezone.utc) - timedelta(minutes=10)
     if recent_challenge and recent_challenge.completed_time >= lockout_time:
@@ -1892,7 +1891,6 @@ async def challenge_professor(user, local_id):
             reduced_mult = 6  
         elif oldest_challenge.completed_time <= hours_3 and oldest_challenge.completed_time  >= hours_4:
             reduced_mult = 4  
-    print(reduced_mult)
     if active_challenge:
         requirements_met, bonus_met, fail_display = active_challenge.check_condition(pokemon)
         print(requirements_met)
@@ -1912,7 +1910,6 @@ async def challenge_professor(user, local_id):
 async def challenge_info(user):
     hours_4 = datetime.now(timezone.utc) - timedelta(hours=4)
     completed_challenge = await storage_manager.get_recent_challenge_full_reward(user_id=user.id)
-    print(completed_challenge)
     if completed_challenge and completed_challenge.completed_time >= hours_4:
         full_rewards_time = completed_challenge.completed_time
 
