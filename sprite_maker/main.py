@@ -197,15 +197,15 @@ class ImageCombiner:
 
 # --- Example Usage ---
 if __name__ == "__main__":
-    """pokemon_urls = [
-        "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/shiny/130.png",
-        "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/shiny/38.png",
-        "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/shiny/186.png"        
+    pokemon_urls = [
+        "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/shiny/848.png",
+        "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/shiny/195.png",
+        "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/shiny/198.png"        
     ]
 
     # Define a relative directory to save the image
     output_dir = r"sprites"
-    output_filename = "july_4th.png"
+    output_filename = "pink.png"
 
     # Create the 'sprites' directory if it doesn't exist
     os.makedirs(output_dir, exist_ok=True)
@@ -217,5 +217,3 @@ if __name__ == "__main__":
     combined_img_center = combiner_center.combine_images(full_output_path_center, horizontal_spacing=10, vertical_align='center')
     if combined_img_center:
         print(f"Images combined with 10px spacing, center aligned. Process complete.")
-"""
-    whois_directory = ""
