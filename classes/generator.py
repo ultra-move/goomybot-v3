@@ -86,7 +86,7 @@ class Generator:
         # === 3) Determine Shininess ===
         shiny_rate = self.odds.shiny_rate
         shiny_roll = self.shiny_rng.random()
-        is_shiny = (shiny_roll < shiny_rate) or random.random() < self.odds.random_shiny_rate
+        is_shiny = (shiny_roll < shiny_rate)
 
         event = False
         # === 4) Attempt event override if NOT shiny ===
