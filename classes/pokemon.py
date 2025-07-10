@@ -430,7 +430,7 @@ class Pokemon:
             f"Pokédex ID: {self.pokedex_id}\n"
             f"Name: {display_name}\n"
             f"Tier: {self.tier}\n"
-            f"Types: {', '.join(self.types)}\n"
+            f"Types: {', '.join(t.capitalize() for t in self.types)}\n"
             f"Level: {self.level}\n"
             f"Exp Needed: {int(self.next_exp - self.exp)}\n"
             f"Nature: {self.nature}\n"
