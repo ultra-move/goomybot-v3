@@ -2028,7 +2028,8 @@ async def on_message(message):
     start_time = time.time()
 
     channel_id = message.channel.id
-
+    if message.author == client.user:
+        return
     # 1. Get or create the lock for this user
     user_id = message.author.id
     if user_id not in user_command_locks:
