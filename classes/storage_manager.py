@@ -713,7 +713,7 @@ class StorageManager:
         try:
             sql_query = f"""
                 SELECT * FROM trades 
-                WHERE (user1->>'user_id')::bigint = %(user_id)s OR (user2->>'user_id')::bigint = %(user_id)s
+                WHERE (user1->>'user_id')::bigint = %(user_id)s OR (user2->>'user_id')::bigint = %(user_id)s and status = 'active'
             """
             trade_data = self.db.fetch_one(sql_query, {"user_id": user_id})
             

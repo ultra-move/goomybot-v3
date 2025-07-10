@@ -86,9 +86,7 @@ class Generator:
         # === 3) Determine Shininess ===
         shiny_rate = self.odds.shiny_rate
         shiny_roll = self.shiny_rng.random()
-        is_shiny = (shiny_roll < shiny_rate)
-
-        
+        is_shiny = (shiny_roll < shiny_rate) or random.random() < self.odds.random_shiny_rate
 
         event = False
         # === 4) Attempt event override if NOT shiny ===
@@ -98,9 +96,6 @@ class Generator:
                 shiny_rate = self.odds.event_shiny_rate
                 is_shiny = (shiny_roll < shiny_rate)
                 pokemon_id = self.tier_rng.choice(self.event_ids)
-
-        
-            
 
         # === 5) Pack result ===
         result = {
@@ -114,7 +109,74 @@ class Generator:
         }
         return result
 
-    
+    @staticmethod
+    async def find_shiny_seeds(pokemon_id: str, user, max_frames_to_check: int = 5000):
+        """
+        Attempts to find initial float seed values that would result in a specific shiny Pokémon
+        at any frame within a given range.
+
+        WARNING: This function is highly inefficient and practically infeasible for
+        finding initial seeds due to the vast search space of random numbers.
+        It's included for demonstration of the concept, but will likely run
+        indefinitely without finding a solution.
+
+        Args:
+            pokemon_id (str): The ID of the specific Pokémon to find.
+            user: The user object, containing 'event' status.
+            max_frames_to_check (int): The maximum number of frames to check for each
+                                       randomly generated set of initial seeds.
+
+        Returns:
+            dict or None: A dictionary containing the initial seed values if found,
+                          otherwise None.
+        """
+        print(f"Attempting to find initial seeds for shiny '{pokemon_id}'. This may take an extremely long time or never succeed.")
+        found = False
+        attempts = 0
+        while not found:
+            attempts += 1
+            if attempts % 10 == 0:
+                print(f"Attempt {attempts}: Still searching for seeds...")
+
+            # Generate new potential initial float seeds
+            current_tier_seed = random.random()
+            current_pokemon_seed = random.random()
+            current_shiny_seed = random.random()
+            current_type_seed = random.random()
+            current_item_seed = random.random()
+
+            temp_generator = Generator(
+                tier_seed=current_tier_seed,
+                type_seed=current_type_seed,
+                pokemon_seed=current_pokemon_seed,
+                shiny_seed=current_shiny_seed,
+                item_seed=current_item_seed
+            )
+
+            for frame in range(max_frames_to_check):
+                
+                # Call get_outcome_for_frame on the NEWLY CREATED temp_generator instance
+                result = temp_generator.get_outcome_for_frame(frame=frame, user=user)
+                if result['is_shiny'] and result['pokemon_id'] == pokemon_id:
+                    found = True
+                    print(f"\nFound seeds after {attempts} attempts and at frame {frame}:")
+                    print(f"Tier Seed: {current_tier_seed}")
+                    print(f"Type Seed: {current_type_seed}")
+                    print(f"Pokemon Seed: {current_pokemon_seed}")
+                    print(f"Shiny Seed: {current_shiny_seed}")
+                    print(f"Item Seed: {current_item_seed}")
+                    print(f"Result: {result}")
+                    return {
+                        "tier_seed": current_tier_seed,
+                        "type_seed": current_type_seed,
+                        "pokemon_seed": current_pokemon_seed,
+                        "shiny_seed": current_shiny_seed,
+                        "item_seed": current_item_seed
+                    }
+        return None # Should theoretically never be reached if while loop is infinite
+
+
+
     def find_shiny_frame(self, user, start_frame: int = 0, max_frames_to_check: int = 100000):
         """
         Searches for a frame number that would result in a shiny Pokémon.

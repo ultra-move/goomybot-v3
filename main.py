@@ -1,6 +1,7 @@
 import asyncio
 import asyncio.log
 from datetime import datetime, timezone, timedelta
+import json
 import logging
 import math
 import random
@@ -339,6 +340,7 @@ async def set_buddy(user, local_id):
 def set_buddy_from_evolution(buddy, evolution):
     buddy.name = evolution.name
     buddy.ability = random.choice(evolution.abilities_names)
+    buddy.types = evolution.types_names
     buddy.base_stats = evolution.base_stats_json
     buddy.growth_rate = evolution.growth_rate_name
     buddy.pokedex_id = evolution.id
@@ -609,7 +611,18 @@ async def mark_safe(user, index):
         return embed_generator.create_safe_pokemon_view(user, pokemon)
     except:
         return embed_generator.create_safe_pokemon_failure_view(user, pokemon)
-    
+
+async def mark_safe_recent(user):
+    try:
+        pokemon = await storage_manager.get_user_pokemon_by_recent()
+        if pokemon.safe:
+            pokemon.safe = False
+        else:
+            pokemon.safe = True
+        await storage_manager.save_object(obj=pokemon, cache_key=f"{REDIS_PREFIX}pokemon_data:{pokemon.id}", table_name="user_pokemon", unique_columns=["id"])
+        return embed_generator.create_safe_pokemon_view(user, pokemon)
+    except:
+        return embed_generator.create_safe_pokemon_failure_view(user, pokemon)    
 
 async def set_profile_image(user, url):
     host_string = r'https://play.pokemonshowdown.com/sprites/'
@@ -694,6 +707,16 @@ async def admin_reset_quest(user_id):
     active_quest = await storage_manager.get_active_quest(user_id)
     await storage_manager.delete_quest_by_id(active_quest.id)
     return embed_generator.create_admin_embed(f"Reset Quest for {user_id}")
+
+async def find_in_seeds(user:User, pokemon_id):
+    result = await Generator.find_shiny_seeds(pokemon_id=int(pokemon_id), user=user, max_frames_to_check=5000)
+    user.tier_seed = result["tier_seed"]
+    user.type_seed = result["type_seed"]
+    user.pokemon_seed = result["pokemon_seed"]
+    user.shiny_seed = result["shiny_seed"]
+    user.item_seed = result["item_seed"]
+    await storage_manager.save_object(obj=user, cache_key=f"{REDIS_PREFIX}user_id:{user.id}", table_name="users", unique_columns=["id"]) 
+    return embed_generator.create_admin_embed(f"Seeds for {pokemon_id}\n{json.dumps(result)}")
 
 #######################Item methods#######################
 async def get_shop(user):
@@ -1998,184 +2021,179 @@ async def on_ready():
     else:
         print("Background monitor tasks already running, skipping re-initialization.")
 
+user_command_locks = {}
+
 @client.event
 async def on_message(message):
     start_time = time.time()
 
     channel_id = message.channel.id
 
-    if message.author == client.user:
+    # 1. Get or create the lock for this user
+    user_id = message.author.id
+    if user_id not in user_command_locks:
+        user_command_locks[user_id] = asyncio.Lock()
+
+    # 2. Check if the lock is already held (another command by this user is running)
+    if user_command_locks[user_id].locked():
+        logger.info(f'User is locked for command: {message.content}')
         return
+
+    # 3. Acquire the lock and execute command
     message.content = message.content.lower()
     user = await storage_manager.get_user(message.author.id)
 
+    async with user_command_locks[user_id]:
 #######################General commands#######################
-    if message.content.startswith('.help filter'):
-        embed = get_help_filter()
-        await message.channel.send(embed=embed)
-    if message.content.startswith('.help moves'):
-        embed = get_help_moves()
-        await message.channel.send(embed=embed)
-    elif message.content.startswith('.help user'):
-        embed = get_help_user()
-        await message.channel.send(embed=embed)
-    elif message.content.startswith('.help pokemon'):
-        embed = get_help_pokemon()
-        await message.channel.send(embed=embed)
-    elif message.content.startswith('.help battle'):
-        embed = get_help_battle()
-        await message.channel.send(embed=embed)
-    elif message.content.startswith('.help raid'):
-        embed = get_help_raid()
-        await message.channel.send(embed=embed)
-    elif message.content.startswith('.help items'):
-        embed = get_help_items()
-        await message.channel.send(embed=embed)
-    elif message.content.startswith('.help event'):
-        embed = get_help_event()
-        await message.channel.send(embed=embed)
-    elif message.content.startswith('.help trade'):
-        embed = get_help_trade()
-        await message.channel.send(embed=embed)
-    elif message.content.startswith('.help challenge'):
-        embed = get_help_challenge()
-        await message.channel.send(embed=embed)
-    elif message.content.startswith('.help admin') and user.id == 701062435678846998:
-        embed = get_admin_help()
-        await message.channel.send(embed=embed)
-    elif message.content.startswith('.help'):
-        embed = get_help()
-        await message.channel.send(embed=embed)
-    
-    if user and message.content.startswith('.register'):
-        embed = embed_generator.create_already_registered_embed()
-        await message.channel.send(embed=embed)
-    elif message.content.startswith('.register'):
-        embed = await register(message.author.id, message.author.name)
-        await message.channel.send(embed=embed)
-    elif message.content.startswith('.') and not user:
-        embed = embed_generator.create_not_registered_embed()
-        await message.channel.send(embed=embed)
-        return    
+        if message.content.startswith('.help filter'):
+            embed = get_help_filter()
+            await message.channel.send(embed=embed)
+        if message.content.startswith('.help moves'):
+            embed = get_help_moves()
+            await message.channel.send(embed=embed)
+        elif message.content.startswith('.help user'):
+            embed = get_help_user()
+            await message.channel.send(embed=embed)
+        elif message.content.startswith('.help pokemon'):
+            embed = get_help_pokemon()
+            await message.channel.send(embed=embed)
+        elif message.content.startswith('.help battle'):
+            embed = get_help_battle()
+            await message.channel.send(embed=embed)
+        elif message.content.startswith('.help raid'):
+            embed = get_help_raid()
+            await message.channel.send(embed=embed)
+        elif message.content.startswith('.help items'):
+            embed = get_help_items()
+            await message.channel.send(embed=embed)
+        elif message.content.startswith('.help event'):
+            embed = get_help_event()
+            await message.channel.send(embed=embed)
+        elif message.content.startswith('.help trade'):
+            embed = get_help_trade()
+            await message.channel.send(embed=embed)
+        elif message.content.startswith('.help challenge'):
+            embed = get_help_challenge()
+            await message.channel.send(embed=embed)
+        elif message.content.startswith('.help admin') and user.id == 701062435678846998:
+            embed = get_admin_help()
+            await message.channel.send(embed=embed)
+        elif message.content.startswith('.help'):
+            embed = get_help()
+            await message.channel.send(embed=embed)
+        
+        if user and message.content.startswith('.register'):
+            embed = embed_generator.create_already_registered_embed()
+            await message.channel.send(embed=embed)
+        elif message.content.startswith('.register'):
+            embed = await register(message.author.id, message.author.name)
+            await message.channel.send(embed=embed)
+        elif message.content.startswith('.') and not user:
+            embed = embed_generator.create_not_registered_embed()
+            await message.channel.send(embed=embed)
+            return    
 
-    if message.content.startswith('.odds'):
-        embed = await get_odds(user=user)
-        await message.channel.send(embed=embed)
+        if message.content.startswith('.odds'):
+            embed = await get_odds(user=user)
+            await message.channel.send(embed=embed)
 
-    if message.content.startswith('.bug'):
-        embed = embed_generator.create_bug_reported_embed(user)
-        await message.channel.send(embed=embed)
-        channel = await client.fetch_channel(BUG_ID)
-        bug_embed = embed_generator.create_bug_log_embed(user, message.content.replace(".bug", ""))
-        await channel.send(embed=bug_embed)
+        if message.content.startswith('.bug'):
+            embed = embed_generator.create_bug_reported_embed(user)
+            await message.channel.send(embed=embed)
+            channel = await client.fetch_channel(BUG_ID)
+            bug_embed = embed_generator.create_bug_log_embed(user, message.content.replace(".bug", ""))
+            await channel.send(embed=bug_embed)
 
-    if message.content.startswith('.git'):
-        await message.channel.send('https://github.com/ultra-move/goomybot-v3')
+        if message.content.startswith('.git'):
+            await message.channel.send('https://github.com/ultra-move/goomybot-v3')
 
-#######################Admin commands########################
-    if message.content.startswith('.addframe') and user.id == 701062435678846998:
-        split = message.content.split()
-        user_id = split[1]
-        amount = split[2]
-        embed = await add_frame(user_id, int(amount))
-        await message.channel.send(embed=embed)
+    #######################Admin commands########################
+        if message.content.startswith('.addframe') and user.id == 701062435678846998:
+            split = message.content.split()
+            user_id = split[1]
+            amount = split[2]
+            embed = await add_frame(user_id, int(amount))
+            await message.channel.send(embed=embed)
 
-    if message.content.startswith('.removeframe') and user.id == 701062435678846998:
-        split = message.content.split()
-        user_id = split[1]
-        amount = split[2]
-        embed = await remove_frame(user_id, int(amount))
-        await message.channel.send(embed=embed)
+        if message.content.startswith('.removeframe') and user.id == 701062435678846998:
+            split = message.content.split()
+            user_id = split[1]
+            amount = split[2]
+            embed = await remove_frame(user_id, int(amount))
+            await message.channel.send(embed=embed)
 
-    if message.content.startswith('.addraidframe') and user.id == 701062435678846998:
-        split = message.content.split()
-        user_id = split[1]
-        amount = split[2]
-        embed = await add_raid_frame(user_id, int(amount))
-        await message.channel.send(embed=embed)
+        if message.content.startswith('.addraidframe') and user.id == 701062435678846998:
+            split = message.content.split()
+            user_id = split[1]
+            amount = split[2]
+            embed = await add_raid_frame(user_id, int(amount))
+            await message.channel.send(embed=embed)
 
-    if message.content.startswith('.removeraidframe') and user.id == 701062435678846998:
-        split = message.content.split()
-        user_id = split[1]
-        amount = split[2]
-        embed = await remove_raid_frame(user_id, int(amount))
-        await message.channel.send(embed=embed)
+        if message.content.startswith('.removeraidframe') and user.id == 701062435678846998:
+            split = message.content.split()
+            user_id = split[1]
+            amount = split[2]
+            embed = await remove_raid_frame(user_id, int(amount))
+            await message.channel.send(embed=embed)
 
-    if message.content.startswith('.flush') and user.id == 701062435678846998:
-        embed = await flush_all()
-        await message.channel.send(embed=embed)
+        if message.content.startswith('.flush') and user.id == 701062435678846998:
+            embed = await flush_all()
+            await message.channel.send(embed=embed)
 
 
 
-    if message.content.startswith('.resetodds') and user.id == 701062435678846998:
-        embed = await odds_reset()
-        await message.channel.send(embed=embed)
+        if message.content.startswith('.resetodds') and user.id == 701062435678846998:
+            embed = await odds_reset()
+            await message.channel.send(embed=embed)
 
-    if message.content.startswith('.adminspawn') and user.id == 701062435678846998:
-        pokedex_id = int(message.content.split()[1])
-        is_shiny = {"true": True, "false": False}.get(message.content.split()[2].lower(), False)
-        pookemon, embed = await admin_start_battle(pokedex_id=pokedex_id, is_shiny=is_shiny, user=user, channel_id=channel_id)
-        await message.channel.send(embed=embed)
+        if message.content.startswith('.adminspawn') and user.id == 701062435678846998:
+            pokedex_id = int(message.content.split()[1])
+            is_shiny = {"true": True, "false": False}.get(message.content.split()[2].lower(), False)
+            pookemon, embed = await admin_start_battle(pokedex_id=pokedex_id, is_shiny=is_shiny, user=user, channel_id=channel_id)
+            await message.channel.send(embed=embed)
 
-    if message.content.startswith('.adminraid') and user.id == 701062435678846998:
-        pokedex_id = int(message.content.split()[1])
-        is_shiny = {"true": True, "false": False}.get(message.content.split()[2].lower(), False)
-        pookemon, embed = await admin_start_raid(pokedex_id=pokedex_id, is_shiny=is_shiny, user=user, channel_id=channel_id)
-        await message.channel.send(embed=embed)
+        if message.content.startswith('.adminraid') and user.id == 701062435678846998:
+            pokedex_id = int(message.content.split()[1])
+            is_shiny = {"true": True, "false": False}.get(message.content.split()[2].lower(), False)
+            pookemon, embed = await admin_start_raid(pokedex_id=pokedex_id, is_shiny=is_shiny, user=user, channel_id=channel_id)
+            await message.channel.send(embed=embed)
 
-    if message.content.startswith('.addmoney') and user.id == 701062435678846998:
-        split = message.content.split()
-        user_id = split[1]
-        amount = split[2]
-        embed = await add_money(user_id=user_id, amount=amount)
-        await message.channel.send(embed=embed)
+        if message.content.startswith('.addmoney') and user.id == 701062435678846998:
+            split = message.content.split()
+            user_id = split[1]
+            amount = split[2]
+            embed = await add_money(user_id=user_id, amount=amount)
+            await message.channel.send(embed=embed)
 
-    if message.content.startswith('.removemoney') and user.id == 701062435678846998:
-        split = message.content.split()
-        user_id = split[1]
-        amount = split[2]
-        embed = await remove_money(user_id=user_id, amount=amount)
-        await message.channel.send(embed=embed)
+        if message.content.startswith('.removemoney') and user.id == 701062435678846998:
+            split = message.content.split()
+            user_id = split[1]
+            amount = split[2]
+            embed = await remove_money(user_id=user_id, amount=amount)
+            await message.channel.send(embed=embed)
 
-    if message.content.startswith('.resetquest') and user.id == 701062435678846998:
-        split = message.content.split()
-        user_id = split[1]
-        embed = await admin_reset_quest(user_id=user_id)
-        await message.channel.send(embed=embed)
+        if message.content.startswith('.resetquest') and user.id == 701062435678846998:
+            split = message.content.split()
+            user_id = split[1]
+            embed = await admin_reset_quest(user_id=user_id)
+            await message.channel.send(embed=embed)
 
-    if '.resetchallenge' in message.content and user.id == 701062435678846998:
-        embed = await reset_challenge(user)
-        await message.channel.send(embed=embed)
+        if '.resetchallenge' in message.content and user.id == 701062435678846998:
+            embed = await reset_challenge(user)
+            await message.channel.send(embed=embed)
 
-    if '.startchallenge' in message.content and user.id == 701062435678846998:
-        await start_challenge()
+        if '.startchallenge' in message.content and user.id == 701062435678846998:
+            await start_challenge()
 
-#######################Battle commands#######################
-    if message.content.startswith('.spawn'):
-        pokemon, embed = await start_battle(user=user, channel_id=channel_id)
-        await message.channel.send(embed=embed)
-        if pokemon and pokemon.is_shiny:
-            flex_log = await storage_manager.get_flex_log(user.id, channel_id, pokemon.name)
-            if not flex_log:
-                log = FlexLog(id= uuid.uuid4(), user_id=user.id, channel_id=channel_id, name=pokemon.name, status='active', timestamp=datetime.now(timezone.utc), expiration_date= datetime.now(timezone.utc) + timedelta(hours=24))
-                await storage_manager.save_object(obj=log, cache_key=f"{REDIS_PREFIX}flexlog_id:{log.id}", table_name='flex_log', unique_columns=['id'])
-                channel = await client.fetch_channel(FLEX_ID)
-                embed = embed_generator.create_flex_embed(user, pokemon)
-                await channel.send(embed=embed)
+        if message.content.startswith('.getseed') and user.id == 701062435678846998:
+            split = message.content.split()
+            pokemon_id = split[1]
+            embed = await find_in_seeds(user=user, pokemon_id=pokemon_id)
+            await message.channel.send(embed=embed)
 
-    if message.content.startswith('.run'):
-        embed = await run_battle(user=user)
-        await message.channel.send(embed=embed)
-
-    if message.content.startswith('.join') and not message.content.startswith('.joinraid'):
-        local_id = message.content[-3:]
-        embed = await join_battle(user=user, local_id=local_id, channel_id=channel_id)
-        await message.channel.send(embed=embed)
-
-#######################Raid commands#######################
-    if message.content.startswith('.raid') and not message.content.startswith('.raidframe') and not message.content.startswith('.raidpokedex'):
-        try:
-            pokemon, embed = await start_raid(user=user, channel_id=channel_id)
+    #######################Battle commands#######################
+        if message.content.startswith('.spawn'):
+            pokemon, embed = await start_battle(user=user, channel_id=channel_id)
             await message.channel.send(embed=embed)
             if pokemon and pokemon.is_shiny:
                 flex_log = await storage_manager.get_flex_log(user.id, channel_id, pokemon.name)
@@ -2185,372 +2203,395 @@ async def on_message(message):
                     channel = await client.fetch_channel(FLEX_ID)
                     embed = embed_generator.create_flex_embed(user, pokemon)
                     await channel.send(embed=embed)
-        except:
-            embed = embed_generator.create_raid_failure_embed(user)
+
+        if message.content.startswith('.run'):
+            embed = await run_battle(user=user)
             await message.channel.send(embed=embed)
-            return
 
-    if message.content.startswith('.joinraid'):
-        local_id = message.content[-3:]
-        embed = await join_raid(user=user, local_id=local_id, channel_id=channel_id)
-        await message.channel.send(embed=embed)
-#######################User commands#######################
-    if message.content.startswith('.profileimage'):
-        url = message.content.split()
-        if len(url) > 1:
-            embed = await set_profile_image(user=user, url=url[1])
-        else:
-            embed = embed_generator.create_user_profile_image_failed_embed(user)
-        await message.channel.send(embed=embed)
-    elif message.content.startswith('.profile'):
-        embed = embed_generator.create_user_profile_embed(user)
-        await message.channel.send(embed=embed)
+        if message.content.startswith('.join') and not message.content.startswith('.joinraid'):
+            local_id = message.content[-3:]
+            embed = await join_battle(user=user, local_id=local_id, channel_id=channel_id)
+            await message.channel.send(embed=embed)
 
-    if message.content.startswith('.displayname'):
-        name = message.content.split()[1]
-        embed = await display_name(user,name)
-        await message.channel.send(embed=embed)
+    #######################Raid commands#######################
+        if message.content.startswith('.raid') and not message.content.startswith('.raidframe') and not message.content.startswith('.raidpokedex'):
+            try:
+                pokemon, embed = await start_raid(user=user, channel_id=channel_id)
+                await message.channel.send(embed=embed)
+                if pokemon and pokemon.is_shiny:
+                    flex_log = await storage_manager.get_flex_log(user.id, channel_id, pokemon.name)
+                    if not flex_log:
+                        log = FlexLog(id= uuid.uuid4(), user_id=user.id, channel_id=channel_id, name=pokemon.name, status='active', timestamp=datetime.now(timezone.utc), expiration_date= datetime.now(timezone.utc) + timedelta(hours=24))
+                        await storage_manager.save_object(obj=log, cache_key=f"{REDIS_PREFIX}flexlog_id:{log.id}", table_name='flex_log', unique_columns=['id'])
+                        channel = await client.fetch_channel(FLEX_ID)
+                        embed = embed_generator.create_flex_embed(user, pokemon)
+                        await channel.send(embed=embed)
+            except:
+                embed = embed_generator.create_raid_failure_embed(user)
+                await message.channel.send(embed=embed)
+                return
 
-    if message.content.startswith('.list'):
-        page = message.content.split()
-        try:
-            if len(page) > 1:
-                if int(page[1]) > 0: # Ensure user doesn't ask for page 0 or negative
-                    requested_page = int(page[1]) - 1
-                    embed: discord.Embed = await list_pokemon(user=user, page=requested_page, page_size=10)
+        if message.content.startswith('.joinraid'):
+            local_id = message.content[-3:]
+            embed = await join_raid(user=user, local_id=local_id, channel_id=channel_id)
+            await message.channel.send(embed=embed)
+    #######################User commands#######################
+        if message.content.startswith('.profileimage'):
+            url = message.content.split()
+            if len(url) > 1:
+                embed = await set_profile_image(user=user, url=url[1])
+            else:
+                embed = embed_generator.create_user_profile_image_failed_embed(user)
+            await message.channel.send(embed=embed)
+        elif message.content.startswith('.profile'):
+            embed = embed_generator.create_user_profile_embed(user)
+            await message.channel.send(embed=embed)
+
+        if message.content.startswith('.displayname'):
+            name = message.content.split()[1]
+            embed = await display_name(user,name)
+            await message.channel.send(embed=embed)
+
+        if message.content.startswith('.list'):
+            page = message.content.split()
+            try:
+                if len(page) > 1:
+                    if int(page[1]) > 0: # Ensure user doesn't ask for page 0 or negative
+                        requested_page = int(page[1]) - 1
+                        embed: discord.Embed = await list_pokemon(user=user, page=requested_page, page_size=10)
+                    else:
+                        embed = await list_pokemon(user=user, page=0, page_size=10)
                 else:
                     embed = await list_pokemon(user=user, page=0, page_size=10)
-            else:
+            except:
                 embed = await list_pokemon(user=user, page=0, page_size=10)
-        except:
-            embed = await list_pokemon(user=user, page=0, page_size=10)
 
-        await message.channel.send(embed=embed)
-    
-    if message.content.startswith('.learnset'):
-        page = message.content.split()
-        try:
-            if len(page) > 1:
-                if int(page[1]) > 0: # Ensure user doesn't ask for page 0 or negative
-                    requested_page = int(page[1]) - 1
-                    embed: discord.Embed = await get_learnset(user=user, page=requested_page)
+            await message.channel.send(embed=embed)
+        
+        if message.content.startswith('.learnset'):
+            page = message.content.split()
+            try:
+                if len(page) > 1:
+                    if int(page[1]) > 0: # Ensure user doesn't ask for page 0 or negative
+                        requested_page = int(page[1]) - 1
+                        embed: discord.Embed = await get_learnset(user=user, page=requested_page)
+                    else:
+                        embed = await get_learnset(user=user, page=0)
                 else:
                     embed = await get_learnset(user=user, page=0)
-            else:
+            except:
                 embed = await get_learnset(user=user, page=0)
-        except:
-            embed = await get_learnset(user=user, page=0)
 
-        await message.channel.send(embed=embed)
-    elif message.content.startswith('.learn'):
-        split = message.content.split()
-        try:
-            slot = int(split[1])
-        except:
-            slot = 5
-        move_name = split[2]
-        embed = await learn_move(user, slot, move_name)
-        await message.channel.send(embed=embed)
+            await message.channel.send(embed=embed)
+        elif message.content.startswith('.learn'):
+            split = message.content.split()
+            try:
+                slot = int(split[1])
+            except:
+                slot = 5
+            move_name = split[2]
+            embed = await learn_move(user, slot, move_name)
+            await message.channel.send(embed=embed)
 
-    if message.content.startswith('.moves'):
-        embed = await see_moves(user)
-        await message.channel.send(embed=embed)
+        if message.content.startswith('.moves'):
+            embed = await see_moves(user)
+            await message.channel.send(embed=embed)
 
-    if message.content.startswith('.pokedex'):
-        page = message.content.split()
-        try:
-            if len(page) > 1:
-                if int(page[1]) > 0: # Ensure user doesn't ask for page 0 or negative
-                    requested_page = int(page[1]) - 1
-                    embed: discord.Embed = await list_missing_pokemon(user=user, page=requested_page, page_size=10)
+        if message.content.startswith('.pokedex'):
+            page = message.content.split()
+            try:
+                if len(page) > 1:
+                    if int(page[1]) > 0: # Ensure user doesn't ask for page 0 or negative
+                        requested_page = int(page[1]) - 1
+                        embed: discord.Embed = await list_missing_pokemon(user=user, page=requested_page, page_size=10)
+                    else:
+                        embed = await list_missing_pokemon(user=user, page=0, page_size=10)
                 else:
                     embed = await list_missing_pokemon(user=user, page=0, page_size=10)
-            else:
+            except:
                 embed = await list_missing_pokemon(user=user, page=0, page_size=10)
-        except:
-            embed = await list_missing_pokemon(user=user, page=0, page_size=10)
 
-        await message.channel.send(embed=embed)
+            await message.channel.send(embed=embed)
 
-    if message.content.startswith('.raidpokedex'):
-        page = message.content.split()
-        try:
-            if len(page) > 1:
-                if int(page[1]) > 0: # Ensure user doesn't ask for page 0 or negative
-                    requested_page = int(page[1]) - 1
-                    embed: discord.Embed = await list_missing_raid_pokemon(user=user, page=requested_page, page_size=10)
+        if message.content.startswith('.raidpokedex'):
+            page = message.content.split()
+            try:
+                if len(page) > 1:
+                    if int(page[1]) > 0: # Ensure user doesn't ask for page 0 or negative
+                        requested_page = int(page[1]) - 1
+                        embed: discord.Embed = await list_missing_raid_pokemon(user=user, page=requested_page, page_size=10)
+                    else:
+                        embed = await list_missing_raid_pokemon(user=user, page=0, page_size=10)
                 else:
                     embed = await list_missing_raid_pokemon(user=user, page=0, page_size=10)
-            else:
+            except:
                 embed = await list_missing_raid_pokemon(user=user, page=0, page_size=10)
-        except:
-            embed = await list_missing_raid_pokemon(user=user, page=0, page_size=10)
 
-        await message.channel.send(embed=embed)
+            await message.channel.send(embed=embed)
 
-    if message.content.startswith('.view recent'):
-        embed = await view_recent_pokemon(user)
-        await message.channel.send(embed=embed)
-    elif message.content.startswith('.view'):
-        local_id = message.content.split()
-        if len(local_id) > 1:
-            embed = await view_pokemon(user=user, local_id=str(local_id[1]))
-        else:
-            embed = await view_buddy(user=user)
-        await message.channel.send(embed=embed)
-
-    if message.content.startswith('.stats recent'):
-        embed = await view_recent_pokemon_stats(user)
-        await message.channel.send(embed=embed)
-    elif message.content.startswith('.stats buddy'):
-        embed = await view_buddy_stats(user)
-        await message.channel.send(embed=embed)
-    elif message.content.startswith('.stats'):
-        local_id = message.content.split()
-        if len(local_id) > 1:
-            embed = await view_pokemon_stats(user=user, local_id=str(local_id[1]))
-        else:
-            embed = await view_buddy_stats(user=user)
-        await message.channel.send(embed=embed)
-
-    if message.content.startswith('.filter'):
-        embed = await filter_pokemon(user=user, filter_message=message.content)
-        await message.channel.send(embed=embed)
-
-    if message.content.startswith('.buddy recent'):
-        embed = await set_buddy_recent(user)
-        await message.channel.send(embed=embed)
-    elif message.content.startswith('.buddy'):
-        local_id = message.content.split()
-        if len(local_id) > 1:
-            embed = await set_buddy(user=user, local_id=str(local_id[1]))
-        else:
-            embed = await view_buddy(user=user)
-        await message.channel.send(embed=embed)
-
-    if message.content.startswith('.evolve'):
-        name = message.content.split()
-        if len(name) > 1 and name[1]:
-            embed = await evolve_buddy(user=user, name=name[1])
-        else:
-            embed = await evolve_buddy(user=user, name=None)
-        await message.channel.send(embed=embed)
-
-    if message.content.startswith('.frame'):
-        embed = embed_generator.create_frame_embed(user)
-        await message.channel.send(embed=embed)
-
-    if message.content.startswith('.lottery'):
-        embed = await enter_lottery(user)
-        await message.channel.send(embed=embed) 
-
-    if message.content.startswith('.release duplicates'):
-        embed = await release_duplicates(user)
-        await message.channel.send(embed=embed)
-    elif message.content.startswith('.release'):
-        try:
-            num = int(message.content.split()[1])
-            embed = await release_single(user, num)
-        except:
-            embed = embed_generator.create_release_embed(user=user, content="Could not release! Please select a pokemon from .list")
-        await message.channel.send(embed=embed)
-    
-    if message.content.startswith('.safe'):
-        num = message.content.split()
-        if len(num) > 1 and num[1]:
-            embed = await mark_safe(user, int(num[1]))
-        else:
-            embed = embed_generator.create_safe_pokemon_failure_view(user)
-        await message.channel.send(embed=embed)
-
-    if message.content.startswith('.see'):
-        name = message.content.split()
-        if len(name) > 1 and name[1]:
-            embed = await see_pokemon(name[1])
-        else:
-            embed = embed_generator.create_master_pokemon_view_failure()
-        await message.channel.send(embed=embed) 
-
-#######################event commands#######################
-    if message.content.startswith('.event toggle'):
-        embed = await toggle_event(user)
-        await message.channel.send(embed=embed) 
-    elif message.content.startswith('.eventframe'):
-        embed = await full_event_shiny_frame(user)
-        await message.channel.send(embed=embed) 
-    elif message.content.startswith('.event'):
-        embed = await get_event_details(user)
-        await message.channel.send(embed=embed)         
-
-#######################item commands#######################
-    if message.content.startswith('.shop'):
-        embed = await get_shop(user)
-        await message.channel.send(embed=embed)    
-    
-    if message.content.startswith('.buy'):
-        name_quantity = message.content.split()
-        try:
-            name = name_quantity[1]
-            if (len(name_quantity) >= 3) and name_quantity[2]:
-                quantity = name_quantity[2]
+        if message.content.startswith('.view recent'):
+            embed = await view_recent_pokemon(user)
+            await message.channel.send(embed=embed)
+        elif message.content.startswith('.view'):
+            local_id = message.content.split()
+            if len(local_id) > 1:
+                embed = await view_pokemon(user=user, local_id=str(local_id[1]))
             else:
-                quantity = 1
-        except:
-            embed = embed = embed_generator.create_invalid_syntax_embed(user) 
-        try:
-                if name == 'shinyframe':
-                    embed = await buy_item(user, 'shinyframe', int(quantity))
-                elif name == 'resetseed':
-                    embed = await buy_item(user, 'resetseed', int(quantity))
-                elif name == 'skipframe':
-                    embed = await buy_item(user, 'skipframe', int(quantity))
-                elif name == 'rerollnature':
-                    embed = await buy_item(user, 'rerollnature', int(quantity))
-                elif name == 'rerolliv':
-                    embed = await buy_item(user, 'rerolliv', int(quantity))
-                elif name == 'raidpass':
-                    embed = await buy_item(user, 'raidpass', int(quantity))
-                elif name == 'skipraidframe':
-                    embed = await buy_item(user, 'skipraidframe', int(quantity))
-                elif name == 'rarecandy':
-                    embed = await buy_item(user, 'rarecandy', int(quantity))
-                elif name == 'regionpass':
-                    embed = await buy_item(user, 'regionpass', int(quantity))
-                else:
-                    embed = embed_generator.create_invalid_syntax_embed(user)
-        except:
-                embed = embed_generator.create_invalid_syntax_embed(user)
-        await message.channel.send(embed=embed)
+                embed = await view_buddy(user=user)
+            await message.channel.send(embed=embed)
 
-    if message.content.startswith('.items'):
-        embed = await get_items(user)
-        await message.channel.send(embed=embed)
+        if message.content.startswith('.stats recent'):
+            embed = await view_recent_pokemon_stats(user)
+            await message.channel.send(embed=embed)
+        elif message.content.startswith('.stats buddy'):
+            embed = await view_buddy_stats(user)
+            await message.channel.send(embed=embed)
+        elif message.content.startswith('.stats'):
+            local_id = message.content.split()
+            if len(local_id) > 1:
+                embed = await view_pokemon_stats(user=user, local_id=str(local_id[1]))
+            else:
+                embed = await view_buddy_stats(user=user)
+            await message.channel.send(embed=embed)
 
-    if message.content.startswith('.resetseed'):
-        embed = await reset_seeds(user)
-        await message.channel.send(embed=embed)
+        if message.content.startswith('.filter'):
+            embed = await filter_pokemon(user=user, filter_message=message.content)
+            await message.channel.send(embed=embed)
+
+        if message.content.startswith('.buddy recent'):
+            embed = await set_buddy_recent(user)
+            await message.channel.send(embed=embed)
+        elif message.content.startswith('.buddy'):
+            local_id = message.content.split()
+            if len(local_id) > 1:
+                embed = await set_buddy(user=user, local_id=str(local_id[1]))
+            else:
+                embed = await view_buddy(user=user)
+            await message.channel.send(embed=embed)
+
+        if message.content.startswith('.evolve'):
+            name = message.content.split()
+            if len(name) > 1 and name[1]:
+                embed = await evolve_buddy(user=user, name=name[1])
+            else:
+                embed = await evolve_buddy(user=user, name=None)
+            await message.channel.send(embed=embed)
+
+        if message.content.startswith('.frame'):
+            embed = embed_generator.create_frame_embed(user)
+            await message.channel.send(embed=embed)
+
+        if message.content.startswith('.lottery'):
+            embed = await enter_lottery(user)
+            await message.channel.send(embed=embed) 
+
+        if message.content.startswith('.release duplicates'):
+            embed = await release_duplicates(user)
+            await message.channel.send(embed=embed)
+        elif message.content.startswith('.release'):
+            try:
+                num = int(message.content.split()[1])
+                embed = await release_single(user, num)
+            except:
+                embed = embed_generator.create_release_embed(user=user, content="Could not release! Please select a pokemon from .list")
+            await message.channel.send(embed=embed)
         
-    if message.content.startswith('.rerolliv'):
-        iv = message.content.split()
-        if len(iv) > 1:
-            embed = await reroll_iv(user=user, iv=str(iv[1]))
-        else:
-            embed = embed_generator.create_item_failure_embed(user=user, item_name='rerolliv')
-        await message.channel.send(embed=embed)
-
-    if message.content.startswith('.rerollnature'):
-        embed = await reroll_nature(user=user)
-        await message.channel.send(embed=embed)
-
-    if message.content.startswith('.rarecandy'):
-        try:
-            quantity = int(message.content.split()[1])
-        except:
-            quantity = 1
-
-        embed = await rare_candy(user, quantity)
-        await message.channel.send(embed=embed)
-
-    if message.content.startswith('.fullframe'):
-        embed = await toggle_full_frame(user)
-        await message.channel.send(embed=embed)
-
-    if '.shinyframe' in message.content:
-        if user.full_frame:
-            embed = await full_shiny_frame(user)
-        else:
-            embed = await shiny_frame(user)
-        await message.channel.send(embed=embed)
-    
-    if '.raidframe' in message.content:
-        if user.full_frame:
-            embed = await full_raid_shiny_frame(user)
-        else:
-            embed = await raid_shiny_frame(user)
-        await message.channel.send(embed=embed)
-
-    if message.content.startswith('.skipframe'):
-        try:
-            quantity = int(message.content.split()[1])
-        except:
-            quantity = 1
-        embed = await skip_frames(user, quantity)
-        await message.channel.send(embed=embed)
-    
-    if message.content.startswith('.skipraidframe'):
-        try:
-            quantity = int(message.content.split()[1])
-        except:
-            quantity = 1
-        embed = await skip_raid_frames(user, quantity)
-        await message.channel.send(embed=embed)
-
-    if message.content.startswith('.regionpass'):
-        try:
-            region = message.content.split()[1]
-        except:
-            region = None
-        embed = await region_pass(user, region)
-        await message.channel.send(embed=embed)        
-
-#######################trade commands######################
-    #.trade @user
-    mentions = message.mentions
-    #print(mentions[0].id)
-    if message.content.startswith('.trade') and mentions and mentions[0].id != None:
-        embed = await start_trade(user, mentions[0])
-        await message.channel.send(embed=embed)
-    elif message.content == '.trade':
-        embed = await display_trade(user)
-        await message.channel.send(embed=embed)
-
-    if message.content.startswith('.trade join'):
-        local_id = message.content[-3:]
-        embed = await join_trade(user=user, local_id=local_id)
-        await message.channel.send(embed=embed)
-
-    if message.content.startswith('.trade add pokemon'):
-        local_id = message.content.split()
-        if len(local_id) > 3:
-            embed = await add_pokemon_to_trade(user=user, local_id=local_id[3])
+        if message.content.startswith('.safe'):
+            num = message.content.split()
+            if len(num) > 1 and num[1]:
+                embed = await mark_safe(user, int(num[1]))
+            else:
+                embed = embed_generator.create_safe_pokemon_failure_view(user)
             await message.channel.send(embed=embed)
 
-    if message.content.startswith('.trade add money'):
-        amount = message.content.split()
-        if len(amount) > 3 and int(amount[3]) != 0:
-            embed = await add_money_to_trade(user=user, amount=int(amount[3]))
+        if message.content.startswith('.see'):
+            name = message.content.split()
+            if len(name) > 1 and name[1]:
+                embed = await see_pokemon(name[1])
+            else:
+                embed = embed_generator.create_master_pokemon_view_failure()
+            await message.channel.send(embed=embed) 
+
+    #######################event commands#######################
+        if message.content.startswith('.event toggle'):
+            embed = await toggle_event(user)
+            await message.channel.send(embed=embed) 
+        elif message.content.startswith('.eventframe'):
+            embed = await full_event_shiny_frame(user)
+            await message.channel.send(embed=embed) 
+        elif message.content.startswith('.event'):
+            embed = await get_event_details(user)
+            await message.channel.send(embed=embed)         
+
+    #######################item commands#######################
+        if message.content.startswith('.shop'):
+            embed = await get_shop(user)
+            await message.channel.send(embed=embed)    
+        
+        if message.content.startswith('.buy'):
+            name_quantity = message.content.split()
+            try:
+                name = name_quantity[1]
+                if (len(name_quantity) >= 3) and name_quantity[2]:
+                    quantity = name_quantity[2]
+                else:
+                    quantity = 1
+            except:
+                embed = embed = embed_generator.create_invalid_syntax_embed(user) 
+            try:
+                    if name == 'shinyframe':
+                        embed = await buy_item(user, 'shinyframe', int(quantity))
+                    elif name == 'resetseed':
+                        embed = await buy_item(user, 'resetseed', int(quantity))
+                    elif name == 'skipframe':
+                        embed = await buy_item(user, 'skipframe', int(quantity))
+                    elif name == 'rerollnature':
+                        embed = await buy_item(user, 'rerollnature', int(quantity))
+                    elif name == 'rerolliv':
+                        embed = await buy_item(user, 'rerolliv', int(quantity))
+                    elif name == 'raidpass':
+                        embed = await buy_item(user, 'raidpass', int(quantity))
+                    elif name == 'skipraidframe':
+                        embed = await buy_item(user, 'skipraidframe', int(quantity))
+                    elif name == 'rarecandy':
+                        embed = await buy_item(user, 'rarecandy', int(quantity))
+                    elif name == 'regionpass':
+                        embed = await buy_item(user, 'regionpass', int(quantity))
+                    else:
+                        embed = embed_generator.create_invalid_syntax_embed(user)
+            except:
+                    embed = embed_generator.create_invalid_syntax_embed(user)
             await message.channel.send(embed=embed)
 
-    if message.content.startswith('.trade confirm'):
-        embed = await confirm_trade(user)
-        await message.channel.send(embed=embed)
+        if message.content.startswith('.items'):
+            embed = await get_items(user)
+            await message.channel.send(embed=embed)
 
-    if message.content.startswith('.trade cancel'):
-        embed = await cancel_trade(user)
-        await message.channel.send(embed=embed)
-###########################################################
-    if message.content.startswith('.leaderboard'):
-        embed = await get_leaderboard()
-        await message.channel.send(embed=embed)
-    
-    if message.content.startswith('.quest'):
-        embed = await quest(user)
-        await message.channel.send(embed=embed)
+        if message.content.startswith('.resetseed'):
+            embed = await reset_seeds(user)
+            await message.channel.send(embed=embed)
+            
+        if message.content.startswith('.rerolliv'):
+            iv = message.content.split()
+            if len(iv) > 1:
+                embed = await reroll_iv(user=user, iv=str(iv[1]))
+            else:
+                embed = embed_generator.create_item_failure_embed(user=user, item_name='rerolliv')
+            await message.channel.send(embed=embed)
 
-    if message.content.startswith('.challenge info'):
-        embed = await challenge_info(user)
-        await message.channel.send(embed=embed)
-    elif message.content.startswith('.challenge') and str(message.channel.id) == PROFESSOR_ID:
-        local_id = message.content.split()
-        if len(local_id) > 1:
-            embed = await challenge_professor(user, local_id=str(local_id[1]))
-        else:
-            embed = await challenge_professor(user, local_id=str(1))
-        await message.channel.send(embed=embed)    
+        if message.content.startswith('.rerollnature'):
+            embed = await reroll_nature(user=user)
+            await message.channel.send(embed=embed)
 
-    end_time = time.time()
-    elapsed_time = end_time - start_time
-    logger.info(f"Message Response Time: {elapsed_time} seconds")
+        if message.content.startswith('.rarecandy'):
+            try:
+                quantity = int(message.content.split()[1])
+            except:
+                quantity = 1
+
+            embed = await rare_candy(user, quantity)
+            await message.channel.send(embed=embed)
+
+        if message.content.startswith('.fullframe'):
+            embed = await toggle_full_frame(user)
+            await message.channel.send(embed=embed)
+
+        if '.shinyframe' in message.content:
+            if user.full_frame:
+                embed = await full_shiny_frame(user)
+            else:
+                embed = await shiny_frame(user)
+            await message.channel.send(embed=embed)
+        
+        if '.raidframe' in message.content:
+            if user.full_frame:
+                embed = await full_raid_shiny_frame(user)
+            else:
+                embed = await raid_shiny_frame(user)
+            await message.channel.send(embed=embed)
+
+        if message.content.startswith('.skipframe'):
+            try:
+                quantity = int(message.content.split()[1])
+            except:
+                quantity = 1
+            embed = await skip_frames(user, quantity)
+            await message.channel.send(embed=embed)
+        
+        if message.content.startswith('.skipraidframe'):
+            try:
+                quantity = int(message.content.split()[1])
+            except:
+                quantity = 1
+            embed = await skip_raid_frames(user, quantity)
+            await message.channel.send(embed=embed)
+
+        if message.content.startswith('.regionpass'):
+            try:
+                region = message.content.split()[1]
+            except:
+                region = None
+            embed = await region_pass(user, region)
+            await message.channel.send(embed=embed)        
+
+    #######################trade commands######################
+        #.trade @user
+        mentions = message.mentions
+        #print(mentions[0].id)
+        if message.content.startswith('.trade') and mentions and mentions[0].id != None:
+            embed = await start_trade(user, mentions[0])
+            await message.channel.send(embed=embed)
+        elif message.content == '.trade':
+            embed = await display_trade(user)
+            await message.channel.send(embed=embed)
+
+        if message.content.startswith('.trade join'):
+            local_id = message.content[-3:]
+            embed = await join_trade(user=user, local_id=local_id)
+            await message.channel.send(embed=embed)
+
+        if message.content.startswith('.trade add pokemon'):
+            local_id = message.content.split()
+            if len(local_id) > 3:
+                embed = await add_pokemon_to_trade(user=user, local_id=local_id[3])
+                await message.channel.send(embed=embed)
+
+        if message.content.startswith('.trade add money'):
+            amount = message.content.split()
+            if len(amount) > 3 and int(amount[3]) != 0:
+                embed = await add_money_to_trade(user=user, amount=int(amount[3]))
+                await message.channel.send(embed=embed)
+
+        if message.content.startswith('.trade confirm'):
+            embed = await confirm_trade(user)
+            await message.channel.send(embed=embed)
+
+        if message.content.startswith('.trade cancel'):
+            embed = await cancel_trade(user)
+            await message.channel.send(embed=embed)
+    ###########################################################
+        if message.content.startswith('.leaderboard'):
+            embed = await get_leaderboard()
+            await message.channel.send(embed=embed)
+        
+        if message.content.startswith('.quest'):
+            embed = await quest(user)
+            await message.channel.send(embed=embed)
+
+        if message.content.startswith('.challenge info'):
+            embed = await challenge_info(user)
+            await message.channel.send(embed=embed)
+        elif message.content.startswith('.challenge') and str(message.channel.id) == PROFESSOR_ID:
+            local_id = message.content.split()
+            if len(local_id) > 1:
+                embed = await challenge_professor(user, local_id=str(local_id[1]))
+            else:
+                embed = await challenge_professor(user, local_id=str(1))
+            await message.channel.send(embed=embed)    
+
+        end_time = time.time()
+        elapsed_time = end_time - start_time
+        logger.info(f"Message Response Time: {elapsed_time} seconds")
 
 client.run(os.getenv('DISCORD_BOT_TOKEN'))
 
