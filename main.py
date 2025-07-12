@@ -1138,19 +1138,15 @@ async def start_battle(user, channel_id):
 async def process_expired_battle(battle: List[Battle]):
     """
     Asynchronously processes a single expired battle.
-    This is where your 'catch pokemon', 'add to inventory', 'give rewards' logic goes.
     """
     logger.info(f"Processing expired battle: {battle.id} for user(s) {battle.user_ids}")
 
     try:
-        # --- Your battle completion logic here ---
-        # 1. Add pokemon to user_pokemon table (using battle.battle_pokemon_id and battle.wild_pokemon_details)
-        # 2. Grant rewards to user (using battle.rewards)
-        # 3. Notify user on Discord
         pokemon = await storage_manager.get_battle_pokemon_by_id(str(battle.battle_pokemon_id))
         for user_id in battle.user_ids:
             pokemon.id = str(uuid.uuid4())
             pokemon.user_id = user_id
+            pokemon.random_on_catch()
             user = await storage_manager.get_user(user_id=user_id)
             reward = int(battle.rewards['money'])
             if user.current_pokemon:
@@ -2099,7 +2095,7 @@ async def on_message(message):
 
     # 2. Check if the lock is already held (another command by this user is running)
     if user_command_locks[user_id].locked():
-        logger.info(f'User is locked for command: {message.content}')
+        logger.info(f'User {user_id} is locked for command: {message.content}')
         return
 
     # 3. Acquire the lock and execute command
