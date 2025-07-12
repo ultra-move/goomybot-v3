@@ -587,6 +587,13 @@ class EmbedGenerator():
         embed.set_author(name=user.name.capitalize())
         embed.set_image(url=pokemon.sprite_front)
         return embed
+
+    def create_trade_add_item_embed(self, user, item_name, item_quantity):
+        embed=discord.Embed(description=f"Added {item_name} x{item_quantity} to trade!", color=trade_color)
+        embed.set_author(name=user.name.capitalize())
+        if user.profile_image and user.profile_image != 'None':
+            embed.set_thumbnail(url=user.profile_image)
+        return embed
     
     def create_trade_add_money_embed(self, user, amount):
         embed=discord.Embed(description=f"Added ${amount:,.0f} to trade!", color=trade_color)

@@ -194,6 +194,7 @@ class Trade:
             else: # Ensure 'pokemon' key exists with an empty list if missing or None
                 deserialized['pokemon'] = []
             
+
             if 'items' in deserialized and deserialized['items'] is not None:
                 if not isinstance(deserialized['items'], list):
                     logger.warning(f"items is not a list: {deserialized['items']}. Initializing as empty list.")
@@ -206,21 +207,33 @@ class Trade:
                     
                     deserialized_item = item_data.copy()
                     
-                    if 'id' in deserialized_item and deserialized_item['id'] is not None:
+                    item_name = None
+                    if 'name' in deserialized_item and deserialized_item['name'] is not None:
                         try:
-                            deserialized_item['id'] = uuid.UUID(deserialized_item['id'])
+                            item_name = str(deserialized_item['name'])
                         except (ValueError, TypeError):
-                            logger.warning(f"Invalid UUID string for item ID: {deserialized_item['id']}. Setting to None.")
-                            deserialized_item['id'] = None
+                            logger.warning(f"Invalid name string for item: {deserialized_item['name']}. Setting to None.")
+                            item_name = None
+                    # Assign the processed name back
+                    deserialized_item['name'] = item_name
                     
+                    item_quantity = 0 # Default to 0 if quantity is missing or invalid
                     if 'quantity' in deserialized_item and deserialized_item['quantity'] is not None:
                         try:
-                            deserialized_item['quantity'] = int(deserialized_item['quantity'])
+                            item_quantity = int(deserialized_item['quantity'])
                         except (ValueError, TypeError):
                             logger.warning(f"Could not convert item quantity '{deserialized_item['quantity']}' to int. Setting to 0.")
-                            deserialized_item['quantity'] = 0
-                    
-                    deserialized_items.append(deserialized_item)
+                            item_quantity = 0
+                    # Assign the processed quantity back
+                    deserialized_item['quantity'] = item_quantity
+
+                    # *************** THE KEY FIX IS HERE ***************
+                    # Only add the item if it has a non-empty name and a quantity > 0
+                    if item_name and item_quantity > 0:
+                        deserialized_items.append(deserialized_item)
+                    else:
+                        logger.info(f"Skipping invalid item during deserialization: name='{item_name}', quantity={item_quantity}")
+                        
                 deserialized['items'] = deserialized_items
             else: # Ensure 'items' key exists with an empty list if missing or None
                 deserialized['items'] = []

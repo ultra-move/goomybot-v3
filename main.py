@@ -158,6 +158,7 @@ def get_help_trade():
 * `.trade confirm`: Confirms a trade (both users must confirm)
 * `.trade cancel`: Cancels a trade
 * `.trade add pokemon <local_id>`: Adds a pokemon to the trade from your .list (or .filter)
+* `.trade add item <item_name> <quantity>`: Adds the specified item to the trade
 * `.trade add money <local_id>`: Adds specified amount of money to trade
 
 """
@@ -1657,6 +1658,32 @@ async def add_money_to_trade(user, amount):
         else:
             return embed_generator.create_trade_add_money_failure_embed(user, amount)
 
+async def add_item_to_trade(user, item_name, item_quantity):
+    active_trade = await storage_manager.get_trade_by_user_id_active(user_id=user.id)
+    if active_trade:
+        item: Item = await storage_manager.get_user_item_by_name(user=user, item_name=item_name)
+        if item:
+            user_trade_data = active_trade.user1 if active_trade.user1['user_id'] == user.id else active_trade.user2
+            trade_index = None
+            for index, i in enumerate(user_trade_data['items']):
+                if i['name'] == item_name:
+                    trade_index = index
+                    break
+            if item.quantity >= item_quantity and item_quantity > 0:
+                # Determine which user's trade slot to check/add to
+                if trade_index:
+                    user_trade_data['items'][trade_index] = {"name": item_name, "quantity": item_quantity}
+                else:   
+                    user_trade_data['items'].append({"name": item_name, 'quantity': item_quantity})
+                await storage_manager.save_object(obj=active_trade, cache_key=f"{REDIS_PREFIX}trade_id_{active_trade.id}", table_name='trades', unique_columns=['id'])
+                return embed_generator.create_trade_add_item_embed(user, item_name, item_quantity)
+            else:
+                return embed_generator.create_trade_add_failure_embed(user, reason=f"You do not own that many {item_name}! Please check quantity")
+        else:
+            return embed_generator.create_trade_add_failure_embed(user, reason=f"You do not own any {item_name}!")
+    else:
+        return embed_generator.create_trade_add_failure_embed(user, reason="No active trade!")
+
 
 async def display_trade(user):
     active_trade = await storage_manager.get_trade_by_user_id_active(user_id=user.id)
@@ -1675,6 +1702,17 @@ async def display_trade(user):
         user1_pokemon_string = "\n".join([pokemon['name'] for pokemon in active_trade.user1['pokemon']])
         user2_pokemon_string = "\n".join([pokemon['name'] for pokemon in active_trade.user2['pokemon']])
 
+        user1_item_string = "\n".join([
+            f"{item['name']} x{item['quantity']}"
+            for item in active_trade.user1['items']
+            if item.get('name') and item.get('quantity', 0) > 0 # This condition is key!
+        ])
+
+        user2_item_string = "\n".join([
+            f"{item['name']} x{item['quantity']}"
+            for item in active_trade.user2['items']
+            if item.get('name') and item.get('quantity', 0) > 0
+        ])
         # Format confirmation status
         user1_confirmed = "Yes" if active_trade.user1['confirmed'] else "No"
         user2_confirmed = "Yes" if active_trade.user2['confirmed'] else "No"
@@ -1690,14 +1728,14 @@ async def display_trade(user):
 **{user1_name}**
 Confirmed: {user1_confirmed}
 Offered:
-{user1_pokemon_string if user1_pokemon_string else ""}{user1_money_string}
+{user1_pokemon_string if user1_pokemon_string else ""}{user1_item_string if user1_item_string else ""}{user1_money_string}
 
 ---
 
 **{user2_name}**
 Confirmed: {user2_confirmed}
 Offered:
-{user2_pokemon_string if user2_pokemon_string else ""}{user2_money_string}
+{user2_pokemon_string if user2_pokemon_string else ""}{user2_item_string if user2_item_string else ""}{user2_money_string}
 """
         return embed_generator.create_trade_display_embed(user, display_string, user1_name, user2_name)
     else:
@@ -1723,6 +1761,8 @@ async def confirm_trade(user):
         return embed_generator.create_trade_add_failure_embed(user, reason="No active trade!")     
 
 async def finish_trade(active_trade):
+    user1 = await storage_manager.get_user(user_id=active_trade.user1['user_id'])
+    user2 = await storage_manager.get_user(user_id=active_trade.user2['user_id'])
     for pokemon in active_trade.user1['pokemon']:
         pokemon_data = await storage_manager.get_user_pokemon_by_id(pokemon_id=pokemon['id'])
         pokemon_data.user_id = active_trade.user2['user_id']
@@ -1735,13 +1775,35 @@ async def finish_trade(active_trade):
         pokemon_data.created_at = datetime.now(timezone.utc)
         pokemon_data.original_user_id = active_trade.user2['user_id']
         await storage_manager.save_object(obj=pokemon_data, cache_key=f"{REDIS_PREFIX}pokemon_data:{pokemon_data.id}", table_name='user_pokemon', unique_columns=['id'])
+    
+    for item in active_trade.user1['items']:
+        print(active_trade)
+        user1_item_data = await storage_manager.get_user_item_by_name(user=user1, item_name=item['name'])
+        user2_item_data = await storage_manager.get_user_item_by_name(user=user2, item_name=item['name'])
+        if user2_item_data:
+            user2_item_data.quantity += item['quantity']
+        else:
+            user2_item_data = Item(id=uuid.uuid4(), user_id=user2.id, name=item['name'], quantity=item['quantity'], uses=0)
+        user1_item_data.quantity -= item['quantity']
+        await storage_manager.save_object(obj=user1_item_data, cache_key=f"{REDIS_PREFIX}item_id:{user1_item_data.id}", table_name='user_items', unique_columns=['id'])
+        await storage_manager.save_object(obj=user2_item_data, cache_key=f"{REDIS_PREFIX}item_id:{user2_item_data.id}", table_name='user_items', unique_columns=['id'])
+    for item in active_trade.user2['items']:
+        user1_item_data = await storage_manager.get_user_item_by_name(user=user1, item_name=item['name'])
+        user2_item_data = await storage_manager.get_user_item_by_name(user=user2, item_name=item['name'])
+        if user1_item_data:
+            user1_item_data.quantity += item['quantity']
+        else:
+            user1_item_data = Item(id=uuid.uuid4(), user_id=user1.id, name=item['name'], quantity=item['quantity'], uses=0)
+        user2_item_data.quantity -= item['quantity']
+        await storage_manager.save_object(obj=user1_item_data, cache_key=f"{REDIS_PREFIX}item_id:{user1_item_data.id}", table_name='user_items', unique_columns=['id'])
+        await storage_manager.save_object(obj=user2_item_data, cache_key=f"{REDIS_PREFIX}item_id:{user2_item_data.id}", table_name='user_items', unique_columns=['id'])
 
     if active_trade.user1['money'] > 0:
-        user2 = await storage_manager.get_user(user_id=active_trade.user2['user_id'])
+        
         user2.wallet += active_trade.user1['money']
         await storage_manager.save_object(obj=user2, cache_key=f"{REDIS_PREFIX}user_id:{user2.id}", table_name="users", unique_columns=["id"])
     if active_trade.user2['money'] > 0:
-        user1 = await storage_manager.get_user(user_id=active_trade.user1['user_id'])
+
         user1.wallet += active_trade.user2['money']
         await storage_manager.save_object(obj=user1, cache_key=f"{REDIS_PREFIX}user_id:{user1.id}", table_name="users", unique_columns=["id"])
 
@@ -2539,7 +2601,7 @@ async def on_message(message):
         #.trade @user
         mentions = message.mentions
         #print(mentions[0].id)
-        if message.content.startswith('.trade') and mentions and mentions[0].id != None:
+        if message.content.startswith('.trade') and mentions and mentions[0].id != None and mentions[0].id != user.id:
             embed = await start_trade(user, mentions[0])
             await message.channel.send(embed=embed)
         elif message.content == '.trade':
@@ -2556,7 +2618,11 @@ async def on_message(message):
             if len(local_id) > 3:
                 embed = await add_pokemon_to_trade(user=user, local_id=local_id[3])
                 await message.channel.send(embed=embed)
-
+        if message.content.startswith('.trade add item'):
+            local_message = message.content.split()
+            if len(local_message) > 4:
+                embed = await add_item_to_trade(user=user, item_name=local_message[3], item_quantity=int(local_message[4]))
+                await message.channel.send(embed=embed)
         if message.content.startswith('.trade add money'):
             amount = message.content.split()
             if len(amount) > 3 and int(amount[3]) != 0:
