@@ -1780,7 +1780,7 @@ async def finish_trade(active_trade):
             user2_item_data.quantity += item['quantity']
         else:
             user2_item_data = Item(id=uuid.uuid4(), user_id=user2.id, name=item['name'], quantity=item['quantity'], uses=0)
-        user1_item_data.quantity -= item['quantity']
+        user1_item_data.quantity = user1_item_data.quantity - item['quantity']
         await storage_manager.save_object(obj=user1_item_data, cache_key=f"{REDIS_PREFIX}item_id:{user1_item_data.id}", table_name='user_items', unique_columns=['id'])
         await storage_manager.save_object(obj=user2_item_data, cache_key=f"{REDIS_PREFIX}item_id:{user2_item_data.id}", table_name='user_items', unique_columns=['id'])
     for item in active_trade.user2['items']:
@@ -1790,7 +1790,7 @@ async def finish_trade(active_trade):
             user1_item_data.quantity += item['quantity']
         else:
             user1_item_data = Item(id=uuid.uuid4(), user_id=user1.id, name=item['name'], quantity=item['quantity'], uses=0)
-        user2_item_data.quantity -= item['quantity']
+        user2_item_data.quantity = user2_item_data.quantity - item['quantity']
         await storage_manager.save_object(obj=user1_item_data, cache_key=f"{REDIS_PREFIX}item_id:{user1_item_data.id}", table_name='user_items', unique_columns=['id'])
         await storage_manager.save_object(obj=user2_item_data, cache_key=f"{REDIS_PREFIX}item_id:{user2_item_data.id}", table_name='user_items', unique_columns=['id'])
 
