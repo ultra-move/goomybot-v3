@@ -404,13 +404,16 @@ class Pokemon:
         return (f"<Pokemon id={self.id} name='{self.name}' "
                 f"level={self.level} user_id={self.user_id}>")
 
-    def _format_dict_to_lines(self, data_dict, items_per_line=2, key_formatter=str.capitalize):
+    def _format_dict_to_lines(self, data_dict, items_per_line=2, key_formatter=str.capitalize, bold_key=""):
         """
         Helper method to format a dictionary into lines, with a specified number of items per line.
         """
         formatted_items = []
         for k, v in data_dict.items():
-            formatted_items.append(f"{key_formatter(k)}: {v}")
+            if bold_key != "" and str(k) == bold_key:
+                formatted_items.append(f"**{key_formatter(k)}: {v}**")
+            else:
+                formatted_items.append(f"{key_formatter(k)}: {v}")
 
         lines = []
         # Increase leading spaces for a more indented "block" look
@@ -461,7 +464,19 @@ class Pokemon:
             f"IVs percentage: {self.calculate_total_iv_percentage()}%\n"
         )
         return string
-
+    
+    def reroll_str(self, reroll_choice):
+        """
+        Returns a human-readable string representation of the Pokemon object.
+        """
+        # Format IVs to two per line
+        formatted_ivs = self._format_dict_to_lines(self.iv, items_per_line=1, key_formatter=str.capitalize, bold_key=reroll_choice)
+        string = (
+            f"{formatted_ivs}\n\n"
+            f"{self.calculate_total_iv_percentage()}%\n"
+        )
+        return string
+    
     def to_readable_dict(self) -> Dict[str, Any]:
         """
         Converts the Pokemon object into a dictionary, suitable for database storage

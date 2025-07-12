@@ -426,10 +426,8 @@ class EmbedGenerator():
         embed.set_footer(text=f'Spawned by {user.name.capitalize()}')
         return embed
     
-    def create_rerolliv_view(self, user, pokemon):
-        embed=discord.Embed(color=self.get_color(pokemon=pokemon))
-        for key, value in pokemon.iv.items():
-            embed.add_field(name=key, value = value, inline=True)
+    def create_rerolliv_view(self, user, pokemon, reroll_choice):
+        embed=discord.Embed(title=f"{self.format_pokemon_name(pokemon)}", description=f"{pokemon.reroll_str(reroll_choice)}",color=self.get_color(pokemon=pokemon))
         embed.set_author(name=user.name.capitalize())
         embed.set_thumbnail(url=pokemon.sprite_front)
         return embed
