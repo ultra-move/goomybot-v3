@@ -896,7 +896,7 @@ async def reroll_iv(user, iv):
             await storage_manager.save_object(obj=buddy, cache_key=f"{REDIS_PREFIX}pokemon_data:{buddy.id}", table_name="user_pokemon", unique_columns=["id"])
         except:
             return embed_generator.create_item_failure_embed(user, 'rerolliv')  
-        return embed_generator.create_rerolliv_view(user, buddy)
+        return embed_generator.create_rerolliv_view(user, buddy, iv)
     else:
         return embed_generator.create_item_failure_embed(user, 'rerolliv')  
 
