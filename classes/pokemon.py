@@ -567,3 +567,15 @@ class Pokemon:
 
         percentage = (current_total_ivs / total_possible_ivs) * 100
         return round(percentage, 2)
+    
+    def random_on_catch(self):
+        self.nature = str(random.choice(list(NATURE_MODIFIERS.keys())))
+        self.iv = {
+            'hp': random.randrange(0,32),
+            'attack': random.randrange(0,32),
+            'defense': random.randrange(0,32),
+            'special_attack': random.randrange(0,32),
+            'special_defense': random.randrange(0,32),
+            'speed': random.randrange(0,32)
+        }
+        self.stats: Dict[str, int] = self.calculate_stats()
