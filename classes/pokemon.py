@@ -271,8 +271,6 @@ class Pokemon:
         elif current_moves_count > 4:
             # Truncate to 4 elements
             processed_data['moves'] = processed_data['moves'][:4]        
-        else:
-            processed_data['types'] = [] # Default to empty list if missing or None
         # --- JSONB (Dictionary) Handling (ev, iv) ---
         jsonb_keys = ['base_stats','stats','ev', 'iv']
         for key in jsonb_keys:
