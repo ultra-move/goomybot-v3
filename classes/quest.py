@@ -34,7 +34,7 @@ class Quest:
         item_name = 'Nothing'
         quantity = 0
         money = 0
-        if tier == 4:
+        if tier == 4 or tier == 3:
             reward_type = 'both'
         else:
             reward_type = random.choice(['item', 'money', 'both'])
@@ -44,12 +44,12 @@ class Quest:
             if item_name == 'skipraidframe':
                 quantity = 1
             elif item_name == 'skipframe':
-                quantity = random.randrange(1,3)
+                quantity = random.randrange(1,4)
             else:
                 quantity = random.randrange(5,10)
             
         if reward_type == 'money' or reward_type == 'both':
-            money = random.randrange(5000, 15000)
+            money = random.randrange(10000, 25000)
             money = round(money / 100) * 100
         #{item: {name: "", quantity: ""}, money: 0}
         self.reward = {'item': {'name': item_name, 'quantity': quantity*tier}, 'money': money*tier}

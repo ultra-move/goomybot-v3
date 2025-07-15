@@ -76,7 +76,7 @@ class Pokemon:
                  iv: Dict[str, int] = {},
                  safe= False,
                  held_item_id: Optional[uuid.UUID] = None,
-                 moves = [],
+                 moves = ["", "", "", ""],
                  created_at: Optional[datetime.datetime] = None,
                  last_modified: Optional[datetime.datetime] = None):
 
@@ -257,6 +257,20 @@ class Pokemon:
             else:
                 logger.warning(f"Pokemon.from_dict: 'moves' has unexpected type {type(processed_data['moves'])}. Defaulting to empty list.")
                 processed_data['moves'] = []
+            print(processed_data['moves'])
+        # Ensure 'moves' is an array with exactly 4 slots
+        if not isinstance(processed_data.get('moves'), list):
+            processed_data['moves'] = [] # Ensure it's a list before padding/truncating
+
+        current_moves_count = len(processed_data['moves'])
+
+        if current_moves_count < 4:
+            # Pad with None (or an empty string, or a default move like "Tackle")
+            for _ in range(4 - current_moves_count):
+                processed_data['moves'].append("")
+        elif current_moves_count > 4:
+            # Truncate to 4 elements
+            processed_data['moves'] = processed_data['moves'][:4]        
         else:
             processed_data['types'] = [] # Default to empty list if missing or None
         # --- JSONB (Dictionary) Handling (ev, iv) ---
