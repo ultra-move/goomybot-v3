@@ -1,4 +1,5 @@
 
+import random
 from classes.pokemon import Pokemon
 
 
@@ -70,6 +71,12 @@ class Types:
             "super_effective": pokemon_super,
             "not_very_effective": pokemon_not_very_effective,
         }
+
+    @staticmethod
+    def random_type():
+        types = list(Types.get_types().keys())
+        return random.choice(types)
+
 
     @staticmethod
     def get_types():

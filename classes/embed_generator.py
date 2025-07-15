@@ -100,7 +100,22 @@ class EmbedGenerator():
         embed=discord.Embed(title = "Failure!",description=f"Could not start raid, please check that you have a raidpass!", color=default_color)
         embed.set_author(name=user.name.capitalize())
         return embed
-
+    
+    def create_trainer_battle_embed(self, user_name, pokemon, trainer_name, trainer_sprite, conditions:dict, bonus_duration):
+        color = self.get_color(pokemon)
+        if color == 0xf5a8ff:
+            pokemon_name = f"✨???✨"
+        else:
+            pokemon_name = "???"
+        embed=discord.Embed(title=f"{trainer_name} challenges you with {pokemon_name}", description="Use moves that match the following conditions to win:", color=color)
+        embed.set_author(name=user_name.capitalize())
+        embed.set_image(url=pokemon.sprite_front)
+        embed.set_thumbnail(url=trainer_sprite)
+        embed.set_footer(text=f"Complete in {bonus_duration} seconds to gain 2x rewards!")
+        for con in conditions.keys():
+            embed.add_field(name=str(con).capitalize(), value=conditions[con], inline=False)
+        return embed
+    
     def create_battle_embed(self, user_name, pokemon_name, join_code, duration, url, color):
         if color == 0xf5a8ff:
             pokemon_name = f"✨{pokemon_name.capitalize()}✨"
