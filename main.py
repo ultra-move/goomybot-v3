@@ -124,7 +124,7 @@ def get_help_pokemon():
 **__Pokemon Commands__**
 * `.buddy [local_id] or [recent]`: If a `local_id` is provided, sets that Pokémon as your buddy. If no `local_id` is given, it shows your current buddy Pokémon.
 * `.evolve [name]`: Evolves buddy pokemon to name, buddy will evolve to a random choice if multiple are available and no name is provided
-* `.safe [local_id]`: Marks a pokemon as safe or not safe. Local id comes from .list command
+* `.safe [local_id] <recent>`: Marks a pokemon as safe or not safe. Local id comes from .list command. Defaults to buddy
 * `.release [local_id]`: Releases specified pokemon (from .list)
 * `.release duplicates`: Releases duplicate pokemon, keeps buddy, safe, shiny and tier 4 pokemon. Keeps the pokemon with the highest total iv
 * `.pokedex <page_number>`: Shows all un-owned pokemon
@@ -372,7 +372,8 @@ async def evolve_buddy(user, name: Optional[str] = None):
 
     if not buddy:
         return embed_generator.create_evolved_fail_embed(user.name, "Your buddy Pokémon could not be found.")
-
+    if buddy.safe:
+        return embed_generator.create_evolved_fail_embed(user.name, "Can not evolve safe pokemon, please use .safe to toggle")
     # Assuming get_evolutions returns a list of PokemonMaster objects that buddy can evolve into
     evolutions: list[PokemonMaster] = await storage_manager.get_evolutions(buddy.pokedex_id)
 
@@ -618,7 +619,19 @@ async def mark_safe(user, index):
 
 async def mark_safe_recent(user):
     try:
-        pokemon = await storage_manager.get_user_pokemon_by_recent()
+        pokemon = await storage_manager.get_user_pokemon_by_recent(user)
+        if pokemon.safe:
+            pokemon.safe = False
+        else:
+            pokemon.safe = True
+        await storage_manager.save_object(obj=pokemon, cache_key=f"{REDIS_PREFIX}pokemon_data:{pokemon.id}", table_name="user_pokemon", unique_columns=["id"])
+        return embed_generator.create_safe_pokemon_view(user, pokemon)
+    except:
+        return embed_generator.create_safe_pokemon_failure_view(user, pokemon)    
+
+async def mark_safe_buddy(user):
+    try:
+        pokemon = await storage_manager.get_user_pokemon_by_id(user.current_pokemon)
         if pokemon.safe:
             pokemon.safe = False
         else:
@@ -2073,7 +2086,7 @@ async def reset_challenge(user):
 ############################move functions############################
 async def load_moves():
     for i in range(917):
-        print(f"Move ID: {i+1}")
+        #print(f"Move ID: {i+1}")
         move, learned_by = DataLoader.load_moves(i+1)
         await storage_manager.save_object(obj=move, cache_key=None, table_name="moves", unique_columns=["id"])
         await storage_manager.save_objects(objects=learned_by, cache_key_prefix=None, table_name="move_learned_by", unique_columns=["id"])
@@ -2161,7 +2174,7 @@ async def on_message(message):
         if message.content.startswith('.help filter'):
             embed = get_help_filter()
             await message.channel.send(embed=embed)
-        if message.content.startswith('.help moves'):
+        elif message.content.startswith('.help moves'):
             embed = get_help_moves()
             await message.channel.send(embed=embed)
         elif message.content.startswith('.help user'):
@@ -2508,13 +2521,17 @@ async def on_message(message):
             except:
                 embed = embed_generator.create_release_embed(user=user, content="Could not release! Please select a pokemon from .list")
             await message.channel.send(embed=embed)
-        
-        if message.content.startswith('.safe'):
+
+        if message.content.startswith('.safe recent'):
+            embed = await mark_safe_recent(user)
+            await message.channel.send(embed=embed)
+
+        elif message.content.startswith('.safe'):
             num = message.content.split()
             if len(num) > 1 and num[1]:
                 embed = await mark_safe(user, int(num[1]))
             else:
-                embed = embed_generator.create_safe_pokemon_failure_view(user)
+                embed = await mark_safe_buddy(user)
             await message.channel.send(embed=embed)
 
         if message.content.startswith('.see'):
