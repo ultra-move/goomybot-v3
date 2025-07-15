@@ -21,9 +21,9 @@ class TrainerBattle:
         elif tier == 2:
             conditions_pool = ["type", "physical", "special", "status"]
         elif tier == 3:
-            conditions_pool = ["type", "damage", "physical", "special", "status", "raise_stat", "lower_stat", "specific_move"]
+            conditions_pool = ["type", "damage", "physical", "special", "status", "raise_stat", "lower_stat", "specific_move", "accuracy"]
         elif tier == 4:
-            conditions_pool = ["type", "damage", "physical", "special", "status", "raise_stat", "lower_stat", "specific_move", "pp", "high_priority", "low_priority"]
+            conditions_pool = ["type", "damage", "physical", "special", "status", "raise_stat", "lower_stat", "specific_move", "accuracy", "pp", "high_priority", "low_priority"]
         else:
             print(f"Warning: Invalid tier '{tier}' provided. Returning empty conditions.")
             return {} # Return an empty dictionary if tier is invalid
@@ -60,6 +60,8 @@ class TrainerBattle:
                 condition_dict[con] = True
             elif con == "specific_move":
                 condition_dict[con] = MoveMaster.random_move().capitalize()
+            elif con == "accuracy":
+                condition_dict[con] = random.choice([90, 100, 85])
             elif con == "pp":
                 condition_dict[con] = random.choice([5, 10, 15, 20])
             elif con == "high_priority":

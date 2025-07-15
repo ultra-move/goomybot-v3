@@ -193,6 +193,12 @@ class EmbedGenerator():
         embed.set_thumbnail(url=pokemon.sprite_front)
         return embed
     
+    def create_move_view(self, move):
+        embed=discord.Embed(title=f"{move.name.capitalize()}",description=f"{move.__str__()}", color=default_color)
+        embed.set_author(name="Goomybot")
+        embed.set_thumbnail(url="https://github.com/PokeAPI/sprites/blob/master/sprites/items/tm-normal.png?raw=true")
+        return embed
+    
     def create_user_view_table(self, user, page, total_pages):
         embed=discord.Embed(color=default_color)
         embed.set_author(name=user.name.capitalize())

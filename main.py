@@ -99,6 +99,7 @@ def get_help_moves():
     help = """
 **__Move Commands__**
 * `.moves`: Displays moves that your pokemon currently knows
+* `.seemove <move_name>`: Shows info about the given move 
 * `.learnset <page_number>`: Shows all moves that your pokemon can learn 
 * `.learn <slot> <move_name>`: Teaches your pokemon the selected move
 """
@@ -419,7 +420,6 @@ async def evolve_buddy(user, name: Optional[str] = None):
         # and chosen_evolution is guaranteed to be set either by name or randomly.
         return embed_generator.create_evolved_fail_embed(user.name, "An unexpected error occurred during evolution selection.")
 
-
 async def filter_pokemon(user, filter_message):
     default_filter = {
         'shiny': False,
@@ -567,6 +567,11 @@ async def see_pokemon(name):
              return embed_generator.create_master_pokemon_view(result)
         else:
             return embed_generator.create_master_pokemon_view_failure()
+
+async def see_single_move(name):
+    result = await storage_manager.get_move_by_name(name)
+    if result:
+        return embed_generator.create_move_view(result)
 
 async def release_duplicates(user):
     active_trade = await storage_manager.get_trade_by_user_id(user_id=user.id)
@@ -2534,13 +2539,18 @@ async def on_message(message):
                 embed = await mark_safe_buddy(user)
             await message.channel.send(embed=embed)
 
-        if message.content.startswith('.see'):
+        
+        if message.content.startswith('.seemove'):
+            name = message.content.split()
+            if len(name) > 1 and name[1]:
+                embed = await see_single_move(name[1])
+        elif message.content.startswith('.see'):
             name = message.content.split()
             if len(name) > 1 and name[1]:
                 embed = await see_pokemon(name[1])
             else:
                 embed = embed_generator.create_master_pokemon_view_failure()
-            await message.channel.send(embed=embed) 
+        await message.channel.send(embed=embed) 
 
     #######################event commands#######################
         if message.content.startswith('.event toggle'):

@@ -94,3 +94,55 @@ class Move:
                 processed_data['power'] = None # Set to None if conversion fails
 
         return cls(**processed_data)
+    
+    def _format_dict_to_lines(self, data_dict, items_per_line=2, key_formatter=str.capitalize, bold_key=""):
+        """
+        Helper method to format a dictionary into lines, with a specified number of items per line.
+        """
+        formatted_items = []
+        for k, v in data_dict.items():
+            if bold_key != "" and str(k) == bold_key:
+                formatted_items.append(f"**{v.capitalize()}**")
+            else:
+                if isinstance(v, str):
+                    formatted_items.append(f"{v.capitalize()}")
+                else:
+                    formatted_items.append(f"{v}")
+
+        lines = []
+        # Increase leading spaces for a more indented "block" look
+        indent_prefix = "* " # 4 spaces for indentation
+        for i in range(0, len(formatted_items), items_per_line):
+            lines.append(indent_prefix + "  ".join(formatted_items[i : i + items_per_line]))
+        return "\n".join(lines)
+    
+    def __str__(self):
+        """
+        Returns a human-readable string representation of the Pokemon object.
+
+        self.id = id
+        self.name = name
+        self.accuracy = accuracy
+        self.damage_class = damage_class
+        self.power = power
+        self.pp = pp
+        self.priority = priority
+        self.stat_changes = stat_changes
+        self.type_name = type_name
+        self.contest_type = contest_type
+        """
+        stats_string = ""
+        for change in self.stat_changes:
+            stats_string = stats_string + self._format_dict_to_lines(change, 2) + "\n"
+        if stats_string == "":
+            stats_string = "None"
+        string = (
+            f"Type: {self.type_name.capitalize()}\n"
+            f"Accuracy: {self.accuracy}\n"
+            f"Power: {self.power}\n"
+            f"Damage Class: {self.damage_class.capitalize()}\n"
+            f"PP: {self.pp}\n"
+            f"Priority: {self.priority}\n"
+            f"Stat Changes:\n{stats_string}\n\n"
+        )
+        return string

@@ -904,7 +904,16 @@ class StorageManager:
             return moves
         else:
             return None
-     
+
+    async def get_move_by_name(self, name):
+        sql_query = f"""
+        SELECT * from moves where name = %(name)s
+        """
+        result = self.db.fetch_one(sql_query, params={'name': name})
+        if result:
+            return Move.from_dict(result)
+        else:
+            return None 
 
 
 
