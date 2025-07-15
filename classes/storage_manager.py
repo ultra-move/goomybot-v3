@@ -7,6 +7,7 @@ from classes.battle import Battle
 from classes.flex_log import FlexLog
 from classes.item import Item
 from classes.lottery import Lottery
+from classes.move import Move
 from classes.pokemon import Pokemon
 from classes.pokemon_master import PokemonMaster
 from classes.professor import Professor
@@ -890,7 +891,23 @@ class StorageManager:
             return total_pages, result 
         else:
             return None
-        
+
+    async def get_moves_by_type(self, types):
+        sql_query = f"""
+        SELECT * from moves where type_name in %(types)s
+        """
+        result = await self.db.fetch_all(sql_query, params={'types': types})
+        moves = []
+        if result:
+            for move in result:
+                moves.append(Move.from_dict(move))
+            return moves
+        else:
+            return None
+     
+
+
+
 #==================================================================================================== 
     async def get_leaderboard_stats(self):
         sql_query = """
