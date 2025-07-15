@@ -12,6 +12,7 @@ from discord.abc import PrivateChannel
 from redis.exceptions import RedisError
 import discord
 
+from classes import trainer_battle
 from classes.battle import Battle
 from classes.data_loader import DataLoader
 from classes.database_manager import DatabaseManager
@@ -23,6 +24,7 @@ from classes.professor import Professor
 from classes.quest import Quest
 from classes.pokemon_master import PokemonMaster
 from classes.redis_manager import RedisManager
+from classes.sprites import Sprites
 from classes.storage_manager import StorageManager
 #from classes.data_loader import DataLoader
 from classes.trade import Trade
@@ -585,6 +587,7 @@ async def release_single(user, selection):
         if pokemon.safe or str(user.current_pokemon) == str(to_delete):
             return embed_generator.create_release_embed(user, content="Can not release safe or buddy pokemon!")
         else:
+            user.view_table[str(selection)]['id'] = None
             await storage_manager.delete_user_pokemon_by_id(to_delete)
             reward_amount = 200
             user.wallet += reward_amount
@@ -1228,7 +1231,6 @@ async def battle_monitor_task(interval_seconds: int):
         # 4. Wait for the next interval
         await asyncio.sleep(interval_seconds)
 
-
 async def join_battle(user, local_id, channel_id):
     active_battle = await storage_manager.get_battle_by_user(user.id)
     if active_battle:
@@ -1265,6 +1267,58 @@ async def run_battle(user):
         await storage_manager.save_object(obj=user, cache_key=f"{REDIS_PREFIX}user_id:{user.id}", table_name="users", unique_columns=["id"])
         return embed_generator.create_run_from_battle_embed(user=user)
 ############################################################
+
+async def start_trainer_battle(user: User):
+    #pick trainer
+    trainer_sprite = Sprites.get_random_sprite()
+    #pick pokemon
+    trainer_user = User(id = 36135, discord_username="test", region=user.region, frame=random.randrange(1, 5000), event=False)
+    gen = Generator(trainer_user.tier_seed, trainer_user.type_seed, trainer_user.pokemon_seed, trainer_user.shiny_seed, trainer_user.item_seed)
+    outcome = gen.get_outcome_for_frame(trainer_user.frame, trainer_user)
+    safe = False
+    #logger.info(outcome)
+    level = 1
+    pokemon_data = await storage_manager.get_pokemon_master_by_id(outcome['pokemon_id'])
+    front_sprite = f"https://raw.githubusercontent.com/ultra-move/goomybot-v3/refs/heads/prod/sprites/whois/{outcome['pokemon_id']}.png"
+
+    if pokemon_data.tier == 4:
+        safe = True
+
+    iv = {
+        'hp': random.randrange(0,32),
+        'attack': random.randrange(0,32),
+        'defense': random.randrange(0,32),
+        'special_attack': random.randrange(0,32),
+        'special_defense': random.randrange(0,32),
+        'speed': random.randrange(0,32)
+    }
+    ev = {
+        'hp': 0,
+        'attack': 0,
+        'defense': 0,
+        'special_attack': 0,
+        'special_defense': 0,
+        'speed': 0
+    }
+    new_pokemon = Pokemon(id=uuid.uuid4(), user_id=user.id, original_user_id=user.id, pokedex_id=pokemon_data.id, name=pokemon_data.name, is_shiny=outcome['is_shiny'], tier = pokemon_data.tier, types=pokemon_data.types_names, ability=random.choice(pokemon_data.abilities_names), level = level, growth_rate = pokemon_data.growth_rate_name, exp=0, next_exp=0, sprite_front=front_sprite, sprite_back=pokemon_data.back_default_sprite, region=pokemon_data.region, iv=iv, ev=ev, base_stats=pokemon_data.base_stats_json, safe = safe)
+    print(new_pokemon)
+
+    #save pokemon to table
+    #pick conditions
+    tb = trainer_battle.TrainerBattle()
+    conditions = tb.randomize_conditions(new_pokemon.tier)
+
+    #pick bonus timer
+    if new_pokemon.tier == 1:
+        bonus_duration = 20
+    if new_pokemon.tier == 2:
+        bonus_duration = 45
+    if new_pokemon.tier == 3:
+        bonus_duration = 90
+    if new_pokemon.tier == 4:
+        bonus_duration = 120
+
+    return embed_generator.create_trainer_battle_embed(user_name=user.name, pokemon=new_pokemon, trainer_name="Test", trainer_sprite=trainer_sprite, conditions=conditions, bonus_duration=bonus_duration)
 
 
 #######################Raid methods#######################
@@ -2650,8 +2704,12 @@ async def on_message(message):
                 embed = await challenge_professor(user, local_id=str(local_id[1]))
             else:
                 embed = await challenge_professor(user, local_id=str(1))
-            await message.channel.send(embed=embed)    
+            await message.channel.send(embed=embed)
 
+        """if message.content.startswith(".battle"):
+            embed = await start_trainer_battle(user)
+            await message.channel.send(embed=embed)    
+        """
         end_time = time.time()
         elapsed_time = end_time - start_time
         logger.info(f"Message Response Time: {elapsed_time} seconds")
