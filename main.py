@@ -2544,13 +2544,14 @@ async def on_message(message):
             name = message.content.split()
             if len(name) > 1 and name[1]:
                 embed = await see_single_move(name[1])
+                await message.channel.send(embed=embed) 
         elif message.content.startswith('.see'):
             name = message.content.split()
             if len(name) > 1 and name[1]:
                 embed = await see_pokemon(name[1])
             else:
                 embed = embed_generator.create_master_pokemon_view_failure()
-        await message.channel.send(embed=embed) 
+            await message.channel.send(embed=embed) 
 
     #######################event commands#######################
         if message.content.startswith('.event toggle'):
