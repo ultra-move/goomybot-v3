@@ -893,6 +893,22 @@ class StorageManager:
         else:
             return None
 
+    async def get_who_learns(self, move_name, page, page_size):
+        offset = (page) * page_size
+        sql_query = f"""
+        select pokemon_name from move_learned_by where move_name = %(move_name)s
+        ORDER BY pokemon_id
+        LIMIT {page_size} OFFSET {offset};
+        """
+        count_query = f"SELECT COUNT(*) as total FROM move_learned_by where move_name = %(move_name)s"
+        total_records = int(self.db.fetch_one(count_query, {'move_name': move_name})['total'])
+        total_pages = math.ceil(total_records / page_size) if page_size > 0 else 0
+        result = await self.db.fetch_all(sql_query, {'move_name': move_name})
+        if result:
+            return total_pages, result 
+        else:
+            return None
+
     async def get_moves_by_type(self, types):
         sql_query = f"""
         SELECT * from moves where type_name in %(types)s
@@ -940,8 +956,21 @@ class StorageManager:
             logger.error(f"StorageManager: DB error getting Trainer Battle Pokemon Data {pokemon_id}: {e}")
             return None # Return None or re-raise based on desired error handling         
 
+    async def delete_trainer_battle(self, tb_id):
+        sql_query = f"""
+DELETE FROM trainer_battles
+WHERE id = '{tb_id}'
+        """
+        rows = await self.db.execute_delete_query(sql_query)
+        return rows
 
-
+    async def delete_trainer_battle_pokemon(self, pokemon_id):
+        sql_query = f"""
+DELETE FROM trainer_battle_pokemon
+WHERE id = '{pokemon_id}'
+        """
+        rows = await self.db.execute_delete_query(sql_query)
+        return rows
 
 #==================================================================================================== 
     async def get_leaderboard_stats(self):
@@ -1048,6 +1077,7 @@ WHERE completed_time < (NOW() - INTERVAL '4 hours');
         """
         rows = await self.db.execute_delete_query(sql_query)
         return rows
+    
 
     async def delete_duplicates(self, user_id, buddy_id):
         sql_query = f"""

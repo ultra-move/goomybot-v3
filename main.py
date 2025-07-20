@@ -72,6 +72,7 @@ def get_help():
 * `.help filter`: Displays the filter commands help message.
 * `.help battle`: Displays the battle commands help message.
 * `.help raid`: Displays the raid commands help message.
+* `.help trainer`: Displays the battle commands help message.
 * `.help items`: Displays the items commands help message.
 * `.help event`: Displays the event commands help message.
 * `.help trade`: Displays the trade commands help message.
@@ -99,9 +100,18 @@ def get_help_moves():
     help = """
 **__Move Commands__**
 * `.moves`: Displays moves that your pokemon currently knows
+* `.wholearns <move_name> <page_number>`: Shows all pokemon that learn move_name
 * `.seemove <move_name>`: Shows info about the given move 
 * `.learnset <page_number>`: Shows all moves that your pokemon can learn 
 * `.learn <slot> <move_name>`: Teaches your pokemon the selected move
+"""
+    return embed_generator.create_help_embed(info=help)
+
+def get_help_trainer():
+    help = """
+**__Trainer Battle Commands__**
+* `.battle`: Starts or displays the current battle
+* `.use <move_name>`: Uses a move that your buddy pokemon knows
 """
     return embed_generator.create_help_embed(info=help)
 
@@ -1292,7 +1302,7 @@ async def start_trainer_battle(user: User):
     if atb:
         print(atb.conditions_met)
         new_pokemon = await storage_manager.get_trainer_battle_pokemon(atb.pokemon_id)
-        return embed_generator.create_trainer_battle_embed(user_name=user.name, pokemon=new_pokemon, trainer_name="Test", trainer_sprite=atb.trainer_sprite, conditions=atb.conditions, conditions_met=atb.conditions_met, bonus_duration=atb.bonus_duration)
+        return embed_generator.create_trainer_battle_embed(user_name=user.name, pokemon=new_pokemon, trainer_name="???", trainer_sprite=atb.trainer_sprite, conditions=atb.conditions, conditions_met=atb.conditions_met, bonus_duration=atb.bonus_duration)
     #pick trainer
     trainer_sprite = Sprites.get_random_sprite()
     #pick pokemon
@@ -1303,7 +1313,10 @@ async def start_trainer_battle(user: User):
     #logger.info(outcome)
     level = 1
     pokemon_data = await storage_manager.get_pokemon_master_by_id(outcome['pokemon_id'])
-    front_sprite = f"https://raw.githubusercontent.com/ultra-move/goomybot-v3/refs/heads/prod/sprites/whois/{outcome['pokemon_id']}.png"
+    if outcome['is_shiny']:
+        front_sprite = pokemon_data.front_shiny_sprite
+    else:
+        front_sprite = pokemon_data.front_default_sprite
 
     if pokemon_data.tier == 4:
         safe = True
@@ -1349,7 +1362,8 @@ async def use_move(user:User, move:str):
             move_data = await storage_manager.get_move_by_name(move)
             all_met = atb.check_condition(move=move_data)
             if all_met:
-                True #finish_logic
+                await storage_manager.save_object(atb, f"{REDIS_PREFIX}trainer_battle:{atb.id}", table_name="trainer_battles", unique_columns=['id'])
+                return await finish_trainer_battle(user, atb)
             else:
                 await storage_manager.save_object(atb, f"{REDIS_PREFIX}trainer_battle:{atb.id}", table_name="trainer_battles", unique_columns=['id'])
                 new_pokemon = await storage_manager.get_trainer_battle_pokemon(atb.pokemon_id)
@@ -1358,12 +1372,26 @@ async def use_move(user:User, move:str):
     else:
         False
 
-async def finish_trainer_battle():
+async def finish_trainer_battle(user, active_trainer_battle:trainer_battle):
     #give pokemon
+    pokemon = await storage_manager.get_trainer_battle_pokemon(active_trainer_battle.pokemon_id)
+    #get real sprite
+    pokemon_data = await storage_manager.get_pokemon_master_by_id(pokemon.pokedex_id)
+    if pokemon.is_shiny:
+        pokemon.sprite_front = pokemon_data.front_shiny_sprite
+    else:
+        pokemon.sprite_front = pokemon_data.front_default_sprite
+    pokemon.user_id = user.id
+    await storage_manager.save_object(obj=pokemon, cache_key=f"{REDIS_PREFIX}pokemon_data:{pokemon.id}", table_name='user_pokemon', unique_columns=['id'])
     #give rewards
-    #delete trainer_battle_pokemon
+    reward = 800 * pokemon.tier
+    user.wallet = user.wallet + reward
+    asyncio.create_task(storage_manager.save_object(obj=user, cache_key=f"{REDIS_PREFIX}user_id:{user.id}", table_name="users", unique_columns=["id"]))
     #delete trainer_battle
-    True
+    asyncio.create_task(storage_manager.delete_trainer_battle(active_trainer_battle.id))
+    #delete trainer_battle_pokemon 
+    asyncio.create_task(storage_manager.delete_trainer_battle_pokemon(pokemon.id))
+    return embed_generator.create_trainer_battle_finish_embed(pokemon_name=pokemon.name, url=pokemon.sprite_front, color=embed_generator.get_color(pokemon), rewards=reward)
     
 
 #######################Raid methods#######################
@@ -2132,6 +2160,13 @@ async def get_learnset(user, page):
         move_string = move_string + record['name'].capitalize() +"\n"
     return embed_generator.create_learnset_table(user, pokemon, move_string, page+1, total_records)
 
+async def who_learns(user, move_name, page):
+    total_records, result = await storage_manager.get_who_learns(move_name=move_name, page=page, page_size=10)
+    pokemon_string = ""
+    for record in result:
+        pokemon_string = pokemon_string + record['pokemon_name'].capitalize() +"\n"
+    return embed_generator.create_who_learns_table(user, move_name, pokemon_string, page+1, total_records)
+
 async def learn_move(user, slot, move_name):
     if slot < 5 and slot > 0:
         pokemon = await storage_manager.get_user_pokemon_by_id(str(user.current_pokemon))
@@ -2208,6 +2243,9 @@ async def on_message(message):
             await message.channel.send(embed=embed)
         elif message.content.startswith('.help moves'):
             embed = get_help_moves()
+            await message.channel.send(embed=embed)
+        elif message.content.startswith('.help trainer'):
+            embed = get_help_trainer()
             await message.channel.send(embed=embed)
         elif message.content.startswith('.help user'):
             embed = get_help_user()
@@ -2761,7 +2799,7 @@ async def on_message(message):
                 embed = await challenge_professor(user, local_id=str(1))
             await message.channel.send(embed=embed)
 
-        """if message.content.startswith(".battle"):
+        if message.content.startswith(".battle"):
             embed = await start_trainer_battle(user)
             await message.channel.send(embed=embed)
 
@@ -2770,7 +2808,25 @@ async def on_message(message):
             if len(move_name) > 1:
                 embed = await use_move(user, move=move_name[1])
                 await message.channel.send(embed=embed)
-        """
+
+        if message.content.startswith('.wholearns'):
+            page = message.content.split()
+            try:
+                if len(page) > 2:
+                    if int(page[2]) > 0: # Ensure user doesn't ask for page 0 or negative
+                        requested_page = int(page[2]) - 1
+                        move_name = page[1]
+                        embed: discord.Embed = await who_learns(user=user, move_name=move_name, page=requested_page)
+                    else:
+                        embed: discord.Embed = await who_learns(user=user, move_name=move_name, page=0)
+                    await message.channel.send(embed=embed)
+                elif len(page) > 1:
+                    move_name = page[1]
+                    embed: discord.Embed = await who_learns(user=user, move_name=move_name, page=0)
+                    await message.channel.send(embed=embed)
+            except:
+                False
+            
         end_time = time.time()
         elapsed_time = end_time - start_time
         logger.info(f"Message Response Time: {elapsed_time} seconds")

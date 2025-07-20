@@ -67,7 +67,7 @@ class Move:
             processed_data['stat_changes'] = [] # Default to empty list if missing or None
 
         # Ensure required fields are present and have correct types
-        required_keys = ['id', 'name', 'pp', 'priority', 'damage_class', 'type_name', 'contest_type']
+        required_keys = ['id', 'name', 'pp', 'priority', 'damage_class', 'type_name']
         for key in required_keys:
             if key not in processed_data or processed_data[key] is None:
                 raise ValueError(f"Move.from_dict: Required field '{key}' is missing or None.")

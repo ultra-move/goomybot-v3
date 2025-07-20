@@ -105,21 +105,29 @@ class EmbedGenerator():
         print(conditions)
         print(conditions_met)
         color = self.get_color(pokemon)
-        if color == 0xf5a8ff:
-            pokemon_name = f"✨???✨"
-        else:
-            pokemon_name = "???"
+        pokemon_name = self.format_pokemon_name(pokemon)
         embed=discord.Embed(title=f"{trainer_name} challenges you with {pokemon_name}", description="Use moves that match the following conditions to win:", color=color)
         embed.set_author(name=user_name.capitalize())
         embed.set_image(url=pokemon.sprite_front)
         embed.set_thumbnail(url=trainer_sprite)
-        embed.set_footer(text=f"Complete in {bonus_duration} seconds to gain 2x rewards!")
+        #embed.set_footer(text=f"Complete in {bonus_duration} seconds to gain 2x rewards!")
         for con in conditions.keys():
             if con in conditions_met:
                 embed.add_field(name="~~"+str(con).capitalize()+"~~", value="~~"+str(conditions[con])+"~~", inline=False)
             else:
                 embed.add_field(name=str(con).capitalize(), value=str(conditions[con]), inline=False)
 
+        return embed
+
+    def create_trainer_battle_finish_embed(self, pokemon_name, url, color, rewards):
+        if color == 0xf5a8ff:
+            pokemon_name = f"✨{pokemon_name.capitalize()}✨"
+        else:
+            pokemon_name = pokemon_name.capitalize()
+        embed=discord.Embed(title=f"Defeated {pokemon_name}!", color=color)
+        embed.set_author(name="goomybot")
+        embed.add_field(name="Money", value=rewards, inline=True)
+        embed.set_image(url=url)
         return embed
     
     def create_battle_embed(self, user_name, pokemon_name, join_code, duration, url, color):
@@ -190,6 +198,13 @@ class EmbedGenerator():
         embed=discord.Embed(title=f"{self.format_pokemon_name(pokemon)} Learnset",description=f"{moves}", color=self.get_color(pokemon=pokemon))
         embed.set_author(name=user.name.capitalize())
         embed.set_thumbnail(url=pokemon.sprite_front)
+        embed.set_footer(text=f"Page {page}/{total_pages}")
+        return embed
+
+    def create_who_learns_table(self, user, move, pokemon, page, total_pages):
+        embed=discord.Embed(title=f"Who Learns {move.capitalize()}?",description=f"{pokemon}", color=default_color)
+        embed.set_author(name=user.name.capitalize())
+        embed.set_thumbnail(url="https://github.com/PokeAPI/sprites/blob/master/sprites/items/tm-normal.png?raw=true")
         embed.set_footer(text=f"Page {page}/{total_pages}")
         return embed
     
