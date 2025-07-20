@@ -1287,6 +1287,12 @@ async def run_battle(user):
 ############################################################
 
 async def start_trainer_battle(user: User):
+    #get active trainer battle
+    atb = await storage_manager.get_active_trainer_battle(user.id)
+    if atb:
+        print(atb.conditions_met)
+        new_pokemon = await storage_manager.get_trainer_battle_pokemon(atb.pokemon_id)
+        return embed_generator.create_trainer_battle_embed(user_name=user.name, pokemon=new_pokemon, trainer_name="Test", trainer_sprite=atb.trainer_sprite, conditions=atb.conditions, conditions_met=atb.conditions_met, bonus_duration=atb.bonus_duration)
     #pick trainer
     trainer_sprite = Sprites.get_random_sprite()
     #pick pokemon
@@ -1322,22 +1328,43 @@ async def start_trainer_battle(user: User):
     print(new_pokemon)
 
     #save pokemon to table
+    await storage_manager.save_object(new_pokemon, f"{REDIS_PREFIX}trainer_pokemon_data:{new_pokemon.id}", table_name="trainer_battle_pokemon", unique_columns=['id'])
+    
     #pick conditions
-    tb = trainer_battle.TrainerBattle()
-    conditions = tb.randomize_conditions(new_pokemon.tier)
+    if new_pokemon.is_shiny:
+        tb = trainer_battle.TrainerBattle(tier=4, user_id=user.id, pokemon_id=new_pokemon.id, trainer_sprite=trainer_sprite)
+    else:
+        tb = trainer_battle.TrainerBattle(tier=new_pokemon.tier, user_id=user.id, pokemon_id=new_pokemon.id, trainer_sprite=trainer_sprite)
+    
+    await storage_manager.save_object(tb, f"{REDIS_PREFIX}trainer_battle:{tb.id}", table_name="trainer_battles", unique_columns=['id'])
 
-    #pick bonus timer
-    if new_pokemon.tier == 1:
-        bonus_duration = 20
-    if new_pokemon.tier == 2:
-        bonus_duration = 45
-    if new_pokemon.tier == 3:
-        bonus_duration = 90
-    if new_pokemon.tier == 4:
-        bonus_duration = 120
+    return embed_generator.create_trainer_battle_embed(user_name=user.name, pokemon=new_pokemon, trainer_name="Test", trainer_sprite=trainer_sprite, conditions=tb.conditions, conditions_met=[], bonus_duration=tb.bonus_duration)
 
-    return embed_generator.create_trainer_battle_embed(user_name=user.name, pokemon=new_pokemon, trainer_name="Test", trainer_sprite=trainer_sprite, conditions=conditions, bonus_duration=bonus_duration)
 
+async def use_move(user:User, move:str):
+    atb = await storage_manager.get_active_trainer_battle(user.id)
+    if atb:
+        buddy = await storage_manager.get_user_pokemon_by_id(user.current_pokemon)
+        if move in buddy.moves:
+            move_data = await storage_manager.get_move_by_name(move)
+            all_met = atb.check_condition(move=move_data)
+            if all_met:
+                True #finish_logic
+            else:
+                await storage_manager.save_object(atb, f"{REDIS_PREFIX}trainer_battle:{atb.id}", table_name="trainer_battles", unique_columns=['id'])
+                new_pokemon = await storage_manager.get_trainer_battle_pokemon(atb.pokemon_id)
+                return embed_generator.create_trainer_battle_embed(user_name=user.name, pokemon=new_pokemon, trainer_name="Test", trainer_sprite=atb.trainer_sprite, conditions=atb.conditions, conditions_met=atb.conditions_met, bonus_duration=atb.bonus_duration)
+        else: False
+    else:
+        False
+
+async def finish_trainer_battle():
+    #give pokemon
+    #give rewards
+    #delete trainer_battle_pokemon
+    #delete trainer_battle
+    True
+    
 
 #######################Raid methods#######################
 async def admin_start_raid(pokedex_id, is_shiny, user, channel_id):
@@ -2736,7 +2763,13 @@ async def on_message(message):
 
         """if message.content.startswith(".battle"):
             embed = await start_trainer_battle(user)
-            await message.channel.send(embed=embed)    
+            await message.channel.send(embed=embed)
+
+        if message.content.startswith('.use'):
+            move_name = message.content.split()
+            if len(move_name) > 1:
+                embed = await use_move(user, move=move_name[1])
+                await message.channel.send(embed=embed)
         """
         end_time = time.time()
         elapsed_time = end_time - start_time

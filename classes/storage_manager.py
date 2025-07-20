@@ -15,6 +15,7 @@ from classes.quest import Quest
 from classes.redis_manager import RedisManager
 from classes.database_manager import DatabaseManager
 from classes.trade import Trade
+from classes.trainer_battle import TrainerBattle
 from classes.user import User
 from redis.exceptions import RedisError # Import RedisError for handling cache issues
 import psycopg2 # Import psycopg2 for handling database specific errors
@@ -914,6 +915,31 @@ class StorageManager:
             return Move.from_dict(result)
         else:
             return None 
+
+    async def get_active_trainer_battle(self, user_id):
+        sql_query = f"""
+        SELECT * from trainer_battles where user_id = {user_id}
+        """
+        result = self.db.fetch_one(sql_query)
+        if result:
+            return TrainerBattle.from_dict(result)
+        else:
+            return None
+
+    async def get_trainer_battle_pokemon(self, pokemon_id):
+        try:
+            sql_query = "SELECT * from trainer_battle_pokemon WHERE id = %(pokemon_id)s"
+            pokemon_data = self.db.fetch_one(sql_query, {"pokemon_id": str(pokemon_id)})
+            if pokemon_data:
+                logger.debug(f"StorageManager: Retrieved Trainer Battle Pokemon Data for {pokemon_id} from DB.")
+                # 3. Cache the result for next time (e.g., cache for 5 minutes)
+                return Pokemon.from_dict(pokemon_data)
+            logger.debug(f"StorageManager: Trainer Battle Pokemon Data for {pokemon_id} not found in DB.")
+            return None
+        except psycopg2.Error as e:
+            logger.error(f"StorageManager: DB error getting Trainer Battle Pokemon Data {pokemon_id}: {e}")
+            return None # Return None or re-raise based on desired error handling         
+
 
 
 

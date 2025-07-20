@@ -101,7 +101,9 @@ class EmbedGenerator():
         embed.set_author(name=user.name.capitalize())
         return embed
     
-    def create_trainer_battle_embed(self, user_name, pokemon, trainer_name, trainer_sprite, conditions:dict, bonus_duration):
+    def create_trainer_battle_embed(self, user_name, pokemon, trainer_name, trainer_sprite, conditions:dict, conditions_met:list, bonus_duration):
+        print(conditions)
+        print(conditions_met)
         color = self.get_color(pokemon)
         if color == 0xf5a8ff:
             pokemon_name = f"✨???✨"
@@ -113,7 +115,11 @@ class EmbedGenerator():
         embed.set_thumbnail(url=trainer_sprite)
         embed.set_footer(text=f"Complete in {bonus_duration} seconds to gain 2x rewards!")
         for con in conditions.keys():
-            embed.add_field(name=str(con).capitalize(), value=conditions[con], inline=False)
+            if con in conditions_met:
+                embed.add_field(name="~~"+str(con).capitalize()+"~~", value="~~"+str(conditions[con])+"~~", inline=False)
+            else:
+                embed.add_field(name=str(con).capitalize(), value=str(conditions[con]), inline=False)
+
         return embed
     
     def create_battle_embed(self, user_name, pokemon_name, join_code, duration, url, color):
@@ -520,9 +526,9 @@ class EmbedGenerator():
         return embed
 
     def create_event_embed(self, user):
-        embed=discord.Embed(title="Pink Event!", description= "This event ends on 7/18!\n", color=event_color)
+        embed=discord.Embed(title="Welcome to Sinnoh!", color=event_color)
         embed.set_author(name="Goomybot")
-        embed.set_image(url=r'https://raw.githubusercontent.com/ultra-move/goomybot-v3/refs/heads/prod/sprites/pink.png')
+        embed.set_image(url=r'https://raw.githubusercontent.com/ultra-move/goomybot-v3/refs/heads/prod/sprites/sinnoh.png')
         embed.set_footer(text="use .event toggle to join/leave the event")
         return embed
     
