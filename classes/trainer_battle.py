@@ -127,11 +127,13 @@ class TrainerBattle:
                     condition_met_for_this_move = True
             elif con == "raise_stat":
                 # Assuming stat_changes is a dictionary like {"stat": "attack", "value": 1}
-                if move.stat_changes and move.stat_changes.get("value", 0) > 0:
-                    condition_met_for_this_move = True
+                for change in move.stat_changes:
+                    if move.stat_changes and change.get("value", 0) > 0:
+                        condition_met_for_this_move = True
             elif con == "lower_stat":
-                if move.stat_changes and move.stat_changes.get("value", 0) < 0:
-                    condition_met_for_this_move = True
+               for change in move.stat_changes:
+                    if move.stat_changes and change.get("value", 0) < 0:
+                        condition_met_for_this_move = True
             elif con == "specific_move":
                 if self.conditions[con] == move.name.capitalize():
                     condition_met_for_this_move = True
