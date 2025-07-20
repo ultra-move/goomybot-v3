@@ -1384,7 +1384,7 @@ async def finish_trainer_battle(user, active_trainer_battle:trainer_battle):
     pokemon.user_id = user.id
     await storage_manager.save_object(obj=pokemon, cache_key=f"{REDIS_PREFIX}pokemon_data:{pokemon.id}", table_name='user_pokemon', unique_columns=['id'])
     #give rewards
-    reward = random.choice(200, 400, 600, 800) * pokemon.tier
+    reward = random.choice([200, 400, 600, 800]) * pokemon.tier
     user.wallet = user.wallet + reward
     asyncio.create_task(storage_manager.save_object(obj=user, cache_key=f"{REDIS_PREFIX}user_id:{user.id}", table_name="users", unique_columns=["id"]))
     #delete trainer_battle
