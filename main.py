@@ -1351,7 +1351,7 @@ async def start_trainer_battle(user: User):
     
     await storage_manager.save_object(tb, f"{REDIS_PREFIX}trainer_battle:{tb.id}", table_name="trainer_battles", unique_columns=['id'])
 
-    return embed_generator.create_trainer_battle_embed(user_name=user.name, pokemon=new_pokemon, trainer_name="Test", trainer_sprite=trainer_sprite, conditions=tb.conditions, conditions_met=[], bonus_duration=tb.bonus_duration)
+    return embed_generator.create_trainer_battle_embed(user_name=user.name, pokemon=new_pokemon, trainer_name="???", trainer_sprite=trainer_sprite, conditions=tb.conditions, conditions_met=[], bonus_duration=tb.bonus_duration)
 
 
 async def use_move(user:User, move:str):
