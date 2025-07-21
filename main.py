@@ -653,7 +653,7 @@ async def mark_safe_recent(user):
 
 async def mark_safe_buddy(user):
     try:
-        pokemon = await storage_manager.get_user_pokemon_by_id(user.current_pokemon)
+        pokemon = await storage_manager.get_user_pokemon_by_id(str(user.current_pokemon))
         if pokemon.safe:
             pokemon.safe = False
         else:
@@ -963,7 +963,7 @@ async def rare_candy(user, quantity):
     if active_trade:
         return embed_generator.create_trade_block_embed(user, "Cannot use rare candy while in a trade")
     item = await storage_manager.get_user_item_by_name(user, 'rarecandy')
-    print(item)
+    #print(item)
     if item.quantity >= quantity:
         buddy = await storage_manager.get_user_pokemon_by_id(str(user.current_pokemon))
         try:
@@ -1307,7 +1307,7 @@ async def start_trainer_battle(user: User):
     #get active trainer battle
     atb = await storage_manager.get_active_trainer_battle(user.id)
     if atb:
-        print(atb.conditions_met)
+        #print(atb.conditions_met)
         new_pokemon = await storage_manager.get_trainer_battle_pokemon(atb.pokemon_id)
         return embed_generator.create_trainer_battle_embed(user_name=user.name, pokemon=new_pokemon, trainer_name="???", trainer_sprite=atb.trainer_sprite, conditions=atb.conditions, conditions_met=atb.conditions_met, bonus_duration=atb.bonus_duration)
     #pick trainer
@@ -1345,7 +1345,7 @@ async def start_trainer_battle(user: User):
         'speed': 0
     }
     new_pokemon = Pokemon(id=uuid.uuid4(), user_id=user.id, original_user_id=user.id, pokedex_id=pokemon_data.id, name=pokemon_data.name, is_shiny=outcome['is_shiny'], tier = pokemon_data.tier, types=pokemon_data.types_names, ability=random.choice(pokemon_data.abilities_names), level = level, growth_rate = pokemon_data.growth_rate_name, exp=0, next_exp=0, sprite_front=front_sprite, sprite_back=pokemon_data.back_default_sprite, region=pokemon_data.region, iv=iv, ev=ev, base_stats=pokemon_data.base_stats_json, safe = safe)
-    print(new_pokemon)
+    #print(new_pokemon)
 
     #save pokemon to table
     await storage_manager.save_object(new_pokemon, f"{REDIS_PREFIX}trainer_pokemon_data:{new_pokemon.id}", table_name="trainer_battle_pokemon", unique_columns=['id'])
@@ -1364,11 +1364,11 @@ async def start_trainer_battle(user: User):
 async def use_move(user:User, move:str, slot):
     atb = await storage_manager.get_active_trainer_battle(user.id)
     if atb:
-        buddy = await storage_manager.get_user_pokemon_by_id(user.current_pokemon)
+        buddy = await storage_manager.get_user_pokemon_by_id(str(user.current_pokemon))
         if int(buddy.pokedex_id) == 151:
             return embed_generator.create_trainer_use_fail_embed(user.name, "Sorry, Mew cannot be used in trainer battles!")
-        print(slot)
-        if slot >= 0 and slot < 4:
+        #print(slot)
+        if slot and slot >= 0 and slot < 4:
             move_data = await storage_manager.get_move_by_name(buddy.moves[slot])
             all_met = atb.check_condition(move=move_data)
         elif move in buddy.moves:
@@ -1714,7 +1714,7 @@ async def lottery_monitor_task(interval_seconds: int):
 #####################trade functions##############################
 
 async def start_trade(user, mention):
-    print(f"Trade starting with: {mention}")
+    #print(f"Trade starting with: {mention}")
     active_trade = await storage_manager.get_trade_by_user_id(user_id=user.id)
     if active_trade:
         return embed_generator.create_trade_already_active_embed(user)
@@ -1910,7 +1910,7 @@ async def finish_trade(active_trade):
         await storage_manager.save_object(obj=pokemon_data, cache_key=f"{REDIS_PREFIX}pokemon_data:{pokemon_data.id}", table_name='user_pokemon', unique_columns=['id'])
     
     for item in active_trade.user1['items']:
-        print(active_trade)
+        #print(active_trade)
         user1_item_data = await storage_manager.get_user_item_by_name(user=user1, item_name=item['name'])
         user2_item_data = await storage_manager.get_user_item_by_name(user=user2, item_name=item['name'])
         if user2_item_data:
@@ -1967,7 +1967,7 @@ async def quest(user):
         if active_quest.status == 'active':
             complete = await storage_manager.get_quest_complete(user.id, active_quest)
             pokemon = await storage_manager.get_pokemon_master_by_id(active_quest.condition['pokedex_id'])
-            print(complete)
+            #print(complete)
             if complete:
                 await quest_reward(user, active_quest)
                 active_quest.status = 'complete'
@@ -2111,9 +2111,9 @@ async def challenge_professor(user, local_id):
             reduced_mult = 4  
     if active_challenge:
         requirements_met, bonus_met, fail_display = active_challenge.check_condition(pokemon)
-        print(requirements_met)
-        print(bonus_met)
-        print(fail_display)
+        #print(requirements_met)
+        #print(bonus_met)
+        #print(fail_display)
         if requirements_met:
             await challenge_reward(user=user, challenge=active_challenge, bonus=bonus_met, reduced_rewards=reduced_rewards, reduced_mult=reduced_mult)
             active_challenge.completed_by = user.id
@@ -2498,7 +2498,7 @@ async def on_message(message):
                 slot = int(split[1])
             except:
                 slot = 5
-            move_name = split[2]
+            move_name = "-".join(split[2:]).lower()
             embed = await learn_move(user, slot, move_name)
             await message.channel.send(embed=embed)
 
@@ -2817,13 +2817,16 @@ async def on_message(message):
             await message.channel.send(embed=embed)
 
         if message.content.startswith('.use'):
-            move_name = message.content.split()
-            if len(move_name) > 1:
+            move_parts = message.content.split()
+            if len(move_parts) > 1:
                 try:
-                    slot = int(move_name[1])
-                    embed = await use_move(user, move="", slot=slot-1)
-                except: 
-                    embed = await use_move(user, move=move_name[1], slot=None)
+                    slot = int(move_parts[1]) - 1 # Adjust for 0-based indexing immediately
+                    embed = await use_move(user, move="", slot=slot)
+                except ValueError:
+                    # If the second part isn't a number, assume it's part of the move name
+                    # Reconstruct the move name from the second part onwards
+                    move_name = "-".join(move_parts[1:]).lower() # Join with hyphens and convert to lowercase
+                    embed = await use_move(user, move=move_name, slot=None) 
                 await message.channel.send(embed=embed)
 
         if message.content.startswith('.wholearns'):

@@ -938,7 +938,7 @@ class StorageManager:
         battle_data = await self._get_from_cache(cache_key)
         if battle_data:
             logger.debug(f"StorageManager: Retrieved trainer Battle Data for {user_id} from cache.")
-            return TrainerBattle.from_dict(pokemon_data)
+            return TrainerBattle.from_dict(battle_data)
         # 2. Cache miss, try database
         sql_query = f"""
         SELECT * from trainer_battles where user_id = {user_id}
