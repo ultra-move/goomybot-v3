@@ -28,9 +28,9 @@ class TrainerBattle:
         conditions_pool = []
         tier = self.tier
         if tier == 1:
-            conditions_pool = ["type"]
-        elif tier == 2:
             conditions_pool = ["type", "physical", "special", "status"]
+        elif tier == 2:
+            conditions_pool = ["type", "physical", "special", "status", "raise_stat", "lower_stat"]
         elif tier == 3:
             conditions_pool = ["type", "damage", "physical", "special", "status", "raise_stat", "lower_stat", "specific_move", "accuracy"]
         elif tier == 4:

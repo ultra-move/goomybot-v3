@@ -1378,10 +1378,10 @@ async def use_move(user:User, move:str, slot):
             return embed_generator.create_trainer_use_fail_embed(user.name, "Please check command syntax!")
         
         if all_met:
-            await storage_manager.save_object(atb, f"{REDIS_PREFIX}trainer_battle:{atb.id}", table_name="trainer_battles", unique_columns=['id'])
+            await storage_manager.save_object(atb, f"{REDIS_PREFIX}trainer_battle:{user.id}", table_name="trainer_battles", unique_columns=['id'])
             return await finish_trainer_battle(user, atb)
         else:
-            await storage_manager.save_object(atb, f"{REDIS_PREFIX}trainer_battle:{atb.id}", table_name="trainer_battles", unique_columns=['id'])
+            await storage_manager.save_object(atb, f"{REDIS_PREFIX}trainer_battle:{user.id}", table_name="trainer_battles", unique_columns=['id'])
             new_pokemon = await storage_manager.get_trainer_battle_pokemon(atb.pokemon_id)
             return embed_generator.create_trainer_battle_embed(user_name=user.name, pokemon=new_pokemon, trainer_name="???", trainer_sprite=atb.trainer_sprite, conditions=atb.conditions, conditions_met=atb.conditions_met, bonus_duration=atb.bonus_duration)
     else:
@@ -1391,11 +1391,6 @@ async def finish_trainer_battle(user, active_trainer_battle:trainer_battle):
     #give pokemon
     pokemon = await storage_manager.get_trainer_battle_pokemon(active_trainer_battle.pokemon_id)
     #get real sprite
-    pokemon_data = await storage_manager.get_pokemon_master_by_id(pokemon.pokedex_id)
-    if pokemon.is_shiny:
-        pokemon.sprite_front = pokemon_data.front_shiny_sprite
-    else:
-        pokemon.sprite_front = pokemon_data.front_default_sprite
     pokemon.user_id = user.id
     await storage_manager.save_object(obj=pokemon, cache_key=f"{REDIS_PREFIX}pokemon_data:{pokemon.id}", table_name='user_pokemon', unique_columns=['id'])
     #give rewards
