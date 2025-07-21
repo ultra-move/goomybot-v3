@@ -950,6 +950,12 @@ class StorageManager:
             return None
 
     async def get_trainer_battle_pokemon(self, pokemon_id):
+        cache_key = f"{REDIS_PREFIX}trainer_pokemon_data:{pokemon_id}"
+        # 1. Try cache
+        pokemon_data = await self._get_from_cache(cache_key)
+        if pokemon_data:
+            logger.debug(f"StorageManager: Retrieved Trainer Battle Pokemon Data for {pokemon_id} from cache.")
+            return Pokemon.from_dict(pokemon_data)
         try:
             sql_query = "SELECT * from trainer_battle_pokemon WHERE id = %(pokemon_id)s"
             pokemon_data = self.db.fetch_one(sql_query, {"pokemon_id": str(pokemon_id)})
