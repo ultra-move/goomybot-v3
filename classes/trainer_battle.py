@@ -62,7 +62,7 @@ class TrainerBattle:
             elif con == "special":
                 condition_dict[con] = True
             elif con == "damage":
-                condition_dict[con] = random.choice([0, 60, 70, 80, 90, 100, 120])
+                condition_dict[con] = random.choice([60, 70, 80, 90, 100, 120])
             elif con == "status":
                 condition_dict[con] = True
             elif con == "raise_stat":
