@@ -1398,7 +1398,7 @@ async def finish_trainer_battle(user, active_trainer_battle:trainer_battle):
     user.wallet = user.wallet + reward
     await storage_manager.save_object(obj=user, cache_key=f"{REDIS_PREFIX}user_id:{user.id}", table_name="users", unique_columns=["id"])
     #delete trainer_battle
-    await storage_manager.delete_trainer_battle(active_trainer_battle.id)
+    await storage_manager.delete_trainer_battle(user.id)
     #delete trainer_battle_pokemon 
     await storage_manager.delete_trainer_battle_pokemon(pokemon.id)
     return embed_generator.create_trainer_battle_finish_embed(pokemon_name=pokemon.name, url=pokemon.sprite_front, color=embed_generator.get_color(pokemon), rewards=reward)

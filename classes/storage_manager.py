@@ -969,12 +969,13 @@ class StorageManager:
             logger.error(f"StorageManager: DB error getting Trainer Battle Pokemon Data {pokemon_id}: {e}")
             return None # Return None or re-raise based on desired error handling         
 
-    async def delete_trainer_battle(self, tb_id):
+    async def delete_trainer_battle(self, user_id):
         sql_query = f"""
 DELETE FROM trainer_battles
-WHERE id = '{tb_id}'
+WHERE user_id = '{user_id}'
         """
         rows = await self.db.execute_delete_query(sql_query)
+        await self.redis.delete(f"{REDIS_PREFIX}trainer_battle:{user_id}")
         return rows
 
     async def delete_trainer_battle_pokemon(self, pokemon_id):
@@ -983,6 +984,7 @@ DELETE FROM trainer_battle_pokemon
 WHERE id = '{pokemon_id}'
         """
         rows = await self.db.execute_delete_query(sql_query)
+        await self.redis.delete(f"{REDIS_PREFIX}trainer_pokemon_data:{pokemon_id}")
         return rows
 
 #==================================================================================================== 
