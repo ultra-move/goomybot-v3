@@ -2621,7 +2621,7 @@ async def on_message(message):
         if message.content.startswith('.seemove'):
             name = message.content.split()
             if len(name) > 1 and name[1]:
-                embed = await see_single_move(name[1])
+                embed = await see_single_move("-".join(name[1:]).lower() )
                 await message.channel.send(embed=embed) 
         elif message.content.startswith('.see'):
             name = message.content.split()
