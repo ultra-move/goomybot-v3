@@ -933,7 +933,7 @@ class StorageManager:
             return None 
 
     async def get_active_trainer_battle(self, user_id):
-        cache_key = f"{REDIS_PREFIX}pokemon_data:{pokemon_id}"
+        cache_key = f"{REDIS_PREFIX}trainer_battle:{user_id}"
         # 1. Try cache
         battle_data = await self._get_from_cache(cache_key)
         if battle_data:
