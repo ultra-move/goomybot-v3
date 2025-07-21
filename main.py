@@ -1368,7 +1368,7 @@ async def use_move(user:User, move:str, slot):
         if int(buddy.pokedex_id) == 151:
             return embed_generator.create_trainer_use_fail_embed(user.name, "Sorry, Mew cannot be used in trainer battles!")
         #print(slot)
-        if slot and slot >= 0 and slot < 4:
+        if slot != None and slot >= 0 and slot < 4:
             move_data = await storage_manager.get_move_by_name(buddy.moves[slot])
             all_met = atb.check_condition(move=move_data)
         elif move in buddy.moves:
