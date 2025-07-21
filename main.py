@@ -66,16 +66,23 @@ def get_help():
     help = """
 **__Help Commands__**
 * `.help`: Displays this help message.
+* `.help general`: Displays the general commands help message
 * `.help user`: Displays the user commands help message.
 * `.help pokemon`: Displays the pokemon commands help message.
 * `.help moves`: Displays the moves commands help message.
 * `.help filter`: Displays the filter commands help message.
-* `.help battle`: Displays the battle commands help message.
+* `.help spawn`: Displays the spawn commands help message.
 * `.help raid`: Displays the raid commands help message.
-* `.help trainer`: Displays the battle commands help message.
+* `.help battle`: Displays the trainer battle commands help message.
 * `.help items`: Displays the items commands help message.
 * `.help event`: Displays the event commands help message.
 * `.help trade`: Displays the trade commands help message.
+
+"""
+    return embed_generator.create_help_embed(info=help)
+
+def get_help_general():
+    help = """
 **__General Commands__**
 * `.register`: Registers you for the game. You'll need to do this before using most other commands!
 * `.odds`: Displays the current odds
@@ -84,7 +91,7 @@ def get_help():
 * `.quest`: Shows the daily quest, or completes it if condition met
 * `.bug <bug report>`: Submits a bug to the bug channel
 * `.git`: provides a link to the git repository
-"""
+    """
     return embed_generator.create_help_embed(info=help)
 
 def get_help_event():
@@ -107,11 +114,11 @@ def get_help_moves():
 """
     return embed_generator.create_help_embed(info=help)
 
-def get_help_trainer():
+def get_help_battle():
     help = """
 **__Trainer Battle Commands__**
 * `.battle`: Starts or displays the current battle
-* `.use <move_name>`: Uses a move that your buddy pokemon knows
+* `.use <move_name> or <slot>`: Uses a move that your buddy pokemon knows
 """
     return embed_generator.create_help_embed(info=help)
 
@@ -144,7 +151,7 @@ def get_help_pokemon():
 """
     return embed_generator.create_help_embed(info=help)
 
-def get_help_battle():
+def get_help_spawn():
     help = """
 **__Battle Commands__**
 * `.spawn`: Initiates a new battle.
@@ -1354,23 +1361,31 @@ async def start_trainer_battle(user: User):
     return embed_generator.create_trainer_battle_embed(user_name=user.name, pokemon=new_pokemon, trainer_name="???", trainer_sprite=trainer_sprite, conditions=tb.conditions, conditions_met=[], bonus_duration=tb.bonus_duration)
 
 
-async def use_move(user:User, move:str):
+async def use_move(user:User, move:str, slot):
     atb = await storage_manager.get_active_trainer_battle(user.id)
     if atb:
         buddy = await storage_manager.get_user_pokemon_by_id(user.current_pokemon)
-        if move in buddy.moves:
+        if int(buddy.pokedex_id) == 151:
+            return embed_generator.create_trainer_use_fail_embed(user.name, "Sorry, Mew cannot be used in trainer battles!")
+        print(slot)
+        if slot >= 0 and slot < 4:
+            move_data = await storage_manager.get_move_by_name(buddy.moves[slot])
+            all_met = atb.check_condition(move=move_data)
+        elif move in buddy.moves:
             move_data = await storage_manager.get_move_by_name(move)
             all_met = atb.check_condition(move=move_data)
-            if all_met:
-                await storage_manager.save_object(atb, f"{REDIS_PREFIX}trainer_battle:{atb.id}", table_name="trainer_battles", unique_columns=['id'])
-                return await finish_trainer_battle(user, atb)
-            else:
-                await storage_manager.save_object(atb, f"{REDIS_PREFIX}trainer_battle:{atb.id}", table_name="trainer_battles", unique_columns=['id'])
-                new_pokemon = await storage_manager.get_trainer_battle_pokemon(atb.pokemon_id)
-                return embed_generator.create_trainer_battle_embed(user_name=user.name, pokemon=new_pokemon, trainer_name="Test", trainer_sprite=atb.trainer_sprite, conditions=atb.conditions, conditions_met=atb.conditions_met, bonus_duration=atb.bonus_duration)
-        else: False
+        else: 
+            return embed_generator.create_trainer_use_fail_embed(user.name, "Please check command syntax!")
+        
+        if all_met:
+            await storage_manager.save_object(atb, f"{REDIS_PREFIX}trainer_battle:{atb.id}", table_name="trainer_battles", unique_columns=['id'])
+            return await finish_trainer_battle(user, atb)
+        else:
+            await storage_manager.save_object(atb, f"{REDIS_PREFIX}trainer_battle:{atb.id}", table_name="trainer_battles", unique_columns=['id'])
+            new_pokemon = await storage_manager.get_trainer_battle_pokemon(atb.pokemon_id)
+            return embed_generator.create_trainer_battle_embed(user_name=user.name, pokemon=new_pokemon, trainer_name="???", trainer_sprite=atb.trainer_sprite, conditions=atb.conditions, conditions_met=atb.conditions_met, bonus_duration=atb.bonus_duration)
     else:
-        False
+        return embed_generator.create_trainer_use_fail_embed(user.name, "No active battle!")
 
 async def finish_trainer_battle(user, active_trainer_battle:trainer_battle):
     #give pokemon
@@ -2241,11 +2256,14 @@ async def on_message(message):
         if message.content.startswith('.help filter'):
             embed = get_help_filter()
             await message.channel.send(embed=embed)
+        elif message.content.startswith('.help general'):
+            embed = get_help_general()
+            await message.channel.send(embed=embed)
         elif message.content.startswith('.help moves'):
             embed = get_help_moves()
             await message.channel.send(embed=embed)
-        elif message.content.startswith('.help trainer'):
-            embed = get_help_trainer()
+        elif message.content.startswith('.help battle'):
+            embed = get_help_battle()
             await message.channel.send(embed=embed)
         elif message.content.startswith('.help user'):
             embed = get_help_user()
@@ -2253,8 +2271,8 @@ async def on_message(message):
         elif message.content.startswith('.help pokemon'):
             embed = get_help_pokemon()
             await message.channel.send(embed=embed)
-        elif message.content.startswith('.help battle'):
-            embed = get_help_battle()
+        elif message.content.startswith('.help spawn'):
+            embed = get_help_spawn()
             await message.channel.send(embed=embed)
         elif message.content.startswith('.help raid'):
             embed = get_help_raid()
@@ -2806,7 +2824,11 @@ async def on_message(message):
         if message.content.startswith('.use'):
             move_name = message.content.split()
             if len(move_name) > 1:
-                embed = await use_move(user, move=move_name[1])
+                try:
+                    slot = int(move_name[1])
+                    embed = await use_move(user, move="", slot=slot-1)
+                except: 
+                    embed = await use_move(user, move=move_name[1], slot=None)
                 await message.channel.send(embed=embed)
 
         if message.content.startswith('.wholearns'):

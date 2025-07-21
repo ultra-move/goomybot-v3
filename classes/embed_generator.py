@@ -101,6 +101,11 @@ class EmbedGenerator():
         embed.set_author(name=user.name.capitalize())
         return embed
     
+    def create_trainer_use_fail_embed(self, user_name, message):
+        embed=discord.Embed(title=f"Move Failed", description=message, color=default_color)
+        embed.set_author(name=user_name.capitalize())
+        return embed
+
     def create_trainer_battle_embed(self, user_name, pokemon, trainer_name, trainer_sprite, conditions:dict, conditions_met:list, bonus_duration):
         print(conditions)
         print(conditions_met)
