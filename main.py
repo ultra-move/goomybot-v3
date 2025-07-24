@@ -118,6 +118,7 @@ def get_help_battle():
     help = """
 **__Trainer Battle Commands__**
 * `.battle`: Starts or displays the current battle
+* `.runbattle`: Skips the current battle
 * `.use <move_name> or <slot>`: Uses a move that your buddy pokemon knows
 """
     return embed_generator.create_help_embed(info=help)
