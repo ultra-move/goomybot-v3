@@ -173,6 +173,13 @@ class EmbedGenerator():
             embed.set_thumbnail(url = user.profile_image)
         return embed
     
+    def create_run_from_trainer_battle_embed(self, user):
+        embed=discord.Embed(title=f"Ran from trainer battle!", color=default_color)
+        embed.set_author(name=user.name.capitalize())
+        if user.profile_image and user.profile_image != 'None':
+            embed.set_thumbnail(url = user.profile_image)
+        return embed
+
     def create_run_from_battle_fail_embed(self, user):
         embed=discord.Embed(title=f"Cannot run from a battle with other users!", color=default_color)
         if user.profile_image and user.profile_image != 'None':

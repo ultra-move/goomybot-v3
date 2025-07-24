@@ -1402,7 +1402,10 @@ async def finish_trainer_battle(user, active_trainer_battle:trainer_battle):
     #delete trainer_battle_pokemon 
     await storage_manager.delete_trainer_battle_pokemon(pokemon.id)
     return embed_generator.create_trainer_battle_finish_embed(pokemon_name=pokemon.name, url=pokemon.sprite_front, color=embed_generator.get_color(pokemon), rewards=reward)
-    
+
+async def run_trainer_battle(user):
+    await storage_manager.delete_trainer_battle(user.id)
+    return embed_generator.create_run_from_trainer_battle_embed(user)
 
 #######################Raid methods#######################
 async def admin_start_raid(pokedex_id, is_shiny, user, channel_id):
@@ -2413,7 +2416,10 @@ async def on_message(message):
                     embed = embed_generator.create_flex_embed(user, pokemon)
                     await channel.send(embed=embed)
 
-        if message.content.startswith('.run'):
+        if message.content.startswith('.runbattle'):
+            embed = await run_trainer_battle(user=user)
+            await message.channel.send(embed=embed)
+        elif message.content.startswith('.run'):
             embed = await run_battle(user=user)
             await message.channel.send(embed=embed)
 
