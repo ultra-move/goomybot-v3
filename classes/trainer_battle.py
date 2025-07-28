@@ -26,7 +26,7 @@ class TrainerBattle:
 
     def randomize_conditions(self):
         conditions_pool = []
-        tier = self.tier
+        tier = int(self.tier)
         if tier == 1:
             conditions_pool = ["type", "physical", "special", "status"]
         elif tier == 2:

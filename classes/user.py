@@ -34,7 +34,8 @@ class User:
                  raid_frame = 0,
                  event = False,
                  full_frame = False,
-                 total_spent = 0
+                 total_spent = 0,
+                 battle_frame = 100000
                  ):
         
         self.id: int = id
@@ -65,6 +66,7 @@ class User:
         self.event = event
         self.full_frame = full_frame
         self.total_spent = total_spent
+        self.battle_frame = battle_frame
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]):
@@ -84,6 +86,9 @@ class User:
                 pass 
         if 'frame' in processed_data and isinstance(processed_data['frame'], str):
             processed_data['frame'] = int(processed_data['frame'])
+
+        if 'battle_frame' in processed_data and isinstance(processed_data['battle_frame'], str):
+            processed_data['battle_frame'] = int(processed_data['battle_frame'])
 
         if 'raid_frame' in processed_data and isinstance(processed_data['raid_frame'], str):
             processed_data['raid_frame'] = int(processed_data['raid_frame'])

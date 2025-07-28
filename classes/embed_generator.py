@@ -319,7 +319,13 @@ class EmbedGenerator():
         embed.set_author(name=user.name.capitalize())
         embed.set_image(url=pokemon_url)
         return embed
-    
+
+    def create_full_trainer_frame(self, user, shiny_frame, pokemon_name, pokemon_url):
+        embed=discord.Embed(title=f"✨{pokemon_name.capitalize()}✨", description=f"Current Frame: {user.battle_frame - 99999}\nShiny Frame: {shiny_frame - 100000}", color=0xf5a8ff)
+        embed.set_author(name=user.name.capitalize())
+        embed.set_image(url=pokemon_url)
+        return embed
+
     def create_full_raid_shiny_frame(self, user, shiny_frame, pokemon_name, pokemon_url):
         embed=discord.Embed(title=f"✨{pokemon_name.capitalize()}✨", description=f"Current Frame: {user.raid_frame}\nShiny Frame: {shiny_frame}", color=0xf5a8ff)
         embed.set_author(name=user.name.capitalize())
@@ -410,13 +416,19 @@ class EmbedGenerator():
             embed.set_thumbnail(url=user.profile_image)
         return embed
     
+    def create_skip_trainer_frames_embed(self, user, num_frames):
+        embed=discord.Embed(description=f"Skipped {num_frames} frames!\nCurrent Frame: {user.battle_frame - 99999}", color=default_color)
+        embed.set_author(name=user.name.capitalize())
+        if user.profile_image and user.profile_image != 'None':
+            embed.set_thumbnail(url=user.profile_image)
+        return embed
+    
     def create_skip_raid_frames_embed(self, user, num_frames):
         embed=discord.Embed(description=f"Skipped {num_frames} raid frames!\nCurrent Frame: {user.raid_frame}", color=default_color)
         embed.set_author(name=user.name.capitalize())
         if user.profile_image and user.profile_image != 'None':
             embed.set_thumbnail(url=user.profile_image)
         return embed
-    
     
     def create_skip_to_shiny_raid_embed(self, user):
         embed=discord.Embed(description=f"Skipped to shiny frame!\nCurrent Frame: {user.raid_frame}", color=default_color)
@@ -431,7 +443,14 @@ class EmbedGenerator():
         if user.profile_image and user.profile_image != 'None':
             embed.set_thumbnail(url=user.profile_image)
         return embed
-    
+
+    def create_skip_to_trainer_shiny_embed(self, user):
+        embed=discord.Embed(description=f"Skipped to shiny frame!\nCurrent Frame: {user.battle_frame-99999}", color=default_color)
+        embed.set_author(name=user.name.capitalize())
+        if user.profile_image and user.profile_image != 'None':
+            embed.set_thumbnail(url=user.profile_image)
+        return embed
+
     def create_change_buddy_failed_embed(self, user):
         embed=discord.Embed(description=f"Cannot change buddy while in a battle/raid!", color=default_color)
         embed.set_author(name=user.name.capitalize())
@@ -445,13 +464,19 @@ class EmbedGenerator():
         embed.set_thumbnail(url=buddy.sprite_front)
         return embed
     
+    def format_items(self,items):
+        items = sorted(items, key=lambda item: item.name)
+        result = ""
+        for i, item in enumerate(items):
+            if item.name != 'Nothing':
+                result = result + f"**{i}**: {item.name.capitalize()} - {item.quantity}\n"
+        return result
+
     def create_items_view_table(self, user, items):
-        embed=discord.Embed(color=default_color)
+        embed=discord.Embed(description=self.format_items(items), color=default_color)
         embed.set_author(name=user.name.capitalize())
         if user.profile_image and user.profile_image != 'None':
             embed.set_thumbnail(url=user.profile_image)
-        for item in items:
-            embed.add_field(name=item.name, value=item.quantity, inline=True)
         return embed
     
     def create_shop_view_table(self, user, items):

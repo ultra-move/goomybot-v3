@@ -312,28 +312,25 @@ class StorageManager:
             logger.error(f"StorageManager: DB error getting Pokemon Data for {user_id}: {e}")
             return None # Return None or re-raise based on desired error handling
 
-    async def get_missing_pokedex(self, user, page, pagesize):
+    async def get_missing_shiny_pokedex(self, user, page, pagesize):
         offset = (page) * pagesize
 
         sql_query = f"""
         SELECT pm.*
         FROM pokemon_master AS pm
-        LEFT JOIN user_pokemon AS up
-            ON pm.id = up.pokedex_id
-            AND up.user_id = {user.id}
+        LEFT JOIN user_pokemon AS up ON
+            pm.id = up.pokedex_id AND up.user_id = {user.id} AND up.is_shiny = TRUE
         WHERE up.pokedex_id IS NULL
         ORDER BY pm.id ASC
         LIMIT {pagesize} OFFSET {offset};
         """
 
-        # You might also want to get the total count for pagination UI (e.g., "Page 1 of X")
         count_query = f"""
         SELECT COUNT(pm.id)
         FROM pokemon_master AS pm
-        LEFT JOIN user_pokemon AS up
-            ON pm.id = up.pokedex_id
-            AND up.user_id = {user.id}
-        WHERE up.pokedex_id IS NULL;
+        LEFT JOIN user_pokemon AS up ON
+            pm.id = up.pokedex_id AND up.user_id = {user.id} AND up.is_shiny = TRUE
+        WHERE up.pokedex_id IS NULL
         """
 
         # Execute the count query first

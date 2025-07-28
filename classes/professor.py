@@ -49,6 +49,7 @@ class Professor():
             'resetseed': 5000,
             'raidpass': 5000,
             'skipframe': 10000,
+            'skiptrainerframe': 10000,
             'skipraidframe': 50000,
             'regionpass': 100000
         }
@@ -63,7 +64,7 @@ class Professor():
             item_name = random.choice(list(items.keys()))
             if item_name == 'skipraidframe' or item_name == 'regionpass':
                 quantity = 1
-            elif item_name == 'skipframe':
+            elif item_name == 'skipframe' or item_name == 'skiptrainerframe':
                 quantity = random.randrange(1,3)
             else:
                 quantity = random.randrange(5,10)

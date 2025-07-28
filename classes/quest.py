@@ -28,6 +28,7 @@ class Quest:
             'resetseed': 5000,
             'raidpass': 5000,
             'skipframe': 10000,
+            'skiptrainerframe': 10000,
             'skipraidframe': 50000
         }
         tier = self.condition['tier']
@@ -43,7 +44,7 @@ class Quest:
             
             if item_name == 'skipraidframe':
                 quantity = 1
-            elif item_name == 'skipframe':
+            elif item_name == 'skipframe' or item_name == 'skiptrainerframe':
                 quantity = random.randrange(1,4)
             else:
                 quantity = random.randrange(5,10)

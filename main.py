@@ -118,8 +118,9 @@ def get_help_battle():
     help = """
 **__Trainer Battle Commands__**
 * `.battle`: Starts or displays the current battle
-* `.runbattle`: Skips the current battle
+* `.runbattle`: Rerolls the conditions on the battle
 * `.use <move_name> or <slot>`: Uses a move that your buddy pokemon knows
+* `.trainerframe`: Shows trainer shiny frame information
 """
     return embed_generator.create_help_embed(info=help)
 
@@ -147,6 +148,7 @@ def get_help_pokemon():
 * `.release [local_id]`: Releases specified pokemon (from .list)
 * `.release duplicates`: Releases duplicate pokemon, keeps buddy, safe, shiny and tier 4 pokemon. Keeps the pokemon with the highest total iv
 * `.pokedex <page_number>`: Shows all un-owned pokemon
+* `.shinydex <page_number>`: Shows all un-owned shiny pokemon
 * `.raidpokedex <page_number>`: Shows all un-owned raid pokemon
 * `.see <name>`: Displays sprites of a given pokemon, works with raid pokemon
 """
@@ -210,6 +212,7 @@ def get_help_items():
 * `.resetseed`: Uses a Reset Seed to reset your frame and shiny seed.
 * `.shinyframe`: Dispalys the frame that your next shiny is at
 * `.skipframe <quantity>`: Uses a Skip Frame (quantity * 100 frames or to shiny frame).
+* `.skiptrainerframe <quantity>`: Uses a Skip Trainer Frame (quantity * 100 frames or to shiny frame).
 * `.skipraidframe <quantity>`: Uses a Skip Raid Frame (quantity * 15 frames or to shiny frame).
 * `.rerolliv <iv_name>`: Rerolls selected buddy iv.
 * `.rarecandy <quantity>`: Levels up your buddy
@@ -290,6 +293,17 @@ async def list_missing_pokemon(user, page, page_size):
     if total_pages == 0:
        total_pages += 1
     return embed_generator.create_missing_view_table(user, pokemon_table, page+1, total_pages, total_count_result, 1025) 
+
+async def list_missing_shiny_pokemon(user, page, page_size):
+    records, total_pages, total_count_result = await storage_manager.get_missing_shiny_pokedex(user=user, page=page, pagesize=page_size)
+    #build the users view table for easy access later
+    pokemon_table = {}
+    for p,i in zip(records, range(page_size)):
+      pokemon_table[i+1] = {'id': str(p['id']), 'name': p['name']}
+    if total_pages == 0:
+       total_pages += 1
+    return embed_generator.create_missing_view_table(user, pokemon_table, page+1, total_pages, total_count_result, 1025) 
+
 
 async def list_missing_raid_pokemon(user, page, page_size):
     records, total_pages, total_count_result = await storage_manager.get_missing_raid_pokedex(user=user, page=page, pagesize=page_size)
@@ -780,6 +794,7 @@ async def buy_item(user, item_name, quantity):
         'resetseed': 5000,
         'raidpass': 5000,
         'skipframe': 10000,
+        'skiptrainerframe': 10000,
         'skipraidframe': 50000,
         'regionpass': 100000
     }
@@ -836,7 +851,16 @@ async def full_shiny_frame(user):
             return embed_generator.create_shiny_frame(user=user, shiny_frame=shiny_frame)
     else:
         return embed_generator.create_shiny_frame(user=user, shiny_frame="No shiny found")
-    
+
+async def full_trainer_frame(user):
+    gen = Generator(tier_seed=user.tier_seed, type_seed=user.type_seed, pokemon_seed=user.pokemon_seed, shiny_seed=user.shiny_seed, item_seed=user.item_seed)
+    shiny_frame = gen.find_shiny_frame(user=user,start_frame=user.battle_frame+1, max_frames_to_check=10000)
+    if shiny_frame:    
+        pokemon = await get_pokemon_for_shiny_frame(user, shiny_frame)
+        return embed_generator.create_full_trainer_frame(user, shiny_frame, pokemon.name, pokemon.front_shiny_sprite)
+    else:
+        return embed_generator.create_shiny_frame(user=user, shiny_frame="No shiny found")
+
 async def full_raid_shiny_frame(user):
     gen = Generator(tier_seed=user.tier_seed, type_seed=user.type_seed, pokemon_seed=user.pokemon_seed, shiny_seed=user.shiny_seed, item_seed=user.item_seed)
     shiny_frame = gen.find_shiny_raid_frame(user.raid_frame, 10000)
@@ -851,6 +875,7 @@ async def reset_seeds(user):
         user.shiny_frame = -1
         user.frame = 1
         user.raid_frame = 1
+        user.battle_frame = 100000
         item.quantity = item.quantity - 1
         item.uses = item.uses + 1
         await storage_manager.save_object(obj=item, cache_key=f"{REDIS_PREFIX}item_id:{item.id}", table_name='user_items', unique_columns=['id'])
@@ -888,7 +913,37 @@ async def skip_frames(user, quantity):
             return embed_generator.create_skip_frames_embed(user, num_frames=frames_skipped)
     else:
         return embed_generator.create_item_failure_embed(user, 'skipframe') 
-       
+
+async def skip_trainer_frames(user, quantity):
+    num_skip_frames = 100
+    item = await storage_manager.get_user_item_by_name(user, 'skiptrainerframe')
+    if item.quantity >= quantity:
+        gen = Generator(tier_seed=user.tier_seed, type_seed=user.type_seed, pokemon_seed=user.pokemon_seed, shiny_seed=user.shiny_seed, item_seed=user.item_seed)
+        shiny_frame = gen.find_shiny_frame(user=user, start_frame=user.battle_frame+1, max_frames_to_check=10000)
+        frames_skipped = 0
+        quantity_used = 0
+        for i in range(quantity):
+            if shiny_frame and user.battle_frame + num_skip_frames >= shiny_frame:
+                user.battle_frame = shiny_frame
+                skipped_to_shiny = True
+                quantity_used += 1
+                break 
+            else:
+                skipped_to_shiny = False
+                user.battle_frame += num_skip_frames
+                frames_skipped += num_skip_frames
+                quantity_used += 1
+        item.quantity = item.quantity - quantity_used
+        item.uses = item.uses + quantity_used
+        await storage_manager.save_object(obj=item, cache_key=f"{REDIS_PREFIX}item_id:{item.id}", table_name='user_items', unique_columns=['id'])
+        await storage_manager.save_object(obj=user, cache_key=f"{REDIS_PREFIX}user_id:{user.id}", table_name="users", unique_columns=["id"])
+        if skipped_to_shiny:
+            return embed_generator.create_skip_to_trainer_shiny_embed(user)
+        else:
+            return embed_generator.create_skip_trainer_frames_embed(user, num_frames=frames_skipped)
+    else:
+        return embed_generator.create_item_failure_embed(user, 'skiptrainerframe') 
+
 async def skip_raid_frames(user, quantity):
     num_skip_frames = 15
     item = await storage_manager.get_user_item_by_name(user, 'skipraidframe')
@@ -1314,8 +1369,8 @@ async def start_trainer_battle(user: User):
     #pick trainer
     trainer_sprite = Sprites.get_random_sprite()
     #pick pokemon
-    trainer_user = User(id = 36135, discord_username="test", region=user.region, frame=random.randrange(1, 5000), event=False)
-    gen = Generator(trainer_user.tier_seed, trainer_user.type_seed, trainer_user.pokemon_seed, trainer_user.shiny_seed, trainer_user.item_seed)
+    trainer_user = User(id = 36135, discord_username="test", region=user.region, frame=user.battle_frame, event=False)
+    gen = Generator(user.tier_seed, user.type_seed, user.pokemon_seed, user.shiny_seed, user.item_seed)
     outcome = gen.get_outcome_for_frame(trainer_user.frame, trainer_user)
     safe = False
     #logger.info(outcome)
@@ -1397,6 +1452,7 @@ async def finish_trainer_battle(user, active_trainer_battle:trainer_battle):
     #give rewards
     reward = random.choice([200, 400, 600, 800]) * pokemon.tier
     user.wallet = user.wallet + reward
+    user.battle_frame = user.battle_frame + 1
     await storage_manager.save_object(obj=user, cache_key=f"{REDIS_PREFIX}user_id:{user.id}", table_name="users", unique_columns=["id"])
     #delete trainer_battle
     await storage_manager.delete_trainer_battle(user.id)
@@ -1405,8 +1461,15 @@ async def finish_trainer_battle(user, active_trainer_battle:trainer_battle):
     return embed_generator.create_trainer_battle_finish_embed(pokemon_name=pokemon.name, url=pokemon.sprite_front, color=embed_generator.get_color(pokemon), rewards=reward)
 
 async def run_trainer_battle(user):
-    await storage_manager.delete_trainer_battle(user.id)
-    return embed_generator.create_run_from_trainer_battle_embed(user)
+    atb = await storage_manager.get_active_trainer_battle(user.id)
+    if atb:
+        atb.conditions = atb.randomize_conditions()
+        atb.conditions_met = []
+        new_pokemon = await storage_manager.get_trainer_battle_pokemon(atb.pokemon_id)
+        await storage_manager.save_object(atb, f"{REDIS_PREFIX}trainer_battle:{user.id}", table_name="trainer_battles", unique_columns=['id'])
+        return embed_generator.create_trainer_battle_embed(user_name=user.name, pokemon=new_pokemon, trainer_name="???", trainer_sprite=atb.trainer_sprite, conditions=atb.conditions, conditions_met=atb.conditions_met, bonus_duration=atb.bonus_duration)
+    
+
 
 #######################Raid methods#######################
 async def admin_start_raid(pokedex_id, is_shiny, user, channel_id):
@@ -2529,6 +2592,22 @@ async def on_message(message):
 
             await message.channel.send(embed=embed)
 
+        if message.content.startswith('.shinydex'):
+            page = message.content.split()
+            try:
+                if len(page) > 1:
+                    if int(page[1]) > 0: # Ensure user doesn't ask for page 0 or negative
+                        requested_page = int(page[1]) - 1
+                        embed: discord.Embed = await list_missing_shiny_pokemon(user=user, page=requested_page, page_size=10)
+                    else:
+                        embed = await list_missing_shiny_pokemon(user=user, page=0, page_size=10)
+                else:
+                    embed = await list_missing_shiny_pokemon(user=user, page=0, page_size=10)
+            except:
+                embed = await list_missing_shiny_pokemon(user=user, page=0, page_size=10)
+
+            await message.channel.send(embed=embed)
+
         if message.content.startswith('.raidpokedex'):
             page = message.content.split()
             try:
@@ -2671,6 +2750,8 @@ async def on_message(message):
                         embed = await buy_item(user, 'resetseed', int(quantity))
                     elif name == 'skipframe':
                         embed = await buy_item(user, 'skipframe', int(quantity))
+                    elif name == 'skiptrainerframe':
+                        embed = await buy_item(user, 'skiptrainerframe', int(quantity))
                     elif name == 'rerollnature':
                         embed = await buy_item(user, 'rerollnature', int(quantity))
                     elif name == 'rerolliv':
@@ -2728,7 +2809,12 @@ async def on_message(message):
             else:
                 embed = await shiny_frame(user)
             await message.channel.send(embed=embed)
-        
+
+        if '.trainerframe' in message.content:
+            if user.full_frame:
+                embed = await full_trainer_frame(user)
+            await message.channel.send(embed=embed)
+
         if '.raidframe' in message.content:
             if user.full_frame:
                 embed = await full_raid_shiny_frame(user)
@@ -2744,6 +2830,14 @@ async def on_message(message):
             embed = await skip_frames(user, quantity)
             await message.channel.send(embed=embed)
         
+        if message.content.startswith('.skiptrainerframe'):
+            try:
+                quantity = int(message.content.split()[1])
+            except:
+                quantity = 1
+            embed = await skip_trainer_frames(user, quantity)
+            await message.channel.send(embed=embed)
+
         if message.content.startswith('.skipraidframe'):
             try:
                 quantity = int(message.content.split()[1])
