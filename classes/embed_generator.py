@@ -593,7 +593,7 @@ class EmbedGenerator():
     def create_event_embed(self, user):
         embed=discord.Embed(title="??? used Water Gun!", color=event_color)
         embed.set_author(name="Goomybot")
-        embed.set_image(url=r'https://raw.githubusercontent.com/ultra-move/goomybot-v3/refs/heads/prod/sprites/blue.png')
+        embed.set_image(url=r'https://raw.githubusercontent.com/ultra-move/goomybot-v3/refs/heads/prod/sprites/water.png')
         embed.set_footer(text="use .event toggle to join/leave the event")
         return embed
     
