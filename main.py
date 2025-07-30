@@ -349,10 +349,10 @@ async def set_buddy_recent(user):
     active_trade = await storage_manager.get_trade_by_user_id(user_id=user.id)
     if active_trade:
         return embed_generator.create_trade_block_embed(user, "Cannot release while in a trade")
-    active_battle = await storage_manager.get_battle_by_user(user.id)
-    active_raid = await storage_manager.get_raid_by_user(user.id)
-    if active_battle or active_raid:
-        return embed_generator.create_change_buddy_failed_embed(user)
+    #active_battle = await storage_manager.get_battle_by_user(user.id)
+    #active_raid = await storage_manager.get_raid_by_user(user.id)
+    #if active_battle or active_raid:
+    #    return embed_generator.create_change_buddy_failed_embed(user)
     pokemon = await storage_manager.get_user_pokemon_by_recent(user)
     if pokemon:
         user.current_pokemon = pokemon.id
@@ -363,10 +363,10 @@ async def set_buddy(user, local_id):
     active_trade = await storage_manager.get_trade_by_user_id(user_id=user.id)
     if active_trade:
         return embed_generator.create_trade_block_embed(user, "Cannot change buddy while in a trade")
-    active_battle = await storage_manager.get_battle_by_user(user.id)
-    active_raid = await storage_manager.get_raid_by_user(user.id)
-    if active_battle or active_raid:
-        return embed_generator.create_change_buddy_failed_embed(user)
+    #active_battle = await storage_manager.get_battle_by_user(user.id)
+    #active_raid = await storage_manager.get_raid_by_user(user.id)
+    #if active_battle or active_raid:
+    #    return embed_generator.create_change_buddy_failed_embed(user)
     pokemon = await storage_manager.get_user_pokemon_by_id(user.view_table[str(local_id)]['id'])
     if pokemon:
         user.current_pokemon = pokemon.id
@@ -775,12 +775,13 @@ async def find_in_seeds(user:User, pokemon_id):
 #######################Item methods#######################
 async def get_shop(user):
     items = {
-        'rerollnature': 1000,
+        'rerollnature': 500,
         'rerolliv': 2000,
         'rarecandy': 3000,
         'resetseed': 5000,
         'raidpass': 5000,
         'skipframe': 10000,
+        'skiptrainerframe': 10000,
         'skipraidframe': 50000,
         'regionpass': 100000
     }
@@ -1583,7 +1584,7 @@ async def start_raid(user, channel_id):
         end_time = start_time + delta
         logger.debug(f"battle end_time: {end_time}")
         #calculate rewards, for now just money
-        rewards = {'money': 1000*new_pokemon.tier, 'exp': int(pokemon_data.base_experience)}
+        rewards = {'money': 2000*new_pokemon.tier, 'exp': int(pokemon_data.base_experience)}
         raid = Battle(id=uuid.uuid4(), user_ids=[user.id], local_id=random.randrange(100,1000), channel_id=channel_id, start_time=start_time, duration=duration, end_time=end_time, rewards=rewards, status='active', battle_pokemon_id=new_pokemon.id)
         #write new pokemon to raid_pokemon table
         await storage_manager.save_object(obj=new_pokemon, cache_key=f"{REDIS_PREFIX}raid_pokemon_id:{new_pokemon.id}", table_name="raid_pokemon", unique_columns=["id"])
@@ -1612,6 +1613,7 @@ async def process_expired_raid(battle: List[Battle]):
         for user_id in battle.user_ids:
             pokemon.id = str(uuid.uuid4())
             pokemon.user_id = user_id
+            pokemon.random_on_catch()
             user = await storage_manager.get_user(user_id=user_id)
             reward = int(battle.rewards['money'])
             if user.current_pokemon:
@@ -1837,6 +1839,8 @@ async def add_pokemon_to_trade(user, local_id):
 
         # If not already in trade and not buddy, add the Pokémon
         user_trade_data['pokemon'].append({"id": pokemon_id, 'name': name})
+        active_trade.user1['confirmed'] = False
+        active_trade.user2['confirmed'] = False
         await storage_manager.save_object(obj=active_trade, cache_key=f"{REDIS_PREFIX}trade_id_{active_trade.id}", table_name='trades', unique_columns=['id'])
 
         return embed_generator.create_trade_add_pokemon_embed(user, pokemon)
@@ -1854,7 +1858,8 @@ async def add_money_to_trade(user, amount):
                 active_trade.user1['money'] += amount
             else:
                 active_trade.user2['money'] += amount
-        
+            active_trade.user1['confirmed'] = False
+            active_trade.user2['confirmed'] = False
             await storage_manager.save_object(obj= active_trade, cache_key=f"{REDIS_PREFIX}trade_id_{active_trade.id}", table_name='trades', unique_columns=['id'])
             await storage_manager.save_object(obj=user, cache_key=f"{REDIS_PREFIX}user_id:{user.id}", table_name="users", unique_columns=["id"])
             return embed_generator.create_trade_add_money_embed(user, amount)
@@ -1878,6 +1883,8 @@ async def add_item_to_trade(user, item_name, item_quantity):
                     user_trade_data['items'][trade_index] = {"name": item_name, "quantity": item_quantity}
                 else:   
                     user_trade_data['items'].append({"name": item_name, 'quantity': item_quantity})
+                    user_trade_data['confirmed'] = False
+                    user_trade_data['confirmed'] = False
                 await storage_manager.save_object(obj=active_trade, cache_key=f"{REDIS_PREFIX}trade_id_{active_trade.id}", table_name='trades', unique_columns=['id'])
                 return embed_generator.create_trade_add_item_embed(user, item_name, item_quantity)
             else:

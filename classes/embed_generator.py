@@ -484,12 +484,16 @@ class EmbedGenerator():
             embed.set_thumbnail(url=user.profile_image)
         return embed
     
+    def format_shop(self, items):
+        result = ''
+        for item_name, item_price in items.items():
+            result += f"**{item_name.capitalize()}**  -  ${item_price:,.0f}\n"
+        return result.strip() # .strip() removes the trailing newline from the last item
+            
     def create_shop_view_table(self, user, items):
-        embed=discord.Embed(description="Goomybot Shop", color=default_color)
-        embed.set_author(name=user.name.capitalize())
+        embed=discord.Embed(title="Goomybot Shop", description=f"{self.format_shop(items)}", color=default_color)
+        #embed.set_author(name=user.name.capitalize())
         embed.set_thumbnail(url=r'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/shiny/704.png')
-        for key, value in items.items():
-            embed.add_field(name=key, value=f"${value:,.0f}\n", inline=True)
         embed.set_footer(text='.buy <item_name> <quantity>')
         return embed
 

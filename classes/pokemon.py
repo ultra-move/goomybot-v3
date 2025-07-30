@@ -142,7 +142,7 @@ class Pokemon:
                     try:
                         processed_data[key] = uuid.UUID(processed_data[key])
                     except ValueError:
-                        logger.warning(f"Pokemon.from_dict: Invalid UUID string for {key}: '{processed_data[key]}'. Setting to None/generating new.")
+                        #logger.warning(f"Pokemon.from_dict: Invalid UUID string for {key}: '{processed_data[key]}'. Setting to None/generating new.")
                         if key == 'id':
                             processed_data[key] = uuid.uuid4() # Generate for ID if invalid
                         elif key == 'user_id':
@@ -257,7 +257,7 @@ class Pokemon:
             else:
                 logger.warning(f"Pokemon.from_dict: 'moves' has unexpected type {type(processed_data['moves'])}. Defaulting to empty list.")
                 processed_data['moves'] = []
-            print(processed_data['moves'])
+            #print(processed_data['moves'])
         # Ensure 'moves' is an array with exactly 4 slots
         if not isinstance(processed_data.get('moves'), list):
             processed_data['moves'] = [] # Ensure it's a list before padding/truncating
