@@ -232,13 +232,17 @@ class EmbedGenerator():
         embed.set_thumbnail(url="https://github.com/PokeAPI/sprites/blob/master/sprites/items/tm-normal.png?raw=true")
         return embed
     
+    def format_view_table(self, user):
+        result = ''
+        for key, value in user.view_table.items():
+            result = result + f"**{key}**: {value['name']}\n"
+        return result
+
     def create_user_view_table(self, user, page, total_pages):
-        embed=discord.Embed(color=default_color)
+        embed=discord.Embed(description=f"{self.format_view_table(user)}",color=default_color)
         embed.set_author(name=user.name.capitalize())
         if user.profile_image and user.profile_image != 'None':
             embed.set_thumbnail(url=user.profile_image)
-        for key, value in user.view_table.items():
-            embed.add_field(name=key, value=value['name'], inline=True)
         embed.set_footer(text=f"Page {page}/{total_pages}")
         return embed
     
