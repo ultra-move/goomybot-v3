@@ -408,6 +408,11 @@ class EmbedGenerator():
         embed=discord.Embed(description=f'Could not use {item_name}. Please check quantity or command syntax', color=default_color)
         embed.set_author(name=user.name.capitalize())
         return embed
+
+    def create_item_failure_generic_embed(self, user, message):
+        embed=discord.Embed(description=f'{message}', color=default_color)
+        embed.set_author(name=user.name.capitalize())
+        return embed
     
     def create_skip_frames_embed(self, user, num_frames):
         embed=discord.Embed(description=f"Skipped {num_frames} frames!\nCurrent Frame: {user.frame}", color=default_color)

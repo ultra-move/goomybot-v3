@@ -915,6 +915,9 @@ async def skip_frames(user, quantity):
         return embed_generator.create_item_failure_embed(user, 'skipframe') 
 
 async def skip_trainer_frames(user, quantity):
+    atb = await storage_manager.get_active_trainer_battle(user.id)
+    if atb:
+        return embed_generator.create_item_failure_generic_embed(user, 'Please finish the current battle before using skiptrainerframe') 
     num_skip_frames = 100
     item = await storage_manager.get_user_item_by_name(user, 'skiptrainerframe')
     if item.quantity >= quantity:
