@@ -67,10 +67,9 @@ class EmbedGenerator():
             pokemon_name = f"✨{pokemon_name.capitalize()}✨"
         else:
             pokemon_name = pokemon_name.capitalize()
-        embed=discord.Embed(title=f"Raid!\n{pokemon_name}", color=color)
+        embed=discord.Embed(title=f"Raid!\n{pokemon_name}", description=f"Local code: **{join_code}**", color=color)
         embed.set_author(name=user_name.capitalize())
         embed.set_image(url=url)
-        embed.add_field(name="local code:", value=f"{join_code}")
         if duration > 60:
             minutes = math.floor(duration / 60)
             seconds = duration % 60
@@ -140,10 +139,9 @@ class EmbedGenerator():
             pokemon_name = f"✨{pokemon_name.capitalize()}✨"
         else:
             pokemon_name = pokemon_name.capitalize()
-        embed=discord.Embed(title=f"{pokemon_name} Spawned!", color=color)
+        embed=discord.Embed(title=f"{pokemon_name} Spawned!", description=f"Local code: **{join_code}**", color=color)
         embed.set_author(name=user_name.capitalize())
         embed.set_image(url=url)
-        embed.add_field(name="local code:", value=f"{join_code}")
         embed.set_footer(text=f"Duration: ~ {duration} seconds")
         return embed
     
@@ -617,7 +615,7 @@ class EmbedGenerator():
 
     def create_trade_started_embed(self, user, user_mentioned, local_id):
         embed=discord.Embed(description=f"Trade initiated with {user_mentioned.name}", color=trade_color)
-        embed.add_field(name="local code:", value=local_id)
+        embed.add_field(name="Local code:", value=local_id)
         embed.set_author(name=user.name.capitalize())
         if user.profile_image and user.profile_image != 'None':
             embed.set_thumbnail(url=user.profile_image)
