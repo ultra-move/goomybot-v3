@@ -1371,7 +1371,7 @@ async def start_trainer_battle(user: User):
     if atb:
         #print(atb.conditions_met)
         new_pokemon = await storage_manager.get_trainer_battle_pokemon(atb.pokemon_id)
-        return embed_generator.create_trainer_battle_embed(user_name=user.name, pokemon=new_pokemon, trainer_name="???", trainer_sprite=atb.trainer_sprite, conditions=atb.conditions, conditions_met=atb.conditions_met, bonus_duration=atb.bonus_duration)
+        return None, embed_generator.create_trainer_battle_embed(user_name=user.name, pokemon=new_pokemon, trainer_name="???", trainer_sprite=atb.trainer_sprite, conditions=atb.conditions, conditions_met=atb.conditions_met, bonus_duration=atb.bonus_duration)
     #pick trainer
     trainer_sprite = Sprites.get_random_sprite()
     #pick pokemon
