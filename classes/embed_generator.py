@@ -50,7 +50,7 @@ class EmbedGenerator():
             pokemon_name = f"✨{pokemon_name.capitalize()}✨"
         else:
             pokemon_name = pokemon_name.capitalize()
-        desc = f"**Base XP**: {rewards['exp']}\n**Money**: ${rewards['money']:,.2f}"
+        desc = f"**Base XP**: {rewards['exp']}\n**Money**: ${rewards['money']:,}"
         embed=discord.Embed(title=f"Caught {pokemon_name}!", description=desc, color=color)
         embed.set_author(name="Goomybot")
         embed.set_image(url=url)
@@ -127,7 +127,7 @@ class EmbedGenerator():
             pokemon_name = f"✨{pokemon_name.capitalize()}✨"
         else:
             pokemon_name = pokemon_name.capitalize()
-        desc = f"**Money**: ${rewards:,.2f}"
+        desc = f"**Money**: ${rewards:,}"
         embed=discord.Embed(title=f"Defeated {pokemon_name}!", description=desc, color=color)
         embed.set_author(name="Goomybot")
         embed.set_image(url=url)
@@ -149,7 +149,7 @@ class EmbedGenerator():
             pokemon_name = f"✨{pokemon_name.capitalize()}✨"
         else:
             pokemon_name = pokemon_name.capitalize()
-        desc = f"**Base XP**: {rewards['exp']}\n**Money**: ${rewards['money']:,.2f}"
+        desc = f"**Base XP**: {rewards['exp']}\n**Money**: ${rewards['money']:,}"
         embed=discord.Embed(title=f"Caught {pokemon_name}!", description=desc, color=color)
         embed.set_author(name="Goomybot")
         embed.set_image(url=url)
