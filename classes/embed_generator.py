@@ -50,10 +50,9 @@ class EmbedGenerator():
             pokemon_name = f"✨{pokemon_name.capitalize()}✨"
         else:
             pokemon_name = pokemon_name.capitalize()
-        embed=discord.Embed(title=f"Caught {pokemon_name}!", color=color)
-        embed.set_author(name="goomybot")
-        embed.add_field(name="base xp", value=rewards['exp'], inline=True)
-        embed.add_field(name="money", value=rewards['money'], inline=True)
+        desc = f"**Base XP**: {rewards['exp']}\n**Money**: ${rewards['money']:,.2f}"
+        embed=discord.Embed(title=f"Caught {pokemon_name}!", description=desc, color=color)
+        embed.set_author(name="Goomybot")
         embed.set_image(url=url)
         return embed
 
@@ -128,9 +127,9 @@ class EmbedGenerator():
             pokemon_name = f"✨{pokemon_name.capitalize()}✨"
         else:
             pokemon_name = pokemon_name.capitalize()
-        embed=discord.Embed(title=f"Defeated {pokemon_name}!", color=color)
-        embed.set_author(name="goomybot")
-        embed.add_field(name="Money", value=rewards, inline=True)
+        desc = f"**Money**: ${rewards:,.2f}"
+        embed=discord.Embed(title=f"Defeated {pokemon_name}!", description=desc, color=color)
+        embed.set_author(name="Goomybot")
         embed.set_image(url=url)
         return embed
     
@@ -150,10 +149,9 @@ class EmbedGenerator():
             pokemon_name = f"✨{pokemon_name.capitalize()}✨"
         else:
             pokemon_name = pokemon_name.capitalize()
-        embed=discord.Embed(title=f"Caught {pokemon_name}!", color=color)
-        embed.set_author(name="goomybot")
-        embed.add_field(name="base xp", value=rewards['exp'], inline=True)
-        embed.add_field(name="money", value=rewards['money'], inline=True)
+        desc = f"**Base XP**: {rewards['exp']}\n**Money**: ${rewards['money']:,.2f}"
+        embed=discord.Embed(title=f"Caught {pokemon_name}!", description=desc, color=color)
+        embed.set_author(name="Goomybot")
         embed.set_image(url=url)
         return embed
 
@@ -350,27 +348,27 @@ class EmbedGenerator():
     
     def create_admin_embed(self, command):
         embed=discord.Embed(description=f"Executed admin command: {command}", color=0xff00ae)
-        embed.set_author(name='goomybot')
+        embed.set_author(name='Goomybot')
         return embed
     
     def create_help_embed(self, info):
         embed=discord.Embed(description=f"{info}", color=0xff00ae)
-        embed.set_author(name='goomybot')
+        embed.set_author(name='Goomybot')
         return embed
     
     def create_register_embed(self, name):
         embed=discord.Embed(description=f"Registered {name}!", color=0xff00ae)
-        embed.set_author(name='goomybot')
+        embed.set_author(name='Goomybot')
         return embed
 
     def create_not_registered_embed(self):
         embed=discord.Embed(description=f"Please use .register to get started!", color=0xff00ae)
-        embed.set_author(name='goomybot')
+        embed.set_author(name='Goomybot')
         return embed
     
     def create_already_registered_embed(self):
         embed=discord.Embed(description=f"You are already registered", color=0xff00ae)
-        embed.set_author(name='goomybot')
+        embed.set_author(name='Goomybot')
         return embed
     
     def create_user_profile_embed(self, user):
@@ -591,7 +589,7 @@ class EmbedGenerator():
     def create_event_embed(self, user):
         embed=discord.Embed(title="??? used Water Gun!", color=event_color)
         embed.set_author(name="Goomybot")
-        embed.set_image(url=r'https://raw.githubusercontent.com/ultra-move/goomybot-v3/refs/heads/prod/sprites/water.png')
+        embed.set_image(url=r'https://raw.githubusercontent.com/ultra-move/Goomybot-v3/refs/heads/prod/sprites/water.png')
         embed.set_footer(text="use .event toggle to join/leave the event")
         return embed
     

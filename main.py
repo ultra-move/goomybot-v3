@@ -129,10 +129,6 @@ def get_help_user():
 **__User Commands__**
 * `.profile`: Shows your user profile.
 * `.profileimage <URL>`: Sets your profile image to the provided URL (must be from showdown sprites).
-* `.list [page_number]`: Displays a list of your Pokémon. You can specify a page number to view more.
-* `.view [local_id] or [recent]`: If a `local_id` is provided, views details of that specific Pokémon. If no `local_id` is given, it shows details of your current buddy Pokémon.
-* `.stats [local_id] or [recent]`: Like view but for stats
-* `.filter <filter_message>`: Filters your Pokémon list based on your criteria.
 * `.frame`: Views current frame & raid frame
 * `.fullframe`: Toggles whether shinyframe commands show the pokemon or not
 * `.displayname <name>`: Changes your display name
@@ -142,6 +138,10 @@ def get_help_user():
 def get_help_pokemon():
     help = """
 **__Pokemon Commands__**
+* `.list [page_number]`: Displays a list of your Pokémon. You can specify a page number to view more.
+* `.view [local_id] or [recent]`: If a `local_id` is provided, views details of that specific Pokémon. If no `local_id` is given, it shows details of your current buddy Pokémon.
+* `.stats [local_id] or [recent]`: Like view but for stats
+* `.filter <filter_message>`: Filters your Pokémon list based on your criteria.
 * `.buddy [local_id] or [recent]`: If a `local_id` is provided, sets that Pokémon as your buddy. If no `local_id` is given, it shows your current buddy Pokémon.
 * `.evolve [name]`: Evolves buddy pokemon to name, buddy will evolve to a random choice if multiple are available and no name is provided
 * `.safe [local_id] <recent>`: Marks a pokemon as safe or not safe. Local id comes from .list command. Defaults to buddy
