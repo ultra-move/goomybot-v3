@@ -337,7 +337,7 @@ class EmbedGenerator():
         return embed
     
     def create_frame_embed(self, user):
-        embed=discord.Embed(description=f"Current Frame: {user.frame}\nRaid Frame: {user.raid_frame}", color=default_color)
+        embed=discord.Embed(description=f"Current Frame: {user.frame}\nRaid Frame: {user.raid_frame}\nTrainer Frame: {user.battle_frame - 99999}", color=default_color)
         embed.set_author(name=user.name.capitalize())
         if user.profile_image and user.profile_image != 'None':
             embed.set_thumbnail(url=user.profile_image)
@@ -508,14 +508,14 @@ class EmbedGenerator():
         embed.set_thumbnail(url=r'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/shiny/704.png')
         return embed
     
-    def create_flex_embed(self, user, pokemon):
+    def create_flex_embed(self, user, pokemon, flex_type):
         if pokemon.is_shiny:
             pokemon_name = f"✨{pokemon.name.capitalize()}✨"
         else:
             pokemon_name = pokemon_name.capitalize()
         embed=discord.Embed(title=f"{pokemon_name}", color=0xf5a8ff)
         embed.set_image(url=pokemon.sprite_front)
-        embed.set_footer(text=f'Spawned by {user.name.capitalize()}')
+        embed.set_footer(text=f'{flex_type} {user.name.capitalize()}')
         return embed
     
     def create_rerolliv_view(self, user, pokemon, reroll_choice):

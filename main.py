@@ -167,7 +167,7 @@ def get_help_raid():
     help = """
 **__Raid Commands__**
 * `.raid`: Initiates a new raid (requires a raidpass).
-* `.joinraid <local_id>`: Joins an existing raid with the specified local ID.
+* `.join <local_id>`: Joins an existing raid with the specified local ID.
 * `.raidframe`: Shows your shiny raid frame, this is free!
 """
     return embed_generator.create_help_embed(info=help)
@@ -177,12 +177,12 @@ def get_help_trade():
 **__Trade Commands__**
 * `.trade`: Displays current trade
 * `.trade @user`: Initiates a trade with @user
-* `.trade join <local_id>`: Starts trade that another user initiated
-* `.trade confirm`: Confirms a trade (both users must confirm)
-* `.trade cancel`: Cancels a trade
-* `.trade add pokemon <local_id>`: Adds a pokemon to the trade from your .list (or .filter)
-* `.trade add item <item_name> <quantity>`: Adds the specified item to the trade
-* `.trade add money <local_id>`: Adds specified amount of money to trade
+* `join <local_id>`: Starts trade that another user initiated
+* `.confirm`: Confirms a trade (both users must confirm)
+* `.cancel`: Cancels a trade
+* `.add pokemon <local_id>`: Adds a pokemon to the trade from your .list (or .filter)
+* `.add item <item_name> <quantity>`: Adds the specified item to the trade
+* `.add money <local_id>`: Adds specified amount of money to trade
 
 """
     return embed_generator.create_help_embed(info=help)    
@@ -789,7 +789,7 @@ async def get_shop(user):
 
 async def buy_item(user, item_name, quantity):
     items = {
-        'rerollnature': 1000,
+        'rerollnature': 500,
         'rerolliv': 2000,
         'rarecandy': 3000,
         'resetseed': 5000,
@@ -1330,12 +1330,14 @@ async def join_battle(user, local_id, channel_id):
     active_battle = await storage_manager.get_battle_by_user(user.id)
     if active_battle:
         logger.info('User in battle already')
-        return embed_generator.create_already_in_battle_embed(user=user)
+        return None, embed_generator.create_already_in_battle_embed(user=user)
     #get battle
     battle = await storage_manager.get_battle_by_local_channel(local_id=local_id, channel_id=channel_id)
     #add user to user_ids
     if battle and user.id in battle.user_ids:
-        return embed_generator.create_already_in_battle_embed(user=user)
+        return None, embed_generator.create_already_in_battle_embed(user=user)
+    if not battle:
+        return None, None
     battle.user_ids.append(user.id)
     #reset duration
     duration = battle.duration
@@ -1347,7 +1349,7 @@ async def join_battle(user, local_id, channel_id):
     battle.status = 'joined'
     #save battle
     await storage_manager.save_object(obj=battle, cache_key=f"{REDIS_PREFIX}battle_id:{battle.id}", table_name="battles", unique_columns=["id"])
-    return embed_generator.create_join_battle_embed(user=user, new_duration=duration)
+    return battle, embed_generator.create_join_battle_embed(user=user, new_duration=duration)
     
 async def run_battle(user):
     #get battle that user is in
@@ -1418,7 +1420,7 @@ async def start_trainer_battle(user: User):
     
     await storage_manager.save_object(tb, f"{REDIS_PREFIX}trainer_battle:{tb.id}", table_name="trainer_battles", unique_columns=['id'])
 
-    return embed_generator.create_trainer_battle_embed(user_name=user.name, pokemon=new_pokemon, trainer_name="???", trainer_sprite=trainer_sprite, conditions=tb.conditions, conditions_met=[], bonus_duration=tb.bonus_duration)
+    return new_pokemon, embed_generator.create_trainer_battle_embed(user_name=user.name, pokemon=new_pokemon, trainer_name="???", trainer_sprite=trainer_sprite, conditions=tb.conditions, conditions_met=[], bonus_duration=tb.bonus_duration)
 
 
 async def use_move(user:User, move:str, slot):
@@ -1703,13 +1705,15 @@ async def join_raid(user, local_id, channel_id):
     battle = await storage_manager.get_raid_by_local_channel(local_id=local_id, channel_id=channel_id)
     #add user to user_ids
     if battle and user.id in battle.user_ids:
-        return embed_generator.create_already_in_raid_embed(user_name=user.name)
+        return None, embed_generator.create_already_in_raid_embed(user_name=user.name)
+    if not battle:
+        return None, None
     battle.user_ids.append(user.id)
     time_until_end = battle.end_time - datetime.now(timezone.utc)
     battle.status = 'joined'
     #save battle
     await storage_manager.save_object(obj=battle, cache_key=f"{REDIS_PREFIX}raid_id:{battle.id}", table_name="raids", unique_columns=["id"])
-    return embed_generator.create_join_raid_embed(user=user, new_duration=time_until_end.seconds)
+    return battle, embed_generator.create_join_raid_embed(user=user, new_duration=time_until_end.seconds)
 
 #######################Lottery methods#######################
 
@@ -1812,9 +1816,9 @@ async def join_trade(user, local_id):
         #print(active_trade)
         active_trade.status = 'active'
         await storage_manager.save_object(obj= active_trade, cache_key=f"{REDIS_PREFIX}trade_id_{active_trade.id}", table_name='trades', unique_columns=['id'])
-        return embed_generator.create_join_trade_success_embed(user=user)
+        return active_trade, embed_generator.create_join_trade_success_embed(user=user)
     else:
-        return embed_generator.create_join_trade_failure_embed(user)
+        return None, embed_generator.create_join_trade_failure_embed(user)
     
 async def add_pokemon_to_trade(user, local_id):
     active_trade = await storage_manager.get_trade_by_user_id_active(user_id=user.id)
@@ -2487,7 +2491,7 @@ async def on_message(message):
                     log = FlexLog(id= uuid.uuid4(), user_id=user.id, channel_id=channel_id, name=pokemon.name, status='active', timestamp=datetime.now(timezone.utc), expiration_date= datetime.now(timezone.utc) + timedelta(hours=24))
                     await storage_manager.save_object(obj=log, cache_key=f"{REDIS_PREFIX}flexlog_id:{log.id}", table_name='flex_log', unique_columns=['id'])
                     channel = await client.fetch_channel(FLEX_ID)
-                    embed = embed_generator.create_flex_embed(user, pokemon)
+                    embed = embed_generator.create_flex_embed(user, pokemon, "Spawned by")
                     await channel.send(embed=embed)
 
         if message.content.startswith('.runbattle'):
@@ -2497,10 +2501,21 @@ async def on_message(message):
             embed = await run_battle(user=user)
             await message.channel.send(embed=embed)
 
-        if message.content.startswith('.join') and not message.content.startswith('.joinraid'):
+        if message.content.startswith('.join'):
             local_id = message.content[-3:]
-            embed = await join_battle(user=user, local_id=local_id, channel_id=channel_id)
-            await message.channel.send(embed=embed)
+            battle, embed = await join_battle(user=user, local_id=local_id, channel_id=channel_id)
+            if battle:
+                await message.channel.send(embed=embed)
+            else:
+                raid, embed = await join_raid(user=user, local_id=local_id, channel_id=channel_id)
+                if raid:
+                    await message.channel.send(embed=embed)
+                else:
+                    trade, embed = await join_trade(user=user, local_id=local_id)
+                    if trade:
+                        await message.channel.send(embed=embed)
+                
+
 
     #######################Raid commands#######################
         if message.content.startswith('.raid') and not message.content.startswith('.raidframe') and not message.content.startswith('.raidpokedex'):
@@ -2513,17 +2528,14 @@ async def on_message(message):
                         log = FlexLog(id= uuid.uuid4(), user_id=user.id, channel_id=channel_id, name=pokemon.name, status='active', timestamp=datetime.now(timezone.utc), expiration_date= datetime.now(timezone.utc) + timedelta(hours=24))
                         await storage_manager.save_object(obj=log, cache_key=f"{REDIS_PREFIX}flexlog_id:{log.id}", table_name='flex_log', unique_columns=['id'])
                         channel = await client.fetch_channel(FLEX_ID)
-                        embed = embed_generator.create_flex_embed(user, pokemon)
+                        embed = embed_generator.create_flex_embed(user, pokemon, "Raided by")
                         await channel.send(embed=embed)
             except:
                 embed = embed_generator.create_raid_failure_embed(user)
                 await message.channel.send(embed=embed)
                 return
 
-        if message.content.startswith('.joinraid'):
-            local_id = message.content[-3:]
-            embed = await join_raid(user=user, local_id=local_id, channel_id=channel_id)
-            await message.channel.send(embed=embed)
+        
     #######################User commands#######################
         if message.content.startswith('.profileimage'):
             url = message.content.split()
@@ -2875,32 +2887,28 @@ async def on_message(message):
             embed = await display_trade(user)
             await message.channel.send(embed=embed)
 
-        if message.content.startswith('.trade join'):
-            local_id = message.content[-3:]
-            embed = await join_trade(user=user, local_id=local_id)
-            await message.channel.send(embed=embed)
 
-        if message.content.startswith('.trade add pokemon'):
+        if message.content.startswith('.add pokemon'):
             local_id = message.content.split()
             if len(local_id) > 3:
                 embed = await add_pokemon_to_trade(user=user, local_id=local_id[3])
                 await message.channel.send(embed=embed)
-        if message.content.startswith('.trade add item'):
+        if message.content.startswith('.add item'):
             local_message = message.content.split()
             if len(local_message) > 4:
                 embed = await add_item_to_trade(user=user, item_name=local_message[3], item_quantity=int(local_message[4]))
                 await message.channel.send(embed=embed)
-        if message.content.startswith('.trade add money'):
+        if message.content.startswith('.add money'):
             amount = message.content.split()
             if len(amount) > 3 and int(amount[3]) != 0:
                 embed = await add_money_to_trade(user=user, amount=int(amount[3]))
                 await message.channel.send(embed=embed)
 
-        if message.content.startswith('.trade confirm'):
+        if message.content.startswith('.confirm'):
             embed = await confirm_trade(user)
             await message.channel.send(embed=embed)
 
-        if message.content.startswith('.trade cancel'):
+        if message.content.startswith('.cancel'):
             embed = await cancel_trade(user)
             await message.channel.send(embed=embed)
     ###########################################################
@@ -2924,8 +2932,18 @@ async def on_message(message):
             await message.channel.send(embed=embed)
 
         if message.content.startswith(".battle"):
-            embed = await start_trainer_battle(user)
+            pokemon, embed = await start_trainer_battle(user)
             await message.channel.send(embed=embed)
+            if pokemon and pokemon.is_shiny:
+                flex_log = await storage_manager.get_flex_log(user.id, channel_id, pokemon.name)
+                if not flex_log:
+                    log = FlexLog(id= uuid.uuid4(), user_id=user.id, channel_id=channel_id, name=pokemon.name, status='active', timestamp=datetime.now(timezone.utc), expiration_date= datetime.now(timezone.utc) + timedelta(hours=24))
+                    await storage_manager.save_object(obj=log, cache_key=f"{REDIS_PREFIX}flexlog_id:{log.id}", table_name='flex_log', unique_columns=['id'])
+                    channel = await client.fetch_channel(FLEX_ID)
+                    embed = embed_generator.create_flex_embed(user, pokemon, "Battled by")
+                    await channel.send(embed=embed)
+
+            
 
         if message.content.startswith('.use'):
             move_parts = message.content.split()
