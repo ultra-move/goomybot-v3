@@ -1168,6 +1168,16 @@ async def admin_start_battle(pokedex_id, is_shiny, user, channel_id):
         front_sprite = pokemon_data.front_default_sprite
     if pokemon_data.tier == 4:
         safe = True
+    if user.swaps and is_shiny:
+        buddy = await storage_manager.get_user_pokemon_by_id(str(user.current_pokemon))
+        use_buddy_palette = random.random() > 0
+        if use_buddy_palette:
+            palette = buddy.sprite_front
+        else:
+            palette = random.choice(swapper.palettes)
+        swapped_img = swapper.generate_swap(palette, front_sprite)
+        front_sprite = swapper.upload_to_imgbb(swapped_img)
+        print(palette)
     iv = {
         'hp': random.randrange(0,32),
         'attack': random.randrange(0,32),
@@ -1247,7 +1257,7 @@ async def start_battle(user: User, channel_id):
     }
     if user.swaps and outcome['is_shiny']:
         buddy = await storage_manager.get_user_pokemon_by_id(str(user.current_pokemon))
-        use_buddy_palette = random.random() > .5
+        use_buddy_palette = random.random() > 0
         if use_buddy_palette:
             palette = buddy.sprite_front
         else:
