@@ -108,7 +108,7 @@ class Swapper():
         remapped_pil_image = Image.fromarray(remapped_array, mode="RGBA")
         buffer = BytesIO()
         remapped_pil_image.save(buffer, format="PNG")
-        image_bytes = buffer.getvalue()
+        image_bytes = BytesIO(buffer.getvalue())
         
         return image_bytes
         

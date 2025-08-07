@@ -79,6 +79,7 @@ def get_help():
 * `.help items`: Displays the items commands help message.
 * `.help event`: Displays the event commands help message.
 * `.help trade`: Displays the trade commands help message.
+* `.help swaps`: Displays the trade commands help message.
 
 """
     return embed_generator.create_help_embed(info=help)
@@ -109,6 +110,8 @@ def get_help_swaps():
     help = """
 **__Swap Commands__**
 * `.swap`: Enables the shiny swapping feature
+* `.swaptest <url>`: Swaps colors from URL to buddy pokemon (as a test, not permanent)
+* `.sprite`: Gets url of buddy pokemon sprite (for swap test)
 
 Swapping Logic:
 50% chance of a random palette
@@ -3078,8 +3081,15 @@ async def on_message(message):
         
         if message.content.startswith('.swaptest'):
             buddy = await storage_manager.get_user_pokemon_by_id(str(user.current_pokemon))
-            image_buffer = swapper.generate_swap_bytes(message.content.split()[1], buddy.sprite_front)   
-            await message.channel.send(embed=embed_generator.create_swap_test_view(user, buddy, image_buffer))
+            image_buffer = swapper.generate_swap_bytes(message.content.split()[1], buddy.sprite_front)
+            discord_file = discord.File(image_buffer, filename="swapped_image.png")
+            embed = embed_generator.create_swap_test_view(user, buddy)   
+            await message.channel.send(embed=embed, file=discord_file)
+
+        if message.content.startswith('.sprite'):
+            buddy = await storage_manager.get_user_pokemon_by_id(str(user.current_pokemon))
+            embed = embed_generator.create_get_url_view(user, buddy)   
+            await message.channel.send(embed=embed)            
                
             
         end_time = time.time()

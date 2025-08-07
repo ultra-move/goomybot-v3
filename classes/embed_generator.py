@@ -839,9 +839,13 @@ class EmbedGenerator():
         embed.set_author(name="Professor Oak")
         return embed
     
-    def create_swap_test_view(self, user, buddy, image_buffer):
+    def create_swap_test_view(self, user, buddy):
         embed=discord.Embed(title=f"{self.format_pokemon_name(buddy)}", description=f"Swap test!", color=default_color)
         embed.set_author(name=f"{user.name.capitalize()}")
-        discord_file = discord.File(image_buffer, filename="swapped_image.png")
         embed.set_image(url="attachment://swapped_image.png")
+        return embed
+
+    def create_get_url_view(self, user, buddy):
+        embed=discord.Embed(title=f"{self.format_pokemon_name(buddy)}", description=f"{buddy.sprite_front}", color=default_color)
+        embed.set_author(name=f"{user.name.capitalize()}")
         return embed
