@@ -27,6 +27,7 @@ from classes.redis_manager import RedisManager
 from classes.sprites import Sprites
 from classes.storage_manager import StorageManager
 #from classes.data_loader import DataLoader
+from classes.swapper import Swapper
 from classes.trade import Trade
 from classes.user import User
 from classes.pokemon import Pokemon
@@ -50,6 +51,7 @@ FLEX_ID: str | None = os.getenv("FLEX_ID")
 BUG_ID: str | None = os.getenv("BUG_ID")
 LOTTERY_ID= os.getenv("LOTTERY_ID")
 PROFESSOR_ID= os.getenv("PROFESSOR_ID")
+IMG_BB_API_KEY = os.getenv("IMG_BB_API_KEY")
 ###################################################################
 
 redis_manager = RedisManager(REDIS_URL)
@@ -57,7 +59,7 @@ database_manager = DatabaseManager(DATABASE_URL)
 storage_manager = StorageManager(redis_manager=redis_manager, database_manager=database_manager) 
 #data_loader = DataLoader()
 embed_generator = EmbedGenerator()
-
+swapper = Swapper(IMG_BB_API_KEY)
 intents = discord.Intents.default()
 intents.message_content = True
 
@@ -2890,17 +2892,17 @@ async def on_message(message):
 
         if message.content.startswith('.add pokemon'):
             local_id = message.content.split()
-            if len(local_id) > 3:
-                embed = await add_pokemon_to_trade(user=user, local_id=local_id[3])
+            if len(local_id) > 2:
+                embed = await add_pokemon_to_trade(user=user, local_id=local_id[2])
                 await message.channel.send(embed=embed)
         if message.content.startswith('.add item'):
             local_message = message.content.split()
-            if len(local_message) > 4:
-                embed = await add_item_to_trade(user=user, item_name=local_message[3], item_quantity=int(local_message[4]))
+            if len(local_message) > 3:
+                embed = await add_item_to_trade(user=user, item_name=local_message[2], item_quantity=int(local_message[3]))
                 await message.channel.send(embed=embed)
         if message.content.startswith('.add money'):
             amount = message.content.split()
-            if len(amount) > 3 and int(amount[3]) != 0:
+            if len(amount) > 2 and int(amount[2]) != 0:
                 embed = await add_money_to_trade(user=user, amount=int(amount[3]))
                 await message.channel.send(embed=embed)
 
