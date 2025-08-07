@@ -93,6 +93,25 @@ class Swapper():
         base64_image = base64.b64encode(image_bytes).decode('utf-8')
         return base64_image
     
+    def generate_swap_bytes(self, source_url, target_url):
+        """
+        Synchronously generates a color-remapped image and returns it as a bytes object.
+        """
+        source_img = self.mem_image_from_url(source_url)
+        target_img = self.mem_image_from_url(target_url)
+
+        if source_img is None or target_img is None:
+            return None
+
+        source_palette = self.extract_opaque_colors(source_img)
+        remapped_array = self.remap_colors_randomly(target_img, source_palette)
+        remapped_pil_image = Image.fromarray(remapped_array, mode="RGBA")
+        buffer = BytesIO()
+        remapped_pil_image.save(buffer, format="PNG")
+        image_bytes = buffer.getvalue()
+        
+        return image_bytes
+        
     def upload_to_imgbb(self, base64_image_data):
         """
         Synchronously uploads a Base64 encoded image to ImgBB and returns the URL.

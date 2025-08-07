@@ -887,6 +887,8 @@ async def full_raid_shiny_frame(user):
     shiny_frame = gen.find_shiny_raid_frame(user.raid_frame, 10000)
     outcome = gen.get_outcome_for_raid_frame(shiny_frame)
     pokemon = await storage_manager.get_raid_pokemon_master_by_id(outcome['pokemon_id'])
+    if user.swaps:
+        pokemon.front_shiny_sprite = fr"https://raw.githubusercontent.com/ultra-move/goomybot-v3/refs/heads/prod/sprites/whois/{pokemon.id}.png"
     return embed_generator.create_full_raid_shiny_frame(user=user, shiny_frame=shiny_frame, pokemon_name=pokemon.name, pokemon_url=pokemon.front_shiny_sprite)
 
 async def reset_seeds(user):
@@ -1139,6 +1141,8 @@ async def full_event_shiny_frame(user):
             user.shiny_frame = shiny_frame
             await storage_manager.save_object(obj=user, cache_key=f"{REDIS_PREFIX}user_id:{user.id}", table_name="users", unique_columns=["id"])        
             if user.full_frame:
+                if user.swaps:
+                    pokemon.front_shiny_sprite = fr"https://raw.githubusercontent.com/ultra-move/goomybot-v3/refs/heads/prod/sprites/whois/{pokemon.id}.png"
                 pokemon = await get_pokemon_for_shiny_frame(user, user.shiny_frame)
                 return embed_generator.create_full_shiny_frame(user, user.shiny_frame, pokemon.name, pokemon.front_shiny_sprite)
             else:
@@ -1579,6 +1583,16 @@ async def admin_start_raid(pokedex_id, is_shiny, user, channel_id):
         'special_defense': 0,
         'speed': 0
     }
+    if user.swaps and is_shiny:
+        buddy = await storage_manager.get_user_pokemon_by_id(str(user.current_pokemon))
+        use_buddy_palette = random.random() > .5
+        if use_buddy_palette:
+            palette = buddy.sprite_front
+        else:
+            palette = random.choice(swapper.palettes)
+        swapped_img = swapper.generate_swap(palette, front_sprite)
+        front_sprite = swapper.upload_to_imgbb(swapped_img)
+        print(palette)
     new_pokemon = Pokemon(id=uuid.uuid4(), user_id=user.id, original_user_id=user.id, pokedex_id=pokemon_data.id, name=pokemon_data.name, is_shiny=is_shiny, tier = pokemon_data.tier, types=pokemon_data.types_names, ability=random.choice(pokemon_data.abilities_names), level = 1, growth_rate = pokemon_data.growth_rate_name, exp=0, next_exp=0, sprite_front=front_sprite, sprite_back=pokemon_data.back_default_sprite, region=pokemon_data.region, iv=iv, ev=ev, base_stats=pokemon_data.base_stats_json, safe=safe)
     #set embed_color
     color = embed_generator.get_color(new_pokemon)
@@ -1626,6 +1640,16 @@ async def start_raid(user, channel_id):
 
         if pokemon_data.tier == 4:
             safe = False
+        if user.swaps and outcome['is_shiny']:
+            buddy = await storage_manager.get_user_pokemon_by_id(str(user.current_pokemon))
+            use_buddy_palette = random.random() > .5
+            if use_buddy_palette:
+                palette = buddy.sprite_front
+            else:
+                palette = random.choice(swapper.palettes)
+            swapped_img = swapper.generate_swap(palette, front_sprite)
+            front_sprite = swapper.upload_to_imgbb(swapped_img)
+            print(palette)
         iv = {
             'hp': random.randrange(0,32),
             'attack': random.randrange(0,32),
@@ -3048,9 +3072,15 @@ async def on_message(message):
             except:
                 False
 
-        if message.content.startswith('.swap'):
+        if message.content.startswith('.swap') and not message.content.startswith('.swaptest'):
             embed = await toggle_swaps(user)
-            await message.channel.send(embed=embed)  
+            await message.channel.send(embed=embed)
+        
+        if message.content.startswith('.swaptest'):
+            buddy = await storage_manager.get_user_pokemon_by_id(str(user.current_pokemon))
+            image_buffer = swapper.generate_swap_bytes(message.content.split()[1], buddy.sprite_front)   
+            await message.channel.send(embed=embed_generator.create_swap_test_view(user, buddy, image_buffer))
+               
             
         end_time = time.time()
         elapsed_time = end_time - start_time

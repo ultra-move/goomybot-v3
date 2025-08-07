@@ -50,7 +50,8 @@ def color_to_black_png_and_save(image_url, output_filename):
 
 if __name__ == '__main__':
     print("\n--- Testing with an actual web URL ---")
-    for i in range (1025):
+    for i in range (277):
+        i = i + 10000
         transparent_png_url = f"https://raw.githubusercontent.com/PokeAPI/sprites/refs/heads/master/sprites/pokemon/{i+1}.png"
         output_web_filename = fr"C:\Users\kbren\source\repos\goomybot-v3\sprites\whois\{i+1}.png"
 
