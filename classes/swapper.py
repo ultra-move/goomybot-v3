@@ -101,13 +101,11 @@ class Swapper():
             'key': self.IMG_BB_API_KEY,
             'image': base64_image_data
         }
-        print(payload)
         try:
             print("Uploading image to ImgBB...")
             response = requests.post(self.IMG_BB_URL, data=payload)
             response.raise_for_status()
             result = response.json()
-            print(result)
             if result.get('success'):
                 image_url = result['data']['url']
                 print("Image uploaded successfully!")

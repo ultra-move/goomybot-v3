@@ -1170,7 +1170,7 @@ async def admin_start_battle(pokedex_id, is_shiny, user, channel_id):
         safe = True
     if user.swaps and is_shiny:
         buddy = await storage_manager.get_user_pokemon_by_id(str(user.current_pokemon))
-        use_buddy_palette = random.random() > 0
+        use_buddy_palette = random.random() > .5
         if use_buddy_palette:
             palette = buddy.sprite_front
         else:
@@ -1257,7 +1257,7 @@ async def start_battle(user: User, channel_id):
     }
     if user.swaps and outcome['is_shiny']:
         buddy = await storage_manager.get_user_pokemon_by_id(str(user.current_pokemon))
-        use_buddy_palette = random.random() > 0
+        use_buddy_palette = random.random() > .5
         if use_buddy_palette:
             palette = buddy.sprite_front
         else:
