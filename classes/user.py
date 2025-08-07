@@ -35,7 +35,8 @@ class User:
                  event = False,
                  full_frame = False,
                  total_spent = 0,
-                 battle_frame = 100000
+                 battle_frame = 100000,
+                 swaps = False
                  ):
         
         self.id: int = id
@@ -67,6 +68,7 @@ class User:
         self.full_frame = full_frame
         self.total_spent = total_spent
         self.battle_frame = battle_frame
+        self.swaps = swaps
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]):
@@ -166,6 +168,14 @@ class User:
             elif not isinstance(processed_data['event'], bool):
                 logger.warning(f"Pokemon.from_dict: 'event' has unexpected type {type(processed_data['event'])}. Defaulting to False.")
                 processed_data['event'] = False
+        if 'swaps' in processed_data and processed_data['swaps'] is not None:
+            if isinstance(processed_data['swaps'], str):
+                processed_data['swaps'] = processed_data['swaps'].lower() == 'true'
+            elif isinstance(processed_data['swaps'], int):
+                processed_data['swaps'] = bool(processed_data['swaps'])
+            elif not isinstance(processed_data['swaps'], bool):
+                logger.warning(f"Pokemon.from_dict: 'swaps' has unexpected type {type(processed_data['swaps'])}. Defaulting to False.")
+                processed_data['swaps'] = False
         if 'full_frame' in processed_data and processed_data['full_frame'] is not None:
             if isinstance(processed_data['full_frame'], str):
                 processed_data['full_frame'] = processed_data['full_frame'].lower() == 'true'

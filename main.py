@@ -105,6 +105,20 @@ def get_help_event():
 """
     return embed_generator.create_help_embed(info=help)
 
+def get_help_swaps():
+    help = """
+**__Swap Commands__**
+* `.swap`: Enables the shiny swapping feature
+
+Swapping Logic:
+50% chance of a random palette
+50% change of buddy colors
+
+Cannot run from swapped battles
+Swapped pokemon lose their swapped colors when evolved 
+"""
+    return embed_generator.create_help_embed(info=help)
+
 def get_help_moves():
     help = """
 **__Move Commands__**
@@ -849,6 +863,8 @@ async def full_shiny_frame(user):
         await storage_manager.save_object(obj=user, cache_key=f"{REDIS_PREFIX}user_id:{user.id}", table_name="users", unique_columns=["id"])        
         if user.full_frame:
             pokemon = await get_pokemon_for_shiny_frame(user, user.shiny_frame)
+            if user.swaps:
+                pokemon.front_shiny_sprite = fr"https://raw.githubusercontent.com/ultra-move/goomybot-v3/refs/heads/prod/sprites/whois/{pokemon.id}.png"
             return embed_generator.create_full_shiny_frame(user, user.shiny_frame, pokemon.name, pokemon.front_shiny_sprite)
         else:
             return embed_generator.create_shiny_frame(user=user, shiny_frame=shiny_frame)
@@ -860,6 +876,8 @@ async def full_trainer_frame(user):
     shiny_frame = gen.find_shiny_frame(user=user,start_frame=user.battle_frame+1, max_frames_to_check=10000)
     if shiny_frame:    
         pokemon = await get_pokemon_for_shiny_frame(user, shiny_frame)
+        if user.swaps:
+                pokemon.front_shiny_sprite = fr"https://raw.githubusercontent.com/ultra-move/goomybot-v3/refs/heads/prod/sprites/whois/{pokemon.id}.png"
         return embed_generator.create_full_trainer_frame(user, shiny_frame, pokemon.name, pokemon.front_shiny_sprite)
     else:
         return embed_generator.create_shiny_frame(user=user, shiny_frame="No shiny found")
@@ -1086,6 +1104,19 @@ async def get_items(user):
     user_items = await storage_manager.get_user_items(user)
     return embed_generator.create_items_view_table(user, user_items)
 
+#######################Swap methods#######################
+
+async def toggle_swaps(user):
+    if user.swaps:
+        user.swaps = False
+        await storage_manager.save_object(obj=user, cache_key=f"{REDIS_PREFIX}user_id:{user.id}", table_name="users", unique_columns=["id"])
+        return embed_generator.create_left_swaps_embed(user)
+    else:
+        user.swaps = True
+        await storage_manager.save_object(obj=user, cache_key=f"{REDIS_PREFIX}user_id:{user.id}", table_name="users", unique_columns=["id"])
+        return embed_generator.create_joined_swaps_embed(user)
+
+
 #######################Event methods#######################
 async def toggle_event(user):
     if user.event:
@@ -1174,7 +1205,7 @@ async def admin_start_battle(pokedex_id, is_shiny, user, channel_id):
     await storage_manager.save_object(obj=battle, cache_key=f"{REDIS_PREFIX}battle_id:{battle.id}", table_name="battles", unique_columns=["id"])
     return new_pokemon, embed_generator.create_battle_embed(user_name=user.name, pokemon_name=new_pokemon.name, join_code=battle.local_id,duration=battle.duration, color=color, url=front_sprite)
 
-async def start_battle(user, channel_id):
+async def start_battle(user: User, channel_id):
     active_battle = await storage_manager.get_battle_by_user(user.id)
     if active_battle:
         logger.info('User in battle already')
@@ -1214,6 +1245,16 @@ async def start_battle(user, channel_id):
         'special_defense': 0,
         'speed': 0
     }
+    if user.swaps and outcome['is_shiny']:
+        buddy = await storage_manager.get_user_pokemon_by_id(str(user.current_pokemon))
+        use_buddy_palette = random.random() > .5
+        if use_buddy_palette:
+            palette = buddy.sprite_front
+        else:
+            palette = random.choice(swapper.palettes)
+        swapped_img = swapper.generate_swap(palette, front_sprite)
+        front_sprite = swapper.upload_to_imgbb(swapped_img)
+        print(palette)
     new_pokemon = Pokemon(id=uuid.uuid4(), user_id=user.id, original_user_id=user.id, pokedex_id=pokemon_data.id, name=pokemon_data.name, is_shiny=outcome['is_shiny'], tier = pokemon_data.tier, types=pokemon_data.types_names, ability=random.choice(pokemon_data.abilities_names), level = level, growth_rate = pokemon_data.growth_rate_name, exp=0, next_exp=0, sprite_front=front_sprite, sprite_back=pokemon_data.back_default_sprite, region=pokemon_data.region, iv=iv, ev=ev, base_stats=pokemon_data.base_stats_json, safe = safe)
     #set embed_color
     color = embed_generator.get_color(new_pokemon)
@@ -1357,10 +1398,14 @@ async def run_battle(user):
     #get battle that user is in
     battle = await storage_manager.get_battle_by_user(user.id)
     if battle.status == 'joined':
-        return embed_generator.create_run_from_battle_fail_embed(user)
+        return embed_generator.create_run_from_battle_fail_embed(user, "Other users have joined battle")
     #delete active battle
     if user.id in battle.user_ids:
+        battle_pokemon = await storage_manager.get_battle_pokemon_by_id(str(battle.battle_pokemon_id))
+        if user.swaps and battle_pokemon.is_shiny:
+          return embed_generator.create_run_from_battle_fail_embed(user, "This is a color swapped shiny")  
         await storage_manager.delete_battle_by_id(battle.id)
+        await storage_manager.delete_battle_pokemon_by_id(str(battle.battle_pokemon_id))
         #reset user frame
         user.frame -= 1
         await storage_manager.save_object(obj=user, cache_key=f"{REDIS_PREFIX}user_id:{user.id}", table_name="users", unique_columns=["id"])
@@ -1392,6 +1437,17 @@ async def start_trainer_battle(user: User):
     if pokemon_data.tier == 4:
         safe = True
 
+    if user.swaps and outcome['is_shiny']:
+        buddy = await storage_manager.get_user_pokemon_by_id(str(user.current_pokemon))
+        use_buddy_palette = random.random() > .5
+        if use_buddy_palette:
+            palette = buddy.sprite_front
+        else:
+            palette = random.choice(swapper.palettes)
+        swapped_img = swapper.generate_swap(palette, front_sprite)
+        front_sprite = swapper.upload_to_imgbb(swapped_img)
+        print(palette)
+
     iv = {
         'hp': random.randrange(0,32),
         'attack': random.randrange(0,32),
@@ -1408,6 +1464,7 @@ async def start_trainer_battle(user: User):
         'special_defense': 0,
         'speed': 0
     }
+
     new_pokemon = Pokemon(id=uuid.uuid4(), user_id=user.id, original_user_id=user.id, pokedex_id=pokemon_data.id, name=pokemon_data.name, is_shiny=outcome['is_shiny'], tier = pokemon_data.tier, types=pokemon_data.types_names, ability=random.choice(pokemon_data.abilities_names), level = level, growth_rate = pokemon_data.growth_rate_name, exp=0, next_exp=0, sprite_front=front_sprite, sprite_back=pokemon_data.back_default_sprite, region=pokemon_data.region, iv=iv, ev=ev, base_stats=pokemon_data.base_stats_json, safe = safe)
     #print(new_pokemon)
 
@@ -2361,6 +2418,9 @@ async def on_message(message):
         elif message.content.startswith('.help event'):
             embed = get_help_event()
             await message.channel.send(embed=embed)
+        elif message.content.startswith('.help swaps'):
+            embed = get_help_swaps()
+            await message.channel.send(embed=embed)
         elif message.content.startswith('.help trade'):
             embed = get_help_trade()
             await message.channel.send(embed=embed)
@@ -2977,6 +3037,10 @@ async def on_message(message):
                     await message.channel.send(embed=embed)
             except:
                 False
+
+        if message.content.startswith('.swap'):
+            embed = await toggle_swaps(user)
+            await message.channel.send(embed=embed)  
             
         end_time = time.time()
         elapsed_time = end_time - start_time

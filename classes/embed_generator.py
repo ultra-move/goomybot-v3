@@ -176,8 +176,8 @@ class EmbedGenerator():
             embed.set_thumbnail(url = user.profile_image)
         return embed
 
-    def create_run_from_battle_fail_embed(self, user):
-        embed=discord.Embed(title=f"Cannot run from a battle with other users!", color=default_color)
+    def create_run_from_battle_fail_embed(self, user, reason):
+        embed=discord.Embed(title=f"Cannot run from a battle\nReason: {reason}", color=default_color)
         if user.profile_image and user.profile_image != 'None':
             embed.set_thumbnail(url = user.profile_image)
         embed.set_author(name=user.name.capitalize())
@@ -567,7 +567,25 @@ class EmbedGenerator():
         embed.set_author(name=user.name.capitalize())
         embed.set_thumbnail(url=r'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/shiny/704.png')
         return embed
+
+    def create_joined_swaps_embed(self, user):
+        embed=discord.Embed(description= "Swaps enabled!", color=default_color)
+        if user:
+            embed.set_author(name=f"{user.name.capitalize()}")
+        else:
+            embed.set_author(name=f"Goomybot")
+        embed.set_thumbnail(url=r'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/shiny/704.png')
+        return embed
     
+    def create_left_swaps_embed(self, user):
+        embed=discord.Embed(description= "Swaps disabled!", color=default_color)
+        if user:
+            embed.set_author(name=f"{user.name.capitalize()}")
+        else:
+            embed.set_author(name=f"Goomybot")
+        embed.set_thumbnail(url=r'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/shiny/704.png')
+        return embed
+
     def create_joined_event_embed(self, user):
         embed=discord.Embed(description= "Joined Event!", color=event_color)
         if user:
