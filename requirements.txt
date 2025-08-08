@@ -1,3 +1,4 @@
+catboxpy==0.1.1.1
 discord.py==2.5.2
 numpy==2.3.2
 Pillow==11.3.0
