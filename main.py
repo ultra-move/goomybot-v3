@@ -52,6 +52,7 @@ BUG_ID: str | None = os.getenv("BUG_ID")
 LOTTERY_ID= os.getenv("LOTTERY_ID")
 PROFESSOR_ID= os.getenv("PROFESSOR_ID")
 IMG_BB_API_KEY = os.getenv("IMG_BB_API_KEY")
+CATBOX_HASH = os.getenv("CATBOX_HASH")
 ###################################################################
 
 redis_manager = RedisManager(REDIS_URL)
@@ -59,7 +60,7 @@ database_manager = DatabaseManager(DATABASE_URL)
 storage_manager = StorageManager(redis_manager=redis_manager, database_manager=database_manager) 
 #data_loader = DataLoader()
 embed_generator = EmbedGenerator()
-swapper = Swapper(IMG_BB_API_KEY)
+swapper = Swapper(IMG_BB_API_KEY, CATBOX_HASH)
 intents = discord.Intents.default()
 intents.message_content = True
 
@@ -1183,7 +1184,7 @@ async def admin_start_battle(pokedex_id, is_shiny, user, channel_id):
         else:
             palette = random.choice(swapper.palettes)
         swapped_img = swapper.generate_swap(palette, front_sprite)
-        front_sprite = swapper.upload_to_imgbb(swapped_img)
+        front_sprite = swapper.upload_to_catbox(swapped_img)
         print(palette)
     iv = {
         'hp': random.randrange(0,32),
@@ -1270,7 +1271,7 @@ async def start_battle(user: User, channel_id):
         else:
             palette = random.choice(swapper.palettes)
         swapped_img = swapper.generate_swap(palette, front_sprite)
-        front_sprite = swapper.upload_to_imgbb(swapped_img)
+        front_sprite = swapper.upload_to_catbox(swapped_img)
         print(palette)
     new_pokemon = Pokemon(id=uuid.uuid4(), user_id=user.id, original_user_id=user.id, pokedex_id=pokemon_data.id, name=pokemon_data.name, is_shiny=outcome['is_shiny'], tier = pokemon_data.tier, types=pokemon_data.types_names, ability=random.choice(pokemon_data.abilities_names), level = level, growth_rate = pokemon_data.growth_rate_name, exp=0, next_exp=0, sprite_front=front_sprite, sprite_back=pokemon_data.back_default_sprite, region=pokemon_data.region, iv=iv, ev=ev, base_stats=pokemon_data.base_stats_json, safe = safe)
     #set embed_color
@@ -1462,7 +1463,7 @@ async def start_trainer_battle(user: User):
         else:
             palette = random.choice(swapper.palettes)
         swapped_img = swapper.generate_swap(palette, front_sprite)
-        front_sprite = swapper.upload_to_imgbb(swapped_img)
+        front_sprite = swapper.upload_to_catbox(swapped_img)
         print(palette)
 
     iv = {
@@ -1594,7 +1595,8 @@ async def admin_start_raid(pokedex_id, is_shiny, user, channel_id):
         else:
             palette = random.choice(swapper.palettes)
         swapped_img = swapper.generate_swap(palette, front_sprite)
-        front_sprite = swapper.upload_to_imgbb(swapped_img)
+        print(swapped_img)
+        front_sprite = swapper.upload_to_catbox(swapped_img)
         print(palette)
     new_pokemon = Pokemon(id=uuid.uuid4(), user_id=user.id, original_user_id=user.id, pokedex_id=pokemon_data.id, name=pokemon_data.name, is_shiny=is_shiny, tier = pokemon_data.tier, types=pokemon_data.types_names, ability=random.choice(pokemon_data.abilities_names), level = 1, growth_rate = pokemon_data.growth_rate_name, exp=0, next_exp=0, sprite_front=front_sprite, sprite_back=pokemon_data.back_default_sprite, region=pokemon_data.region, iv=iv, ev=ev, base_stats=pokemon_data.base_stats_json, safe=safe)
     #set embed_color
@@ -1651,7 +1653,8 @@ async def start_raid(user, channel_id):
             else:
                 palette = random.choice(swapper.palettes)
             swapped_img = swapper.generate_swap(palette, front_sprite)
-            front_sprite = swapper.upload_to_imgbb(swapped_img)
+            print(swapped_img)
+            front_sprite = swapper.upload_to_catbox(swapped_img)
             print(palette)
         iv = {
             'hp': random.randrange(0,32),

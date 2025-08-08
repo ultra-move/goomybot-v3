@@ -1,15 +1,20 @@
 import base64
+import tempfile
+import time
+import uuid
 from PIL import Image
 import numpy as np
 import os
 import requests
 from io import BytesIO
+from catboxpy.catbox import CatboxClient
 
 class Swapper():
 
-    def __init__(self, IMG_BB_API_KEY):
+    def __init__(self, IMG_BB_API_KEY, catbox_hash):
         self.IMG_BB_API_KEY = IMG_BB_API_KEY
         self.IMG_BB_URL = 'https://api.imgbb.com/1/upload'
+        self.catbox_hash = catbox_hash
         self.palettes = [
             r"https://raw.githubusercontent.com/ultra-move/goomybot-v3/refs/heads/prod/sprites/swapped/input/dragon_palette.png",
             r"https://raw.githubusercontent.com/ultra-move/goomybot-v3/refs/heads/prod/sprites/swapped/input/electric_palette.png",
@@ -65,13 +70,26 @@ class Swapper():
         """
         Synchronously downloads an image from a given URL and returns it as a NumPy array.
         """
+        headers = {'User-Agent': 'Mozilla/5.0'}
+
         try:
-            response = requests.get(url)
+            # Pass the headers to the requests.get() method
+            response = requests.get(url, headers=headers, timeout=10, stream=True)
+            
+            # This will raise an HTTPError for bad responses (4xx or 5xx)
             response.raise_for_status()
+            
+            # Process the image data if the request was successful
             img_data = Image.open(BytesIO(response.content)).convert("RGBA")
             return np.array(img_data)
+            
+        except requests.exceptions.RequestException as e:
+            # Catch specific requests exceptions to handle network issues or bad status codes
+            print(f"HTTP Error downloading or loading image from {url}: {e}")
+            return None
         except Exception as e:
-            print(f"Error downloading or loading image from {url}: {e}")
+            # Catch any other potential errors (e.g., PIL issues)
+            print(f"General Error downloading or loading image from {url}: {e}")
             return None
 
     def generate_swap(self, source_url, target_url):
@@ -125,6 +143,7 @@ class Swapper():
             response = requests.post(self.IMG_BB_URL, data=payload)
             response.raise_for_status()
             result = response.json()
+            print(result)
             if result.get('success'):
                 image_url = result['data']['url']
                 print("Image uploaded successfully!")
@@ -135,3 +154,44 @@ class Swapper():
         except Exception as e:
             print(f"An error occurred during the API call: {e}")
             return None
+        
+    def upload_to_catbox(self, base64_image_data):
+        """
+        Reliable synchronous upload to Catbox without catboxpy.
+        """
+        temp_file_path = os.path.join(tempfile.gettempdir(), f"{uuid.uuid4()}.png")
+        try:
+            # Decode base64
+            image_data = base64.b64decode(base64_image_data)
+            if not image_data:
+                print("Empty image data")
+                return None
+
+            # Write image to temp file
+            with open(temp_file_path, 'wb') as f:
+                f.write(image_data)
+
+            # Upload using raw POST
+            with open(temp_file_path, 'rb') as f:
+                files = {'fileToUpload': f}
+                data = {'reqtype': 'fileupload', 'userhash': self.catbox_hash}
+                response = requests.post('https://catbox.moe/user/api.php', data=data, files=files)
+                response.raise_for_status()
+                url = response.text.strip()
+
+            if not url.startswith('https://'):
+                print(f"Unexpected response: {url}")
+                return None
+
+            print(f"File uploaded to: {url}")
+            return url
+
+        except Exception as e:
+            print(f"Upload error: {e}")
+            return None
+        finally:
+            try:
+                if os.path.exists(temp_file_path):
+                    os.remove(temp_file_path)
+            except Exception:
+                pass
