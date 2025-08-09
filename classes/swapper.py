@@ -16,11 +16,14 @@ class Swapper():
         self.IMG_BB_URL = 'https://api.imgbb.com/1/upload'
         self.catbox_hash = catbox_hash
         self.palettes = [
-            r"https://raw.githubusercontent.com/ultra-move/goomybot-v3/refs/heads/prod/sprites/swapped/input/dragon_palette.png",
-            r"https://raw.githubusercontent.com/ultra-move/goomybot-v3/refs/heads/prod/sprites/swapped/input/electric_palette.png",
+            #r"https://raw.githubusercontent.com/ultra-move/goomybot-v3/refs/heads/prod/sprites/swapped/input/dragon_palette.png",
+           # r"https://raw.githubusercontent.com/ultra-move/goomybot-v3/refs/heads/prod/sprites/swapped/input/electric_palette.png",
             r"https://raw.githubusercontent.com/ultra-move/goomybot-v3/refs/heads/prod/sprites/swapped/input/ghost_palette.png",
-            r"https://raw.githubusercontent.com/ultra-move/goomybot-v3/refs/heads/prod/sprites/swapped/input/grass_palette.png",
-            r"https://raw.githubusercontent.com/ultra-move/goomybot-v3/refs/heads/prod/sprites/swapped/input/water_palette.png",
+            r"https://raw.githubusercontent.com/ultra-move/goomybot-v3/refs/heads/prod/sprites/swapped/input/bw_palette.png",
+            r"https://raw.githubusercontent.com/ultra-move/goomybot-v3/refs/heads/prod/sprites/swapped/input/desert_palette.png",
+            r"https://raw.githubusercontent.com/ultra-move/goomybot-v3/refs/heads/prod/sprites/swapped/input/purple_palette.png",
+            #r"https://raw.githubusercontent.com/ultra-move/goomybot-v3/refs/heads/prod/sprites/swapped/input/grass_palette.png",
+            #r"https://raw.githubusercontent.com/ultra-move/goomybot-v3/refs/heads/prod/sprites/swapped/input/water_palette.png",
         ]
 
     def load_image_rgba(self, path):
