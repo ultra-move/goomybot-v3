@@ -175,7 +175,7 @@ class Swapper():
             with open(temp_file_path, 'rb') as f:
                 files = {'fileToUpload': f}
                 data = {'reqtype': 'fileupload', 'userhash': self.catbox_hash}
-                response = requests.post('https://catbox.moe/user/api.php', data=data, files=files)
+                response = requests.post('https://catbox.moe/user/api.php', data=data, files=files, timeout=10)
                 response.raise_for_status()
                 url = response.text.strip()
 

@@ -1184,7 +1184,10 @@ async def admin_start_battle(pokedex_id, is_shiny, user, channel_id):
         else:
             palette = random.choice(swapper.palettes)
         swapped_img = swapper.generate_swap(palette, front_sprite)
-        front_sprite = swapper.upload_to_catbox(swapped_img)
+        try:
+            front_sprite = swapper.upload_to_catbox(swapped_img)
+        except Exception as e:
+            True
         print(palette)
     iv = {
         'hp': random.randrange(0,32),
@@ -1271,7 +1274,10 @@ async def start_battle(user: User, channel_id):
         else:
             palette = random.choice(swapper.palettes)
         swapped_img = swapper.generate_swap(palette, front_sprite)
-        front_sprite = swapper.upload_to_catbox(swapped_img)
+        try:
+            front_sprite = swapper.upload_to_catbox(swapped_img)
+        except Exception as e:
+            True
         print(palette)
     new_pokemon = Pokemon(id=uuid.uuid4(), user_id=user.id, original_user_id=user.id, pokedex_id=pokemon_data.id, name=pokemon_data.name, is_shiny=outcome['is_shiny'], tier = pokemon_data.tier, types=pokemon_data.types_names, ability=random.choice(pokemon_data.abilities_names), level = level, growth_rate = pokemon_data.growth_rate_name, exp=0, next_exp=0, sprite_front=front_sprite, sprite_back=pokemon_data.back_default_sprite, region=pokemon_data.region, iv=iv, ev=ev, base_stats=pokemon_data.base_stats_json, safe = safe)
     #set embed_color
@@ -1463,7 +1469,10 @@ async def start_trainer_battle(user: User):
         else:
             palette = random.choice(swapper.palettes)
         swapped_img = swapper.generate_swap(palette, front_sprite)
-        front_sprite = swapper.upload_to_catbox(swapped_img)
+        try:
+            front_sprite = swapper.upload_to_catbox(swapped_img)
+        except Exception as e:
+            True
         print(palette)
 
     iv = {
@@ -1596,7 +1605,10 @@ async def admin_start_raid(pokedex_id, is_shiny, user, channel_id):
             palette = random.choice(swapper.palettes)
         swapped_img = swapper.generate_swap(palette, front_sprite)
         print(swapped_img)
-        front_sprite = swapper.upload_to_catbox(swapped_img)
+        try:
+            front_sprite = swapper.upload_to_catbox(swapped_img)
+        except Exception as e:
+            True
         print(palette)
     new_pokemon = Pokemon(id=uuid.uuid4(), user_id=user.id, original_user_id=user.id, pokedex_id=pokemon_data.id, name=pokemon_data.name, is_shiny=is_shiny, tier = pokemon_data.tier, types=pokemon_data.types_names, ability=random.choice(pokemon_data.abilities_names), level = 1, growth_rate = pokemon_data.growth_rate_name, exp=0, next_exp=0, sprite_front=front_sprite, sprite_back=pokemon_data.back_default_sprite, region=pokemon_data.region, iv=iv, ev=ev, base_stats=pokemon_data.base_stats_json, safe=safe)
     #set embed_color
@@ -1654,7 +1666,10 @@ async def start_raid(user, channel_id):
                 palette = random.choice(swapper.palettes)
             swapped_img = swapper.generate_swap(palette, front_sprite)
             print(swapped_img)
-            front_sprite = swapper.upload_to_catbox(swapped_img)
+            try:
+                front_sprite = swapper.upload_to_catbox(swapped_img)
+            except Exception as e:
+                True
             print(palette)
         iv = {
             'hp': random.randrange(0,32),
