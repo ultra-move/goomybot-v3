@@ -1145,9 +1145,9 @@ async def full_event_shiny_frame(user):
             user.shiny_frame = shiny_frame
             await storage_manager.save_object(obj=user, cache_key=f"{REDIS_PREFIX}user_id:{user.id}", table_name="users", unique_columns=["id"])        
             if user.full_frame:
+                pokemon = await get_pokemon_for_shiny_frame(user, user.shiny_frame)
                 if user.swaps:
                     pokemon.front_shiny_sprite = fr"https://raw.githubusercontent.com/ultra-move/goomybot-v3/refs/heads/prod/sprites/whois/{pokemon.id}.png"
-                pokemon = await get_pokemon_for_shiny_frame(user, user.shiny_frame)
                 return embed_generator.create_full_shiny_frame(user, user.shiny_frame, pokemon.name, pokemon.front_shiny_sprite)
             else:
                 return embed_generator.create_shiny_frame(user=user, shiny_frame=shiny_frame)
