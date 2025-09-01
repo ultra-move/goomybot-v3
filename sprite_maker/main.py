@@ -198,14 +198,14 @@ class ImageCombiner:
 # --- Example Usage ---
 if __name__ == "__main__":
     pokemon_urls = [
-        "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/shiny/54.png",
-        "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/shiny/116.png",
-        "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/shiny/564.png"        
+        "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/shiny/313.png",
+        "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/shiny/214.png",
+        "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/shiny/314.png"        
     ]
 
     # Define a relative directory to save the image
     output_dir = r"sprites"
-    output_filename = "water.png"
+    output_filename = "bug.png"
 
     # Create the 'sprites' directory if it doesn't exist
     os.makedirs(output_dir, exist_ok=True)
